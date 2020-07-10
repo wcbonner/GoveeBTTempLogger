@@ -205,7 +205,7 @@ bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 /////////////////////////////////////////////////////////////////////////////
-volatile bool bRun = true;
+volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
 {
 	bRun = false;
@@ -320,7 +320,7 @@ int main()
 	std::cout << "[" << getTimeISO8601() << "] Start of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
 	int device_id = hci_get_route(NULL);
 	if (device_id < 0)
-		std::cerr << "[                   ] " << "Error: Bluetooth device not found" << std::endl;
+		std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
 	else
 	{
 		// Set up CTR-C signal handler
@@ -330,88 +330,109 @@ int main()
 
 		int device_handle = hci_open_dev(device_id);
 		if (device_handle < 0)
-			std::cerr << "[                   ] " << "Error: Cannot open socket" << std::endl;
+			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
 			// Set fd non-blocking
 			int on = 1;
-			ioctl(device_handle, FIONBIO, (char *)&on);
-			hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0010), htobs(0x0010), 0x00, 0x00, 1000);
-			hci_le_set_scan_enable(device_handle, 0x01, 1, 1000);
-			// Save the current HCI filter
-			struct hci_filter original_filter;
-			socklen_t olen = sizeof(original_filter);
-			getsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, &olen);
-			// Create and set the new filter
-			struct hci_filter new_filter;
-			hci_filter_clear(&new_filter);
-			hci_filter_set_ptype(HCI_EVENT_PKT, &new_filter);
-			hci_filter_set_event(EVT_LE_META_EVENT, &new_filter);
-			setsockopt(device_handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter));
-			std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
-
-			bRun = true;
-			bool error = false;
-			time_t TimeStart;
-			time(&TimeStart);
-			while (bRun && !error)
+			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
+				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
+			else
 			{
-				//std::cout << "[" << getTimeISO8601() << "]\r";
-				int len = 0;
-				unsigned char buf[HCI_MAX_EVENT_SIZE];
-				while ((len = read(device_handle, buf, sizeof(buf))) < 0)
+				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0010), htobs(0x0010), 0x00, 0x00, 1000) < 0)
+					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
+				else
 				{
-					if (bRun == false)
-						break;
-					if (errno == EINTR)
+					if (hci_le_set_scan_enable(device_handle, 0x01, 1, 1000) < 0)
+						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << std::endl;
+					else
 					{
-						bRun = false;
-						break;
-					}
-					if (errno == EAGAIN || errno == EINTR)
-					{
-						usleep(100);
-						continue;
-					}
-					error = true;
-				}
-				if (bRun && !error)
-				{
-					evt_le_meta_event *meta = (evt_le_meta_event *)(buf + (1 + HCI_EVENT_HDR_SIZE));
-					len -= (1 + HCI_EVENT_HDR_SIZE);
-					if (meta->subevent != EVT_LE_ADVERTISING_REPORT)
-						continue;
-					le_advertising_info *info = (le_advertising_info *)(meta->data + 1);
-					if (info->length == 0)
-						continue;
-					int current_offset = 0;
-					bool data_error = false;
-					while (!data_error && current_offset < info->length)
-					{
-						size_t data_len = info->data[current_offset];
-						if (data_len + 1 > info->length)
+						// Save the current HCI filter
+						struct hci_filter original_filter;
+						socklen_t olen = sizeof(original_filter);
+						if (0 == getsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, &olen))
 						{
-							std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
-							data_error = true;
+							// Create and set the new filter
+							struct hci_filter new_filter;
+							hci_filter_clear(&new_filter);
+							hci_filter_set_ptype(HCI_EVENT_PKT, &new_filter);
+							hci_filter_set_event(EVT_LE_META_EVENT, &new_filter);
+							if (setsockopt(device_handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter)) < 0)
+								std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
+							else
+							{
+								std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
+
+								bRun = true;
+								bool error = false;
+								time_t TimeStart;
+								time(&TimeStart);
+								while (bRun && !error)
+								{
+									int len = 0;
+									unsigned char buf[HCI_MAX_EVENT_SIZE];
+									// The following while loop attempts to read from the non-blocking socket. 
+									// As long as the read call simply times out, we sleep for 100 microseconds and try again.
+									while ((len = read(device_handle, buf, sizeof(buf))) < 0)
+									{
+										if (bRun == false)
+											break;
+										if (errno == EINTR)
+										{
+											// EINTR : Interrupted function call (POSIX.1-2001); see signal(7).
+											bRun = false;
+											break;
+										}
+										if (errno == EAGAIN || errno == EINTR)
+										{
+											// EAGAIN : Resource temporarily unavailable (may be the same value as EWOULDBLOCK) (POSIX.1-2001).
+											usleep(100);
+											continue;
+										}
+										error = true;
+									}
+									if (bRun && !error)
+									{
+										evt_le_meta_event *meta = (evt_le_meta_event *)(buf + (1 + HCI_EVENT_HDR_SIZE));
+										len -= (1 + HCI_EVENT_HDR_SIZE);
+										if (meta->subevent != EVT_LE_ADVERTISING_REPORT)
+											continue;
+										le_advertising_info *info = (le_advertising_info *)(meta->data + 1);
+										if (info->length == 0)
+											continue;
+										int current_offset = 0;
+										bool data_error = false;
+										while (!data_error && current_offset < info->length)
+										{
+											size_t data_len = info->data[current_offset];
+											if (data_len + 1 > info->length)
+											{
+												std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
+												data_error = true;
+											}
+											else
+											{
+												process_data(info->data + current_offset + 1, data_len, info);
+												current_offset += data_len + 1;
+											}
+										}
+										time_t TimeNow;
+										time(&TimeNow);
+										if (difftime(TimeNow, TimeStart) > 60)
+										{
+											std::cout << "[" << getTimeISO8601() << "] A minute or more has passed" << std::endl;
+											TimeStart = TimeNow;
+											GenerateLogFile(GoveeTemperatures);
+										}
+									}
+								}
+								setsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
+							}
 						}
-						else
-						{
-							process_data(info->data + current_offset + 1, data_len, info);
-							current_offset += data_len + 1;
-						}
-					}
-					time_t TimeNow;
-					time(&TimeNow);
-					if (difftime(TimeNow, TimeStart) > 60)
-					{
-						std::cout << "[" << getTimeISO8601() << "] A minute or more has passed" << std::endl;
-						TimeStart = TimeNow;
-						GenerateLogFile(GoveeTemperatures);
+						hci_le_set_scan_enable(device_handle, 0x00, 1, 1000);
 					}
 				}
 			}
-			setsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
-			hci_le_set_scan_enable(device_handle, 0x00, 1, 1000);
 			hci_close_dev(device_handle);
 		}
 		signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
