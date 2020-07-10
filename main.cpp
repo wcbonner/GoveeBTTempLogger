@@ -188,18 +188,18 @@ bool operator ==(const bdaddr_t &a, const bdaddr_t &b)
 };
 bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 {
-	unsigned long long A = a.b[0];
-	A = A << 8 | a.b[1];
-	A = A << 8 | a.b[2];
-	A = A << 8 | a.b[3];
+	unsigned long long A = a.b[5];
 	A = A << 8 | a.b[4];
-	A = A << 8 | a.b[5];
-	unsigned long long B = b.b[0];
-	B = B << 8 | b.b[1];
-	B = B << 8 | b.b[2];
-	B = B << 8 | b.b[3];
+	A = A << 8 | a.b[3];
+	A = A << 8 | a.b[2];
+	A = A << 8 | a.b[1];
+	A = A << 8 | a.b[0];
+	unsigned long long B = b.b[5];
 	B = B << 8 | b.b[4];
-	B = B << 8 | b.b[5];
+	B = B << 8 | b.b[3];
+	B = B << 8 | b.b[2];
+	B = B << 8 | b.b[1];
+	B = B << 8 | b.b[0];
 	return(A < B);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -254,62 +254,6 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
-void process_data(uint8_t *data, size_t data_len, le_advertising_info *info)
-{
-	bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
-
-	char addr[19] = { 0 };
-	ba2str(&info->bdaddr, addr);
-	if (data[0] == EIR_NAME_SHORT || data[0] == EIR_NAME_COMPLETE)
-	{
-		std::string name((char *)&(data[1]), data_len - 1);
-		if ((name.compare(0, 7, "GVH5075") == 0) || (name.compare(0, 11, "Govee_H5074") == 0))
-		{
-			std::queue<Govee_Temp> foo;
-			GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
-		}
-		std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
-		std::cout << " Name = " << name;
-		std::cout << std::endl;
-	}
-	else if (AddressInGoveeSet)
-	{
-		std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
-		if (data[0] == EIR_FLAGS)
-		{
-			std::cout << " Flag: length = " << std::dec << std::setw(2) << std::setfill(' ') << data_len - 1;
-			std::cout << " Data: ";
-			for (size_t i = 1; i < data_len; i++)
-				std::cout << " " << std::hex << std::setw(4) << std::setfill('0') << std::showbase << (int)data[i] << std::noshowbase;
-		}
-		else if (data[0] == EIR_MANUFACTURE_SPECIFIC)
-		{
-			std::cout << " Manufacturer: length = " << std::dec << std::setw(2) << std::setfill(' ') << data_len - 1;
-			std::cout << " Data: ";
-			for (size_t i = 1; i < data_len; i++)
-				std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
-			Govee_Temp localTemp;
-			if (localTemp.ReadMSG(data, data_len, info))
-			{
-				std::cout << " Temp: " << std::dec << localTemp.Temperature << "°F";
-				std::cout << " Humidity: " << localTemp.Humidity << "%";
-				std::cout << " Battery: " << localTemp.Battery << "%";
-				std::queue<Govee_Temp> foo;
-				std::pair<std::map<bdaddr_t, std::queue<Govee_Temp>>::iterator, bool> ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
-				ret.first->second.push(localTemp);
-			}
-		}
-		else
-		{
-			std::cout << " Unknown: type = " << std::setfill('0') << std::setw(2) << std::hex << (int)data[0];
-			std::cout << " Data: ";
-			for (size_t i = 1; i < data_len; i++)
-				std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)data[i];
-		}
-		std::cout << std::endl;
-	}
-}
-/////////////////////////////////////////////////////////////////////////////
 int main()
 {
 	///////////////////////////////////////////////////////////////////////////////////////////////
@@ -317,7 +261,7 @@ int main()
 	std::cout << "[                   ] Built on: " __DATE__ " at " __TIME__ << std::endl;
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	// https://github.com/carsonmcdonald/bluez-experiments/blob/master/experiments/scantest.c
-	std::cout << "[" << getTimeISO8601() << "] Start of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
+	//std::cout << "[" << getTimeISO8601() << "] Start of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
 	int device_id = hci_get_route(NULL);
 	if (device_id < 0)
 		std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
@@ -412,7 +356,50 @@ int main()
 											}
 											else
 											{
-												process_data(info->data + current_offset + 1, data_len, info);
+												// Bluetooth Extended Inquiry Response
+												// I'm paying attention to only three types of EIR, Short Name, Complete Name, and Manufacturer Specific Data
+												// The names are how I learn which Bluetooth Addresses I'm going to listen to
+												bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+												char addr[19] = { 0 };
+												ba2str(&info->bdaddr, addr);
+												if ((info->data + current_offset + 1)[0] == EIR_NAME_SHORT || 
+													(info->data + current_offset + 1)[0] == EIR_NAME_COMPLETE)
+												{
+													std::string name((char *)&((info->data + current_offset + 1)[1]), data_len - 1);
+													if ((name.compare(0, 7, "GVH5075") == 0) || 
+														(name.compare(0, 11, "Govee_H5074") == 0))
+													{
+														std::queue<Govee_Temp> foo;
+														GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
+													}
+													std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
+													std::cout << " Name: " << name;
+													std::cout << std::endl;
+												}
+												else if (AddressInGoveeSet)
+												{
+													if ((info->data + current_offset + 1)[0] == EIR_MANUFACTURE_SPECIFIC)
+													{
+														//std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
+														//std::cout << " Manufacturer: length = " << std::dec << std::setw(2) << std::setfill(' ') << data_len - 1;
+														//std::cout << " Data: ";
+														//for (size_t i = 1; i < data_len; i++)
+														//	std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(info->data + current_offset + 1)[i];
+														Govee_Temp localTemp;
+														if (localTemp.ReadMSG((info->data + current_offset + 1), data_len, info))
+														{
+															std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
+															std::cout << " Temp: " << std::dec << localTemp.Temperature << "°F";
+															std::cout << " Humidity: " << localTemp.Humidity << "%";
+															std::cout << " Battery: " << localTemp.Battery << "%";
+															std::queue<Govee_Temp> foo;
+															std::pair<std::map<bdaddr_t, std::queue<Govee_Temp>>::iterator, bool> ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
+															ret.first->second.push(localTemp);
+															std::cout << std::endl;
+														}
+														//std::cout << std::endl;
+													}
+												}
 												current_offset += data_len + 1;
 											}
 										}
@@ -453,7 +440,7 @@ int main()
 			}
 		}
 	}
-	std::cout << "[" << getTimeISO8601() << "] End of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
+	//std::cout << "[" << getTimeISO8601() << "] End of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	return(0);
 }
