@@ -75,7 +75,7 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="goveebttemplogger.cpp" />
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>
