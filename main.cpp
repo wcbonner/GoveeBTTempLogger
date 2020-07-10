@@ -13,11 +13,28 @@
 // Each unit has its data logged to it's own file, with a new file created daily.
 /////////////////////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////////////////////
+//
+// Links I've found useful in learning about Bluetooth Low Energy (BLE) or Govee
+// https://github.com/Thrilleratplay/GoveeWatcher
+// https://github.com/neilsheps/GoveeTemperatureAndHumidity
+// https://github.com/carsonmcdonald/bluez-experiments/blob/master/experiments/scantest.c
+// https://people.csail.mit.edu/albert/bluez-intro/index.html
+// https://reelyactive.github.io/ble-identifier-reference.html
+// https://ukbaz.github.io/howto/beacon_scan_cmd_line.html
+// https://github.com/ukBaz/ukBaz.github.io/blob/master/howto/beacon_scan_cmd_line.html
+// http://kktechkaizen.blogspot.com/2014/10/bluetooth-technology-overview.html
+// https://github.com/microsoftarchive/msdn-code-gallery-microsoft/tree/master/Official%20Windows%20Platform%20Sample/Bluetooth%20LE%20Explorer%20sample
+// https://docs.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-programming-with-windows-sockets
+// https://www.reddit.com/r/Govee/comments/f1dfcd/home_assistant_component_for_h5074_and_h5075/fi7hnic/
+// https://unix.stackexchange.com/questions/96106/bluetooth-le-scan-as-non-root
+//
+
 #include <cstdio>
 #include <ctime>
 #include <csignal>
 #include <iostream>
-#include <locale>       // std::locale
+#include <locale>
 #include <queue>
 #include <map>
 #include <locale>
@@ -34,6 +51,7 @@
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <sys/ioctl.h>
+#include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
@@ -118,7 +136,6 @@ std::string timeToExcelDate(const time_t & TheTime)
 	return(ISOTime.str());
 }
 /////////////////////////////////////////////////////////////////////////////
-#define EIR_FLAGS                   0X01
 #define EIR_NAME_SHORT              0x08
 #define EIR_NAME_COMPLETE           0x09
 #define EIR_MANUFACTURE_SPECIFIC    0xFF
@@ -217,9 +234,11 @@ void SignalHandlerSIGHUP(int signal)
 	bRun = false;
 	std::cerr << "***************** SIGHUP: Caught HangUp, finishing loop and quitting. *****************" << std::endl;
 }
+std::string LogDirectory("./");
 std::string GenerateLogFileName(const bdaddr_t &a)
 {
 	std::ostringstream OutputFilename;
+	OutputFilename << LogDirectory;
 	OutputFilename << "gvh507x_";
 	OutputFilename << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << int(a.b[1]) << int(a.b[0]);
 	time_t timer;
@@ -254,14 +273,66 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
-int main()
+int ConsoleVerbosity = 1;
+static void usage(int argc, char **argv)
+{
+	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
+	std::cout << "  Version 1.0 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Options:" << std::endl;
+	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
+	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
+	std::cout << "    -h | --help          Print this message" << std::endl;
+	std::cout << std::endl;
+}
+static const char short_options[] = "l:v:h";
+static const struct option long_options[] = {
+		{ "log",    required_argument, NULL, 'l' },
+		{ "verbose",required_argument, NULL, 'v' },
+		{ "help",   no_argument,       NULL, 'h' },
+		{ 0, 0, 0, 0 }
+};
+/////////////////////////////////////////////////////////////////////////////
+int main(int argc, char **argv)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	std::cout << "[" << getTimeISO8601() << "] " << "hello from GoveeBTTempLogger!" << std::endl;
-	std::cout << "[                   ] Built on: " __DATE__ " at " __TIME__ << std::endl;
+	// Parse Options
+	for (;;)
+	{
+		int idx;
+		int c = getopt_long(argc, argv, short_options, long_options, &idx);
+		if (-1 == c)
+			break;
+		switch (c)
+		{
+		case 0: /* getopt_long() flag */
+			break;
+		case 'l':
+			LogDirectory = optarg;
+			break;
+		case 'v':
+			errno = 0;
+			ConsoleVerbosity = strtol(optarg, NULL, 0);
+			if (errno)
+			{
+				std::cerr << optarg << " error " << errno << ", " << strerror(errno) << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'h':
+			usage(argc, argv);
+			exit(EXIT_SUCCESS);
+		default:
+			usage(argc, argv);
+			exit(EXIT_FAILURE);
+		}
+	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	// https://github.com/carsonmcdonald/bluez-experiments/blob/master/experiments/scantest.c
-	//std::cout << "[" << getTimeISO8601() << "] Start of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
+	if (ConsoleVerbosity >= 1)
+	{
+		std::cout << "[" << getTimeISO8601() << "] " << "hello from GoveeBTTempLogger!" << std::endl;
+		std::cout << "[                   ] Built on: " __DATE__ " at " __TIME__ << std::endl;
+	}
+	///////////////////////////////////////////////////////////////////////////////////////////////
 	int device_id = hci_get_route(NULL);
 	if (device_id < 0)
 		std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
@@ -291,7 +362,7 @@ int main()
 						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << std::endl;
 					else
 					{
-						// Save the current HCI filter
+						// Save the current HCI filter (Host Controller Interface)
 						struct hci_filter original_filter;
 						socklen_t olen = sizeof(original_filter);
 						if (0 == getsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, &olen))
@@ -305,7 +376,8 @@ int main()
 								std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
 							else
 							{
-								std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
+								if (ConsoleVerbosity >= 1)
+									std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
 
 								bRun = true;
 								bool error = false;
@@ -351,7 +423,8 @@ int main()
 											size_t data_len = info->data[current_offset];
 											if (data_len + 1 > info->length)
 											{
-												std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
+												if (ConsoleVerbosity >= 1)
+													std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
 												data_error = true;
 											}
 											else
@@ -372,9 +445,8 @@ int main()
 														std::queue<Govee_Temp> foo;
 														GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 													}
-													std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
-													std::cout << " Name: " << name;
-													std::cout << std::endl;
+													if (ConsoleVerbosity >= 1)
+														std::cout << "[" << getTimeISO8601() << "] [" << addr << "] Name: " << name << std::endl;
 												}
 												else if (AddressInGoveeSet)
 												{
@@ -385,19 +457,22 @@ int main()
 														//std::cout << " Data: ";
 														//for (size_t i = 1; i < data_len; i++)
 														//	std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(info->data + current_offset + 1)[i];
+														//std::cout << std::endl;
 														Govee_Temp localTemp;
 														if (localTemp.ReadMSG((info->data + current_offset + 1), data_len, info))
 														{
-															std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
-															std::cout << " Temp: " << std::dec << localTemp.Temperature << "°F";
-															std::cout << " Humidity: " << localTemp.Humidity << "%";
-															std::cout << " Battery: " << localTemp.Battery << "%";
+															if (ConsoleVerbosity >= 1)
+															{
+																std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
+																std::cout << " Temp: " << std::dec << localTemp.Temperature << "°F";
+																std::cout << " Humidity: " << localTemp.Humidity << "%";
+																std::cout << " Battery: " << localTemp.Battery << "%";
+																std::cout << std::endl;
+															}
 															std::queue<Govee_Temp> foo;
 															std::pair<std::map<bdaddr_t, std::queue<Govee_Temp>>::iterator, bool> ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 															ret.first->second.push(localTemp);
-															std::cout << std::endl;
 														}
-														//std::cout << std::endl;
 													}
 												}
 												current_offset += data_len + 1;
@@ -407,7 +482,8 @@ int main()
 										time(&TimeNow);
 										if (difftime(TimeNow, TimeStart) > 60)
 										{
-											std::cout << "[" << getTimeISO8601() << "] A minute or more has passed" << std::endl;
+											if (ConsoleVerbosity >= 1)
+												std::cout << "[" << getTimeISO8601() << "] A minute or more has passed" << std::endl;
 											TimeStart = TimeNow;
 											GenerateLogFile(GoveeTemperatures);
 										}
@@ -427,20 +503,22 @@ int main()
 
 		GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
 
-		// dump contents of accumulated map (should now be empty because all the data was flushed to log files)
-		for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
+		if (ConsoleVerbosity >= 1)
 		{
-			char addr[19] = { 0 };
-			ba2str(&it->first, addr);
-			std::cout << "[" << addr << "]" << std::endl;
-			while (!it->second.empty())
+			// dump contents of accumulated map (should now be empty because all the data was flushed to log files)
+			for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
 			{
-				std::cout << it->second.front().WriteTXT() << std::endl;
-				it->second.pop();
+				char addr[19] = { 0 };
+				ba2str(&it->first, addr);
+				std::cout << "[" << addr << "]" << std::endl;
+				while (!it->second.empty())
+				{
+					std::cout << it->second.front().WriteTXT() << std::endl;
+					it->second.pop();
+				}
 			}
 		}
 	}
-	//std::cout << "[" << getTimeISO8601() << "] End of scantest.c Example" << std::endl; // https://people.csail.mit.edu/albert/bluez-intro/c404.html
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	return(0);
+	return(EXIT_SUCCESS);
 }
