@@ -92,12 +92,12 @@ std::string getTimeISO8601(void)
 time_t ISO8601totime(const std::string & ISOTime)
 {
 	struct tm UTC;
-	UTC.tm_year = atol(ISOTime.substr(0, 4).c_str()) - 1900;
-	UTC.tm_mon = atol(ISOTime.substr(5, 2).c_str()) - 1;
-	UTC.tm_mday = atol(ISOTime.substr(8, 2).c_str());
-	UTC.tm_hour = atol(ISOTime.substr(11, 2).c_str());
-	UTC.tm_min = atol(ISOTime.substr(14, 2).c_str());
-	UTC.tm_sec = atol(ISOTime.substr(17, 2).c_str());
+	UTC.tm_year = stol(ISOTime.substr(0, 4)) - 1900;
+	UTC.tm_mon = stol(ISOTime.substr(5, 2)) - 1;
+	UTC.tm_mday = stol(ISOTime.substr(8, 2));
+	UTC.tm_hour = stol(ISOTime.substr(11, 2));
+	UTC.tm_min = stol(ISOTime.substr(14, 2));
+	UTC.tm_sec = stol(ISOTime.substr(17, 2));
 #ifdef _MSC_VER
 	_tzset();
 	_get_daylight(&(UTC.tm_isdst));
@@ -115,26 +115,28 @@ time_t ISO8601totime(const std::string & ISOTime)
 #endif
 	return(timer);
 }
-std::string timeToExcelDate(const time_t & TheTime)
+// Microsoft Excel doesn't recognize ISO8601 format dates with the "T" seperating the date and time
+// This function puts a space where the T goes for ISO8601. The dates can be decoded with ISO8601totime()
+std::string timeToExcelDate(const time_t & TheTime) 
 {
-	std::ostringstream ISOTime;
+	std::ostringstream ExcelDate;
 	struct tm UTC;
 	if (0 != gmtime_r(&TheTime, &UTC))
 	{
-		ISOTime.fill('0');
-		ISOTime << UTC.tm_year + 1900 << "-";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_mon + 1 << "-";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_mday << " ";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_hour << ":";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_min << ":";
-		ISOTime.width(2);
-		ISOTime << UTC.tm_sec;
+		ExcelDate.fill('0');
+		ExcelDate << UTC.tm_year + 1900 << "-";
+		ExcelDate.width(2);
+		ExcelDate << UTC.tm_mon + 1 << "-";
+		ExcelDate.width(2);
+		ExcelDate << UTC.tm_mday << " ";
+		ExcelDate.width(2);
+		ExcelDate << UTC.tm_hour << ":";
+		ExcelDate.width(2);
+		ExcelDate << UTC.tm_min << ":";
+		ExcelDate.width(2);
+		ExcelDate << UTC.tm_sec;
 	}
-	return(ISOTime.str());
+	return(ExcelDate.str());
 }
 /////////////////////////////////////////////////////////////////////////////
 #define EIR_NAME_SHORT              0x08
@@ -193,17 +195,7 @@ bool Govee_Temp::ReadMSG(const uint8_t *data, const size_t data_len, const le_ad
 	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
-// The following operators were required so I could use the std::map<> to use BlueTooth Addresses as the key
-bool operator ==(const bdaddr_t &a, const bdaddr_t &b)
-{
-	return(
-		(a.b[0] == b.b[0]) &&
-		(a.b[1] == b.b[1]) &&
-		(a.b[2] == b.b[2]) &&
-		(a.b[3] == b.b[3]) &&
-		(a.b[4] == b.b[4]) &&
-		(a.b[5] == b.b[5]));
-};
+// The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
 bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 {
 	unsigned long long A = a.b[5];
@@ -227,7 +219,6 @@ volatile bool bRun = true; // This is declared volatile so that the compiler won
 void SignalHandlerSIGINT(int signal)
 {
 	bRun = false;
-	//cerr << "[" << getTimeISO8601() << "] SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************" << endl;
 	std::cerr << "***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************" << std::endl;
 }
 void SignalHandlerSIGHUP(int signal)
@@ -239,6 +230,8 @@ std::string LogDirectory("./");
 std::string GenerateLogFileName(const bdaddr_t &a)
 {
 	std::ostringstream OutputFilename;
+	if (LogDirectory.back() != '/')
+		LogDirectory.push_back('/');
 	OutputFilename << LogDirectory;
 	OutputFilename << "gvh507x_";
 	OutputFilename << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << int(a.b[1]) << int(a.b[0]);
@@ -303,8 +296,11 @@ bool GetLastLogEntry(const bdaddr_t &TheAddress, Govee_Temp & TheValue)
 			std::string theDate(strtok(buffer, "\t"));
 			std::string theTemp(strtok(NULL, "\t"));
 			std::string theHumidity(strtok(NULL, "\t"));
+			std::string theBattery(strtok(NULL, "\t"));
+			TheValue.Time = ISO8601totime(theDate);
 			TheValue.Temperature = atof(theTemp.c_str());
 			TheValue.Humidity = atof(theHumidity.c_str());
+			TheValue.Battery = atol(theBattery.c_str());
 			rval = true;
 		}
 	}
@@ -320,13 +316,13 @@ void GetMRTGOutput(const std::string &TextAddress)
 		std::cout << std::dec; // make sure I'm putting things in decimal format
 		std::cout << TheValue.Humidity << std::endl; // current state of the second variable, normally 'outgoing bytes count'
 		std::cout << TheValue.Temperature << std::endl; // current state of the first variable, normally 'incoming bytes count'
-		std::cout << " " << std::endl; // string (in any human readable format), telling the uptime of the target.
-		std::cout << TextAddress << std::endl; // string, telling the name of the target.
+		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
+		std::cout << TextAddress << std::endl; // string, name of the target.
 	}
 }
 /* Example MRTG Config File Entry
 ######################################################################
-Target[GVH5075_A26A]: `/home/wim/projects/GoveeBTTempLogger/bin/ARM/Debug/GoveeBTTempLogger.out -l /media/acid/web/www.WimsWorld.com/mrtg/govee/ -m A4:C1:38:65:A2:6A`
+Target[GVH5075_A26A]: `/home/wim/projects/GoveeBTTempLogger/bin/ARM/Release/GoveeBTTempLogger.out -l /media/acid/web/www.WimsWorld.com/mrtg/govee/ -m A4:C1:38:65:A2:6A`
 MaxBytes[GVH5075_A26A]: 120
 Options[GVH5075_A26A]: gauge, nopercent, unknaszero, transparent
 PNGTitle[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
@@ -345,25 +341,25 @@ static void usage(int argc, char **argv)
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
 	std::cout << "  Version 1.0 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
+	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
-	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "l:v:m:h";
+static const char short_options[] = "hl:v:m:";
 static const struct option long_options[] = {
+		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
 		{ "verbose",required_argument, NULL, 'v' },
 		{ "mrtg",   required_argument, NULL, 'm' },
-		{ "help",   no_argument,       NULL, 'h' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	// Parse Options
+	std::string MRTGAddress;
 	for (;;)
 	{
 		int idx;
@@ -374,6 +370,9 @@ int main(int argc, char **argv)
 		{
 		case 0: /* getopt_long() flag */
 			break;
+		case 'h':
+			usage(argc, argv);
+			exit(EXIT_SUCCESS);
 		case 'l':
 			LogDirectory = optarg;
 			break;
@@ -387,18 +386,21 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'm':
-			GetMRTGOutput(std::string(optarg));
-			exit(EXIT_SUCCESS);
-		case 'h':
-			usage(argc, argv);
-			exit(EXIT_SUCCESS);
+			MRTGAddress = std::string(optarg);
+			break;
 		default:
 			usage(argc, argv);
 			exit(EXIT_FAILURE);
 		}
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	if (ConsoleVerbosity >= 1)
+	if (!MRTGAddress.empty())
+	{
+		GetMRTGOutput(MRTGAddress);
+		exit(EXIT_SUCCESS);
+	}
+	///////////////////////////////////////////////////////////////////////////////////////////////
+	if (ConsoleVerbosity > 0)
 	{
 		std::cout << "[" << getTimeISO8601() << "] " << "hello from GoveeBTTempLogger!" << std::endl;
 		std::cout << "[                   ] Built on: " __DATE__ " at " __TIME__ << std::endl;
@@ -419,7 +421,6 @@ int main(int argc, char **argv)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
-			// Set fd non-blocking
 			int on = 1;
 			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
@@ -447,7 +448,7 @@ int main(int argc, char **argv)
 								std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
 							else
 							{
-								if (ConsoleVerbosity >= 1)
+								if (ConsoleVerbosity > 0)
 									std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
 
 								bRun = true;
@@ -494,7 +495,7 @@ int main(int argc, char **argv)
 											size_t data_len = info->data[current_offset];
 											if (data_len + 1 > info->length)
 											{
-												if (ConsoleVerbosity >= 1)
+												if (ConsoleVerbosity > 0)
 													std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
 												data_error = true;
 											}
@@ -516,23 +517,26 @@ int main(int argc, char **argv)
 														std::queue<Govee_Temp> foo;
 														GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 													}
-													if (ConsoleVerbosity >= 1)
+													if (ConsoleVerbosity > 0)
 														std::cout << "[" << getTimeISO8601() << "] [" << addr << "] Name: " << name << std::endl;
 												}
 												else if (AddressInGoveeSet)
 												{
 													if ((info->data + current_offset + 1)[0] == EIR_MANUFACTURE_SPECIFIC)
 													{
-														//std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
-														//std::cout << " Manufacturer: length = " << std::dec << std::setw(2) << std::setfill(' ') << data_len - 1;
-														//std::cout << " Data: ";
-														//for (size_t i = 1; i < data_len; i++)
-														//	std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(info->data + current_offset + 1)[i];
-														//std::cout << std::endl;
+														if (ConsoleVerbosity > 1)
+														{
+															std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
+															std::cout << " Manufacturer: length = " << std::dec << std::setw(2) << std::setfill(' ') << data_len - 1;
+															std::cout << " Data: ";
+															for (size_t i = 1; i < data_len; i++)
+																std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(info->data + current_offset + 1)[i];
+															std::cout << std::endl;
+														}
 														Govee_Temp localTemp;
 														if (localTemp.ReadMSG((info->data + current_offset + 1), data_len, info))
 														{
-															if (ConsoleVerbosity >= 1)
+															if (ConsoleVerbosity > 0)
 															{
 																std::cout << "[" << getTimeISO8601() << "] [" << addr << "]";
 																std::cout << " Temp: " << std::dec << localTemp.Temperature << "°F";
@@ -541,7 +545,7 @@ int main(int argc, char **argv)
 																std::cout << std::endl;
 															}
 															std::queue<Govee_Temp> foo;
-															std::pair<std::map<bdaddr_t, std::queue<Govee_Temp>>::iterator, bool> ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
+															auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 															ret.first->second.push(localTemp);
 														}
 													}
@@ -553,7 +557,7 @@ int main(int argc, char **argv)
 										time(&TimeNow);
 										if (difftime(TimeNow, TimeStart) > 60)
 										{
-											if (ConsoleVerbosity >= 1)
+											if (ConsoleVerbosity > 0)
 												std::cout << "[" << getTimeISO8601() << "] A minute or more has passed" << std::endl;
 											TimeStart = TimeNow;
 											GenerateLogFile(GoveeTemperatures);
@@ -574,14 +578,17 @@ int main(int argc, char **argv)
 
 		GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
 
-		if (ConsoleVerbosity >= 1)
+		if (ConsoleVerbosity > 0)
 		{
 			// dump contents of accumulated map (should now be empty because all the data was flushed to log files)
 			for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
 			{
-				char addr[19] = { 0 };
-				ba2str(&it->first, addr);
-				std::cout << "[" << addr << "]" << std::endl;
+				if (!it->second.empty())
+				{
+					char addr[19] = { 0 };
+					ba2str(&it->first, addr);
+					std::cout << "[" << addr << "]" << std::endl;
+				}
 				while (!it->second.empty())
 				{
 					std::cout << it->second.front().WriteTXT() << std::endl;
