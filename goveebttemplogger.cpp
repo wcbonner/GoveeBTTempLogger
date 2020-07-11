@@ -28,6 +28,7 @@
 // https://docs.microsoft.com/en-us/windows/win32/bluetooth/bluetooth-programming-with-windows-sockets
 // https://www.reddit.com/r/Govee/comments/f1dfcd/home_assistant_component_for_h5074_and_h5075/fi7hnic/
 // https://unix.stackexchange.com/questions/96106/bluetooth-le-scan-as-non-root
+// https://docs.microsoft.com/en-us/cpp/linux/configure-a-linux-project?view=vs-2017
 //
 
 #include <cstdio>
@@ -272,6 +273,71 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	}
 	return(rval);
 }
+bool GetLastLogEntry(const bdaddr_t &TheAddress, Govee_Temp & TheValue)
+{
+	bool rval = false;
+	std::ifstream TheFile(GenerateLogFileName(TheAddress));
+	if (TheFile.is_open())
+	{
+		TheFile.seekg(0, std::ios_base::end);      //Start at end of file
+		char ch = ' ';                             //Init ch not equal to '\n'
+		while (ch != '\n') 
+		{
+			TheFile.seekg(-2, std::ios_base::cur); //Two steps back, this means we will NOT check the last character
+			if ((int)TheFile.tellg() <= 0)         //If passed the start of the file,
+			{
+				TheFile.seekg(0);                  //this is the start of the line
+				break;
+			}
+			TheFile.get(ch);                       //Check the next character
+		}
+		std::string TheLastLine;
+		std::getline(TheFile, TheLastLine);
+		TheFile.close();
+
+		char buffer[256];
+		if (TheLastLine.size() < sizeof(buffer))
+		{
+			TheLastLine.copy(buffer, TheLastLine.size() + 1);
+			buffer[TheLastLine.size()] = '\0';
+			std::string theDate(strtok(buffer, "\t"));
+			std::string theTemp(strtok(NULL, "\t"));
+			std::string theHumidity(strtok(NULL, "\t"));
+			TheValue.Temperature = atof(theTemp.c_str());
+			TheValue.Humidity = atof(theHumidity.c_str());
+			rval = true;
+		}
+	}
+	return(rval);
+}
+void GetMRTGOutput(const std::string &TextAddress)
+{
+	bdaddr_t TheAddress = { 0 };
+	str2ba(TextAddress.c_str(), &TheAddress);
+	Govee_Temp TheValue;
+	if (GetLastLogEntry(TheAddress, TheValue))
+	{
+		std::cout << std::dec; // make sure I'm putting things in decimal format
+		std::cout << TheValue.Humidity << std::endl; // current state of the second variable, normally 'outgoing bytes count'
+		std::cout << TheValue.Temperature << std::endl; // current state of the first variable, normally 'incoming bytes count'
+		std::cout << " " << std::endl; // string (in any human readable format), telling the uptime of the target.
+		std::cout << TextAddress << std::endl; // string, telling the name of the target.
+	}
+}
+/* Example MRTG Config File Entry
+######################################################################
+Target[GVH5075_A26A]: `/home/wim/projects/GoveeBTTempLogger/bin/ARM/Debug/GoveeBTTempLogger.out -l /media/acid/web/www.WimsWorld.com/mrtg/govee/ -m A4:C1:38:65:A2:6A`
+MaxBytes[GVH5075_A26A]: 120
+Options[GVH5075_A26A]: gauge, nopercent, unknaszero, transparent
+PNGTitle[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
+YLegend[GVH5075_A26A]: Temperature (F)
+ShortLegend[GVH5075_A26A]: (F)
+Title[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
+WithPeak[GVH5075_A26A]: ymw
+LegendO[GVH5075_A26A]: Temperature
+LegendI[GVH5075_A26A]: Humidity
+PageTop[GVH5075_A26A]: <H1>Temperature and Humidity on Govee A4:C1:38:65:A2:6A</H1>
+*/
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity = 1;
 static void usage(int argc, char **argv)
@@ -281,13 +347,15 @@ static void usage(int argc, char **argv)
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
+	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "l:v:h";
+static const char short_options[] = "l:v:m:h";
 static const struct option long_options[] = {
 		{ "log",    required_argument, NULL, 'l' },
 		{ "verbose",required_argument, NULL, 'v' },
+		{ "mrtg",   required_argument, NULL, 'm' },
 		{ "help",   no_argument,       NULL, 'h' },
 		{ 0, 0, 0, 0 }
 };
@@ -318,6 +386,9 @@ int main(int argc, char **argv)
 				exit(EXIT_FAILURE);
 			}
 			break;
+		case 'm':
+			GetMRTGOutput(std::string(optarg));
+			exit(EXIT_SUCCESS);
 		case 'h':
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
