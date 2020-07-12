@@ -314,8 +314,8 @@ void GetMRTGOutput(const std::string &TextAddress)
 	if (GetLastLogEntry(TheAddress, TheValue))
 	{
 		std::cout << std::dec; // make sure I'm putting things in decimal format
-		std::cout << TheValue.Humidity << std::endl; // current state of the second variable, normally 'outgoing bytes count'
-		std::cout << TheValue.Temperature << std::endl; // current state of the first variable, normally 'incoming bytes count'
+		std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
+		std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
 		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
 		std::cout << TextAddress << std::endl; // string, name of the target.
 	}
@@ -323,15 +323,17 @@ void GetMRTGOutput(const std::string &TextAddress)
 /* Example MRTG Config File Entry
 ######################################################################
 Target[GVH5075_A26A]: `/home/wim/projects/GoveeBTTempLogger/bin/ARM/Release/GoveeBTTempLogger.out -l /media/acid/web/www.WimsWorld.com/mrtg/govee/ -m A4:C1:38:65:A2:6A`
-MaxBytes[GVH5075_A26A]: 120
-Options[GVH5075_A26A]: gauge, nopercent, unknaszero, transparent
-PNGTitle[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
+MaxBytes[GVH5075_A26A]: 1200000
+Factor[GVH5075_A26A]: 0.001
+kMG[GVH5075_A26A]: ,
+Options[GVH5075_A26A]: gauge, nopercent, unknaszero, transparent, pngdate, expscale
 YLegend[GVH5075_A26A]: Temperature (F)
 ShortLegend[GVH5075_A26A]: (F)
-Title[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
 WithPeak[GVH5075_A26A]: ymw
 LegendO[GVH5075_A26A]: Temperature
 LegendI[GVH5075_A26A]: Humidity
+Title[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
+PNGTitle[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
 PageTop[GVH5075_A26A]: <H1>Temperature and Humidity on Govee A4:C1:38:65:A2:6A</H1>
 */
 /////////////////////////////////////////////////////////////////////////////
@@ -339,7 +341,7 @@ int ConsoleVerbosity = 1;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.0 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Version 1.1 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
