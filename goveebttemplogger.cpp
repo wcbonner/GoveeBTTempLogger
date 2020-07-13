@@ -234,7 +234,8 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 		LogDirectory.push_back('/');
 	OutputFilename << LogDirectory;
 	OutputFilename << "gvh507x_";
-	OutputFilename << std::hex << std::setw(2) << std::setfill('0') << std::uppercase << int(a.b[1]) << int(a.b[0]);
+	OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
+	OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
 	time_t timer;
 	time(&timer);
 	struct tm UTC;
