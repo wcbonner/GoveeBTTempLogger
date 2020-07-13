@@ -321,22 +321,6 @@ void GetMRTGOutput(const std::string &TextAddress)
 		std::cout << TextAddress << std::endl; // string, name of the target.
 	}
 }
-/* Example MRTG Config File Entry
-######################################################################
-Target[GVH5075_A26A]: `/home/wim/projects/GoveeBTTempLogger/bin/ARM/Release/GoveeBTTempLogger.out -l /media/acid/web/www.WimsWorld.com/mrtg/govee/ -m A4:C1:38:65:A2:6A`
-MaxBytes[GVH5075_A26A]: 1200000
-Factor[GVH5075_A26A]: 0.001
-kMG[GVH5075_A26A]: ,
-Options[GVH5075_A26A]: gauge, nopercent, unknaszero, transparent, pngdate, expscale
-YLegend[GVH5075_A26A]: Temperature (F)
-ShortLegend[GVH5075_A26A]: (F)
-WithPeak[GVH5075_A26A]: ymw
-LegendO[GVH5075_A26A]: Temperature
-LegendI[GVH5075_A26A]: Humidity
-Title[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
-PNGTitle[GVH5075_A26A]: Temperature and Humidity on A4:C1:38:65:A2:6A
-PageTop[GVH5075_A26A]: <H1>Temperature and Humidity on Govee A4:C1:38:65:A2:6A</H1>
-*/
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity = 1;
 static void usage(int argc, char **argv)

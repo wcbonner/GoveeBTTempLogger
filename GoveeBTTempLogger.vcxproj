@@ -78,6 +78,8 @@
     <ClCompile Include="goveebttemplogger.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="mrtg.conf" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
