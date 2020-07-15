@@ -11,9 +11,10 @@ GoveeBTTempLogger creates a log file for each of the devices it receives broadca
 
 ## Verbosity has been significantly changed since the intial release.
 
+ * -v 0 no output to stdout. Errors still sent to stderr.
  * -v 1 prints all advertisments that have been decoded from Govee H5075 and H5074 thermometers to stdout.
  * -v 2 prints all advertisments recieved and categorized
- * levels higher than 2 print way too much debugging information, but can be interesting to look at.
+ * -v levels higher than 2 print way too much debugging information, but can be interesting to look at.
 
 ## Prerequisites
 
