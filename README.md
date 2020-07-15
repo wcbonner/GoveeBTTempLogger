@@ -9,7 +9,7 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file for each of the devices it receives broadcasted data from using a simple tab seperated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date, Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
-##Verbosity has been significantly changed since the intial release.
+## Verbosity has been significantly changed since the intial release.
 
  * -v 1 prints all advertisments that have been decoded from Govee H5075 and H5074 thermometers to stdout.
  * -v 2 prints all advertisments recieved and categorized
