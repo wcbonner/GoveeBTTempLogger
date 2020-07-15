@@ -78,6 +78,7 @@
     <ClCompile Include="goveebttemplogger.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="LICENSE" />
     <None Include="mrtg.conf" />
     <None Include="README.md" />
   </ItemGroup>
