@@ -90,6 +90,14 @@
     </Link>
     <ClCompile />
     <ClCompile />
+    <PreBuildEvent />
+    <RemotePostBuildEvent />
+    <RemotePreBuildEvent>
+      <Command>set +o history</Command>
+    </RemotePreBuildEvent>
+    <RemotePostBuildEvent>
+      <Command>set -o history</Command>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
@@ -99,6 +107,14 @@
     </Link>
     <ClCompile />
     <ClCompile />
+    <PreBuildEvent />
+    <RemotePostBuildEvent />
+    <RemotePreBuildEvent>
+      <Command>set +o history</Command>
+    </RemotePreBuildEvent>
+    <RemotePostBuildEvent>
+      <Command>set -o history</Command>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>

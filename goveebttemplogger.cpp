@@ -205,16 +205,38 @@ std::string iBeacon(const uint8_t * const data)
 	{
 		if ((data[2] == 0x4c) && (data[3] == 0x00))
 		{
-			ssValue << " (Apple)";
-			// 4C00 0215494E54454C4C495F524F434B535F48 5750 740F 5CC2
-			// 4C00 0215494E54454C4C495F524F434B535F48 5750 75F2 FFC2
-			ssValue << " ";
-			for (auto index = 4; index < data_len; index++)
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
-			// Apple Company Code: 0x004C
-			// UUID 16 bytes
-			// Major 2 bytes
-			// Minor 2 bytes
+			ssValue << " (Apple)"; 
+			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
+			{
+				ssValue << " (UUID) ";
+				for (auto index = 6; index < 21; index++)
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
+				ssValue << " (Major) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[21]);
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[22]);
+				ssValue << " (Minor) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[23]);
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[24]);
+				ssValue << " (RSSI) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[25]);
+				// https://en.wikipedia.org/wiki/IBeacon
+				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
+				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
+				// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
+			}
+			else
+			{
+				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
+				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
+				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
+				ssValue << " ";
+				for (auto index = 4; index < data_len; index++)
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
+				// Apple Company Code: 0x004C
+				// UUID 16 bytes
+				// Major 2 bytes
+				// Minor 2 bytes
+			}
 		}
 	}
 	return(ssValue.str());
@@ -352,7 +374,7 @@ int LogFileTime = 60;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.1 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Version 1.2 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
@@ -426,8 +448,7 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (ConsoleVerbosity > 0)
 	{
-		std::cout << "[" << getTimeISO8601() << "] " << "hello from GoveeBTTempLogger!" << std::endl;
-		std::cout << "[                   ] Built on: " __DATE__ " at " __TIME__ << std::endl;
+		std::cout << "[" << getTimeISO8601() << "] " << "GoveeBTTempLogger Built on: " __DATE__ " at " __TIME__ << std::endl;
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	int device_id = hci_get_route(NULL);
@@ -488,8 +509,8 @@ int main(int argc, char **argv)
 										std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
 									if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
 									{
-										if (ConsoleVerbosity > 2)
-											std::cout << "[" << getTimeISO8601() << "] Read: " << bufDataLen << " Bytes" << std::endl;
+										if (ConsoleVerbosity > 3)
+											std::cout << "[" << getTimeISO8601() << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
 										std::ostringstream ConsoleOutLine;
 										ConsoleOutLine << "[" << getTimeISO8601() << "]" << std::setw(3) << bufDataLen;
 
@@ -498,29 +519,33 @@ int main(int argc, char **argv)
 										if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
 										{
 											const le_advertising_info * const info = (le_advertising_info *)(meta->data + 1);
+											bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+											char addr[19] = { 0 };
+											ba2str(&info->bdaddr, addr);
+											ConsoleOutLine << " [" << addr << "]";
+											if (ConsoleVerbosity > 2)
+											{
+												ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
+												ConsoleOutLine << " (evt_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->evt_type);
+											}
+											if (ConsoleVerbosity > 8)
+											{
+												std::cout << "[                   ]";
+												for (auto index = 0; index < bufDataLen; index++)
+													std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
+												std::cout << std::endl;
+												std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length (bytes following)" << std::endl;
+												std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr" << std::endl;
+												std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
+												std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
+												std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
+												std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
+												std::cout << "[                   ] |  |  ^------------------------------------> ?? length (bytes following)" << std::endl;
+												std::cout << "[                   ] |  ^---------------------------------------> hci_event_hdr.plen = EVT_LE_META_EVENT = 3E" << std::endl;
+												std::cout << "[                   ] ^------------------------------------------> hci_event_hdr.evt = HCI_EVENT_PKT = 04" << std::endl;
+											}
 											if (info->length > 0)
 											{
-												bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
-												char addr[19] = { 0 };
-												ba2str(&info->bdaddr, addr);
-												ConsoleOutLine << " [" << addr << "]";
-												if (ConsoleVerbosity > 8)
-												{
-													std::cout << "[                   ]";
-													for (auto index = 0; index < bufDataLen; index++)
-														std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
-													std::cout << std::endl;
-													std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
-													std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
-													std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
-													std::cout << "[                   ] |  |  ^------------------------------------> ??" << std::endl;
-													std::cout << "[                   ] |  ^---------------------------------------> ?? = EVT_LE_META_EVENT = 03" << std::endl;
-													std::cout << "[                   ] ^------------------------------------------> ?? = HCI_EVENT_PKT = 04" << std::endl;
-												}
-
 												int current_offset = 0;
 												bool data_error = false;
 												while (!data_error && current_offset < info->length)
@@ -601,7 +626,10 @@ int main(int argc, char **argv)
 																Govee_Temp localTemp;
 																if (localTemp.ReadMSG((info->data + current_offset)))
 																{
-																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
+																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
+																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u00B0" << "F";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
+																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
 																	ConsoleOutLine << " (Humidity) " << localTemp.Humidity << "%";
 																	ConsoleOutLine << " (Battery) " << localTemp.Battery << "%";
 																	std::queue<Govee_Temp> foo;
@@ -624,8 +652,18 @@ int main(int argc, char **argv)
 														current_offset += data_len + 1;
 													}
 												}
-												if (AddressInGoveeSet && (ConsoleVerbosity > 0) || (ConsoleVerbosity > 1))
-													std::cout << ConsoleOutLine.str() << std::endl;
+											}
+											if (AddressInGoveeSet && (ConsoleVerbosity > 0) || (ConsoleVerbosity > 1))
+												std::cout << ConsoleOutLine.str() << std::endl;
+										}
+										else
+										{
+											if (ConsoleVerbosity > 2)
+											{
+												std::cout << "[-------------------]";
+												for (auto index = 0; index < bufDataLen; index++)
+													std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
+												std::cout << std::endl;
 											}
 										}
 									}
