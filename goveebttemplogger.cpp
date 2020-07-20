@@ -565,8 +565,31 @@ int main(int argc, char **argv)
 															if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 															{
 																ConsoleOutLine << " (Flags) ";
-																for (auto index = 1; index < *(info->data + current_offset); index++)
-																	ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																//for (uint8_t index = 0x80; index > 0; index >> 1)
+																//	ConsoleOutLine << (index & *(info->data + current_offset + 2));
+																//ConsoleOutLine << ((index & *(info->data + current_offset + 2)) ? "1" : "0");
+																if (ConsoleVerbosity > 3)
+																{
+																	if (*(info->data + current_offset + 2) & 0x01)
+																		ConsoleOutLine << "[LE Limited Discoverable Mode]";
+																	if (*(info->data + current_offset + 2) & 0x02)
+																		ConsoleOutLine << "[LE General Discoverable Mode]";
+																	if (*(info->data + current_offset + 2) & 0x04)
+																		ConsoleOutLine << "[LE General Discoverable Mode]";
+																	if (*(info->data + current_offset + 2) & 0x08)
+																		ConsoleOutLine << "[Simultaneous LE and BR/EDR (Controller)]";
+																	if (*(info->data + current_offset + 2) & 0x10)
+																		ConsoleOutLine << "[Simultaneous LE and BR/EDR (Host)]";
+																	if (*(info->data + current_offset + 2) & 0x20)
+																		ConsoleOutLine << "[??]";
+																	if (*(info->data + current_offset + 2) & 0x40)
+																		ConsoleOutLine << "[??]";
+																	if (*(info->data + current_offset + 2) & 0x80)
+																		ConsoleOutLine << "[??]";
+																}
+																else
+																	for (auto index = 1; index < *(info->data + current_offset); index++)
+																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
 															}
 															break;
 														case 0x02:	// Incomplete List of 16-bit Service Class UUID
