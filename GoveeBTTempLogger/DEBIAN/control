@@ -7,4 +7,4 @@ Essential: no
 Installed-Size: 95
 Maintainer: wcbonner@users.noreply.github.com
 Description: Listen for Govee Thermometer Bluetooth Advertisments
-Depends:
+Depends: libbluetooth3

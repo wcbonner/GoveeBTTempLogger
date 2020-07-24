@@ -78,7 +78,10 @@
     <ClCompile Include="goveebttemplogger.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="GoveeBTTempLogger\DEBIAN\control" />
+    <None Include="GoveeBTTempLogger\etc\systemd\system\goveebttemplogger.service" />
     <None Include="LICENSE" />
+    <None Include="makefile" />
     <None Include="mrtg.conf" />
     <None Include="README.md" />
   </ItemGroup>
