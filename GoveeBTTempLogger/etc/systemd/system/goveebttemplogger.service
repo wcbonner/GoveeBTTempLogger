@@ -1,7 +1,7 @@
 # Contents of /etc/systemd/system/goveebttemplogger.service
 [Unit]
 Description=GoveeBTTempLogger service
-After=bluetooth.target
+After=bluetooth.target  dbus-org.bluez.service network.target
 Requires=bluetooth.target
 KillSignal=SIGINT
 
