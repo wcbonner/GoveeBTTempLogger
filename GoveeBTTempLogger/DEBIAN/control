@@ -1,10 +1,10 @@
 Package: GoveeBTTempLogger
-Version: 1.1
+Version: 1.20200725-1
 Section: custom
 Priority: optional
 Architecture: armhf
 Essential: no
 Installed-Size: 95
 Maintainer: wcbonner@users.noreply.github.com
-Description: Listen for Govee Thermometer Bluetooth Advertisments
+Description: Listen and log Govee Thermometer Bluetooth Low Energy Advertisments
 Depends: libbluetooth3

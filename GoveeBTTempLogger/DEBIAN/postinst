@@ -1,0 +1,9 @@
+#!/bin/sh
+# POSTINST script for goveebttemplogger
+
+echo "\033[36m HI I'M A POSTINST SCRIPT `date +"%s"` \033[39m"
+systemctl daemon-reload
+systemctl enable goveebttemplogger.service
+systemctl start goveebttemplogger.service
+
+exit 0

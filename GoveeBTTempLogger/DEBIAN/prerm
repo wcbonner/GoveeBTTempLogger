@@ -1,0 +1,8 @@
+#!/bin/sh
+# PRERM script for goveebttemplogger
+
+echo "\033[36m HI I'M A PRERM SCRIPT `date +"%s"` \033[39m"
+systemctl stop goveebttemplogger.service
+systemctl disable goveebttemplogger.service
+
+exit 0

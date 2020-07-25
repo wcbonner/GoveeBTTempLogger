@@ -2,11 +2,13 @@
 [Unit]
 Description=GoveeBTTempLogger service
 After=bluetooth.target
+Requires=bluetooth.target
+KillSignal=SIGINT
 
 [Service]
 Type=simple
 Restart=always
-ExecStart=/usr/local/bin/goveebttemplogger -v 0 -l /var/log/goveebttemplogger
+ExecStart=/usr/local/bin/goveebttemplogger -v 0 -l /var/log/goveebttemplogger/
 
 [Install]
 WantedBy=multi-user.target

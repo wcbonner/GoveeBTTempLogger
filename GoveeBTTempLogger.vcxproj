@@ -79,6 +79,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="GoveeBTTempLogger\DEBIAN\control" />
+    <None Include="GoveeBTTempLogger\DEBIAN\postinst" />
+    <None Include="GoveeBTTempLogger\DEBIAN\postrm" />
+    <None Include="GoveeBTTempLogger\DEBIAN\prerm" />
     <None Include="GoveeBTTempLogger\etc\systemd\system\goveebttemplogger.service" />
     <None Include="LICENSE" />
     <None Include="makefile" />

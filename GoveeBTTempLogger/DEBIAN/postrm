@@ -1,0 +1,7 @@
+#!/bin/sh
+# POSTRM script for goveebttemplogger
+
+echo "\033[36m HI I'M A POSTRM SCRIPT `date +"%s"` \033[39m"
+systemctl daemon-reload
+
+exit 0

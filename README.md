@@ -27,4 +27,7 @@ GoveeBTTempLogger creates a log file for each of the devices it receives broadca
 
 ```sh
 sudo apt-get install bluetooth bluez libbluetooth-dev
+make deb
+sudo apt-get install ./GoveeBTTempLogger.deb
 ```
+
