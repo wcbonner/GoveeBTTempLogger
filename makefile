@@ -1,5 +1,5 @@
 
-goveebttemplogger: goveebttemplogger.cpp
+GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp
 	mkdir -p GoveeBTTempLogger/usr/local/bin
 	g++ -lbluetooth goveebttemplogger.cpp -o GoveeBTTempLogger/usr/local/bin/goveebttemplogger
 
