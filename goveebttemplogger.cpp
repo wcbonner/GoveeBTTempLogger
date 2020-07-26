@@ -164,14 +164,14 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 {
 	bool rval = false;
 	const size_t data_len = data[0];
-	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
+	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ Â«Manufacturer Specific DataÂ»
 	{
 		if ((data[2] == 0x88) && (data[3] == 0xEC))
 		{
 			if (data_len == 9) // GVH5075_xxxx
 			{
 				// This data came from https://github.com/Thrilleratplay/GoveeWatcher
-				// 88ec00 03519e 6400 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
+				// 88ec00 03519e 6400 Temp: 21.7502Â°C Temp: 71.1504Â°F Humidity: 50.2%
 				// 1 2 3  4 5 6  7 8
 				int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
 				Temperature = ((float(iTemp) / 10000.0) * 9.0 / 5.0) + 32.0;
@@ -201,7 +201,7 @@ std::string iBeacon(const uint8_t * const data)
 {
 	std::ostringstream ssValue;
 	const size_t data_len = data[0];
-	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
+	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ Â«Manufacturer Specific DataÂ»
 	{
 		if ((data[2] == 0x4c) && (data[3] == 0x00))
 		{
@@ -374,7 +374,7 @@ int LogFileTime = 60;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.2 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Version 1.20200726-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
@@ -649,7 +649,7 @@ int main(int argc, char **argv)
 																Govee_Temp localTemp;
 																if (localTemp.ReadMSG((info->data + current_offset)))
 																{
-																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
+																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "Â°F";
 																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u00B0" << "F";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
