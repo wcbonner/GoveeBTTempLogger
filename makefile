@@ -1,7 +1,7 @@
 
 GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp
 	mkdir -p GoveeBTTempLogger/usr/local/bin
-	g++ -lbluetooth goveebttemplogger.cpp -o GoveeBTTempLogger/usr/local/bin/goveebttemplogger
+	g++ -O3 -lbluetooth goveebttemplogger.cpp -o GoveeBTTempLogger/usr/local/bin/goveebttemplogger
 
 deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/DEBIAN/control GoveeBTTempLogger/etc/systemd/system/goveebttemplogger.service
 	mkdir -p GoveeBTTempLogger/var/log/goveebttemplogger
