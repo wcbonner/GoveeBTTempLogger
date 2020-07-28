@@ -290,7 +290,35 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
 			OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
 	OutputFilename << ".txt";
-	return(OutputFilename.str());
+	std::string OldFormatFileName(OutputFilename.str());
+
+	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
+	OutputFilename.str("");
+	OutputFilename << LogDirectory;
+	OutputFilename << "gvh507x_";
+	char addr[19] = { 0 };
+	ba2str(&a, addr);
+	std::string btAddress(addr);
+	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+		btAddress.erase(pos, 1);
+	OutputFilename << btAddress;
+	if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
+		OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
+	OutputFilename << ".txt";
+	std::string NewFormatFileName(OutputFilename.str());
+
+	// This is a temporary hack to transparently change log file name formats
+	std::ifstream OldFile(OldFormatFileName);
+	if (OldFile.is_open())
+	{
+		OldFile.close();
+		if (rename(OldFormatFileName.c_str(), NewFormatFileName.c_str()) == 0)
+			std::cerr << "[                   ] Renamed " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
+		else 
+			std::cerr << "[                   ] Unable to Rename " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
+	}
+
+	return(NewFormatFileName);
 }
 bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap)
 {
