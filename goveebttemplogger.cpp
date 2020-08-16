@@ -1,8 +1,26 @@
 /////////////////////////////////////////////////////////////////////////////
 // Copyright (C) 2020 William C Bonner
-// This code borrows from plenty of other sources I've found.
-// I try to leave credits in comments scattered through the code itself and
-// would appreciate similar credit if you use portions of my code.
+//
+//	MIT License
+//
+//	Permission is hereby granted, free of charge, to any person obtaining a copy
+//	of this software and associated documentation files(the "Software"), to deal
+//	in the Software without restriction, including without limitation the rights
+//	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//	copies of the Software, and to permit persons to whom the Software is
+//	furnished to do so, subject to the following conditions :
+//
+//	The above copyright notice and this permission notice shall be included in all
+//	copies or substantial portions of the Software.
+//
+//	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+//	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//	SOFTWARE.
+//
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
@@ -389,11 +407,16 @@ void GetMRTGOutput(const std::string &TextAddress)
 	Govee_Temp TheValue;
 	if (GetLastLogEntry(TheAddress, TheValue))
 	{
-		std::cout << std::dec; // make sure I'm putting things in decimal format
-		std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
-		std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
-		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
-		std::cout << TextAddress << std::endl; // string, name of the target.
+		time_t CurrentTime;
+		time(&CurrentTime);
+		if (difftime(CurrentTime, TheValue.Time) < 301) // Only return data if we've recieved data in the last 5 minutes
+		{
+			std::cout << std::dec; // make sure I'm putting things in decimal format
+			std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
+			std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
+			std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
+			std::cout << TextAddress << std::endl; // string, name of the target.
+		}
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -402,7 +425,7 @@ int LogFileTime = 60;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.20200727-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Version 1.20200816-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
