@@ -168,13 +168,7 @@ public:
 	int Battery;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp()
-	{
-		Time = 0;
-		Temperature = 0;
-		Humidity = 0;
-		Battery = 0;
-	}
+	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(0) { };
 };
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
@@ -367,11 +361,11 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	}
 	return(rval);
 }
-bool GetLastLogEntry(const bdaddr_t &TheAddress, Govee_Temp & TheValue)
+bool GetLogEntry(const bdaddr_t &InAddress, Govee_Temp & OutValue)
 {
 	// Returned value is now the average of whatever values were recorded over the previous 5 minutes
 	bool rval = false;
-	std::ifstream TheFile(GenerateLogFileName(TheAddress));
+	std::ifstream TheFile(GenerateLogFileName(InAddress));
 	if (TheFile.is_open())
 	{
 		time_t now = ISO8601totime(getTimeISO8601());
@@ -399,12 +393,13 @@ bool GetLastLogEntry(const bdaddr_t &TheAddress, Govee_Temp & TheValue)
 			char buffer[256];
 			if (TheLine.size() < sizeof(buffer))
 			{
-				TheLine.copy(buffer, TheLine.size() + 1);
+				TheLine.copy(buffer, TheLine.size());
 				buffer[TheLine.size()] = '\0';
 				std::string theDate(strtok(buffer, "\t"));
 				std::string theTemp(strtok(NULL, "\t"));
 				std::string theHumidity(strtok(NULL, "\t"));
 				std::string theBattery(strtok(NULL, "\t"));
+				Govee_Temp TheValue;
 				TheValue.Time = ISO8601totime(theDate);
 				TheValue.Temperature = atof(theTemp.c_str());
 				TheValue.Humidity = atof(theHumidity.c_str());
@@ -420,15 +415,15 @@ bool GetLastLogEntry(const bdaddr_t &TheAddress, Govee_Temp & TheValue)
 		{
 			while (!LogValues.empty())
 			{
-				TheValue.Time = TheValue.Time > LogValues.front().Time ? TheValue.Time : LogValues.front().Time;
-				TheValue.Temperature += LogValues.front().Temperature;
-				TheValue.Humidity += LogValues.front().Humidity;
-				TheValue.Battery += LogValues.front().Battery;
+				OutValue.Time = OutValue.Time > LogValues.front().Time ? OutValue.Time : LogValues.front().Time;
+				OutValue.Temperature += LogValues.front().Temperature;
+				OutValue.Humidity += LogValues.front().Humidity;
+				OutValue.Battery += LogValues.front().Battery;
 				LogValues.pop();
 			}
-			TheValue.Temperature /= NumElements;
-			TheValue.Humidity /= NumElements;
-			TheValue.Battery /= int(NumElements);
+			OutValue.Temperature /= NumElements;
+			OutValue.Humidity /= NumElements;
+			OutValue.Battery /= int(NumElements);
 			rval = true;
 		}
 	}
@@ -439,18 +434,13 @@ void GetMRTGOutput(const std::string &TextAddress)
 	bdaddr_t TheAddress = { 0 };
 	str2ba(TextAddress.c_str(), &TheAddress);
 	Govee_Temp TheValue;
-	if (GetLastLogEntry(TheAddress, TheValue))
+	if (GetLogEntry(TheAddress, TheValue))
 	{
-		time_t CurrentTime;
-		time(&CurrentTime);
-		if (difftime(CurrentTime, TheValue.Time) < 301) // Only return data if we've recieved data in the last 5 minutes
-		{
-			std::cout << std::dec; // make sure I'm putting things in decimal format
-			std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
-			std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
-			std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
-			std::cout << TextAddress << std::endl; // string, name of the target.
-		}
+		std::cout << std::dec; // make sure I'm putting things in decimal format
+		std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
+		std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
+		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
+		std::cout << TextAddress << std::endl; // string, name of the target.
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -459,7 +449,7 @@ int LogFileTime = 60;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.20200818-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Version 1.20200819-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
