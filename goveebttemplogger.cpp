@@ -168,6 +168,13 @@ public:
 	int Battery;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
+	Govee_Temp()
+	{
+		Time = 0;
+		Temperature = 0;
+		Humidity = 0;
+		Battery = 0;
+	}
 };
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
@@ -248,7 +255,7 @@ std::string iBeacon(const uint8_t * const data)
 				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
 				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
 				ssValue << " ";
-				for (auto index = 4; index < data_len; index++)
+				for (size_t index = 4; index < data_len; index++)
 					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
 				// Apple Company Code: 0x004C
 				// UUID 16 bytes
@@ -362,39 +369,66 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 }
 bool GetLastLogEntry(const bdaddr_t &TheAddress, Govee_Temp & TheValue)
 {
+	// Returned value is now the average of whatever values were recorded over the previous 5 minutes
 	bool rval = false;
 	std::ifstream TheFile(GenerateLogFileName(TheAddress));
 	if (TheFile.is_open())
 	{
-		TheFile.seekg(0, std::ios_base::end);      //Start at end of file
-		char ch = ' ';                             //Init ch not equal to '\n'
-		while (ch != '\n') 
-		{
-			TheFile.seekg(-2, std::ios_base::cur); //Two steps back, this means we will NOT check the last character
-			if ((int)TheFile.tellg() <= 0)         //If passed the start of the file,
-			{
-				TheFile.seekg(0);                  //this is the start of the line
-				break;
-			}
-			TheFile.get(ch);                       //Check the next character
-		}
-		std::string TheLastLine;
-		std::getline(TheFile, TheLastLine);
-		TheFile.close();
+		time_t now = ISO8601totime(getTimeISO8601());
+		std::queue<Govee_Temp> LogValues;
 
-		char buffer[256];
-		if (TheLastLine.size() < sizeof(buffer))
+		TheFile.seekg(0, std::ios_base::end);      //Start at end of file
+		do
 		{
-			TheLastLine.copy(buffer, TheLastLine.size() + 1);
-			buffer[TheLastLine.size()] = '\0';
-			std::string theDate(strtok(buffer, "\t"));
-			std::string theTemp(strtok(NULL, "\t"));
-			std::string theHumidity(strtok(NULL, "\t"));
-			std::string theBattery(strtok(NULL, "\t"));
-			TheValue.Time = ISO8601totime(theDate);
-			TheValue.Temperature = atof(theTemp.c_str());
-			TheValue.Humidity = atof(theHumidity.c_str());
-			TheValue.Battery = atol(theBattery.c_str());
+			char ch = ' ';                             //Init ch not equal to '\n'
+			while (ch != '\n')
+			{
+				TheFile.seekg(-2, std::ios_base::cur); //Two steps back, this means we will NOT check the last character
+				if ((int)TheFile.tellg() <= 0)         //If passed the start of the file,
+				{
+					TheFile.seekg(0);                  //this is the start of the line
+					break;
+				}
+				TheFile.get(ch);                       //Check the next character
+			}
+			auto FileStreamPos = TheFile.tellg(); // Save Current Stream Position
+			std::string TheLine;
+			std::getline(TheFile, TheLine);
+			TheFile.seekg(FileStreamPos);	// Move Stream position to where it was before reading TheLine
+
+			char buffer[256];
+			if (TheLine.size() < sizeof(buffer))
+			{
+				TheLine.copy(buffer, TheLine.size() + 1);
+				buffer[TheLine.size()] = '\0';
+				std::string theDate(strtok(buffer, "\t"));
+				std::string theTemp(strtok(NULL, "\t"));
+				std::string theHumidity(strtok(NULL, "\t"));
+				std::string theBattery(strtok(NULL, "\t"));
+				TheValue.Time = ISO8601totime(theDate);
+				TheValue.Temperature = atof(theTemp.c_str());
+				TheValue.Humidity = atof(theHumidity.c_str());
+				TheValue.Battery = atol(theBattery.c_str());
+				if (300.0 < difftime(now, TheValue.Time))	// If this entry is more than 300 seconds from current time, it's time to stop reading log file.
+					break;
+				LogValues.push(TheValue);
+			}
+		} while (TheFile.tellg() > 0);	// If we are at the beginning of the file, there's nothing more to do
+		TheFile.close();
+		double NumElements = double(LogValues.size());
+		if (NumElements > 0)
+		{
+			while (!LogValues.empty())
+			{
+				TheValue.Time = TheValue.Time > LogValues.front().Time ? TheValue.Time : LogValues.front().Time;
+				TheValue.Temperature += LogValues.front().Temperature;
+				TheValue.Humidity += LogValues.front().Humidity;
+				TheValue.Battery += LogValues.front().Battery;
+				LogValues.pop();
+			}
+			TheValue.Temperature /= NumElements;
+			TheValue.Humidity /= NumElements;
+			TheValue.Battery /= int(NumElements);
 			rval = true;
 		}
 	}
@@ -425,7 +459,7 @@ int LogFileTime = 60;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.20200816-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  Version 1.20200818-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
@@ -465,22 +499,14 @@ int main(int argc, char **argv)
 			LogDirectory = optarg;
 			break;
 		case 't':
-			errno = 0;
-			LogFileTime = strtol(optarg, NULL, 0);
-			if (errno)
-			{
-				std::cerr << optarg << " error " << errno << ", " << strerror(errno) << std::endl;
-				exit(EXIT_FAILURE);
-			}
+			try { LogFileTime = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
 		case 'v':
-			errno = 0;
-			ConsoleVerbosity = strtol(optarg, NULL, 0);
-			if (errno)
-			{
-				std::cerr << optarg << " error " << errno << ", " << strerror(errno) << std::endl;
-				exit(EXIT_FAILURE);
-			}
+			try { ConsoleVerbosity = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
 		case 'm':
 			MRTGAddress = std::string(optarg);
@@ -718,7 +744,7 @@ int main(int argc, char **argv)
 															}
 															break;
 														default:
-															if (AddressInGoveeSet && (ConsoleVerbosity > 0) || (ConsoleVerbosity > 1))
+															if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 															{
 																ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
 																for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -729,7 +755,7 @@ int main(int argc, char **argv)
 													}
 												}
 											}
-											if (AddressInGoveeSet && (ConsoleVerbosity > 0) || (ConsoleVerbosity > 1))
+											if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 												std::cout << ConsoleOutLine.str() << std::endl;
 										}
 										else
