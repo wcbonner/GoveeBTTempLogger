@@ -1,7 +1,7 @@
 # Contents of /etc/systemd/system/goveebttemplogger.service
 [Unit]
 Description=GoveeBTTempLogger service
-After=bluetooth.target dbus-org.bluez.service network.target
+After=bluetooth.target dbus-org.bluez.service network-online.target
 Requires=bluetooth.target
 StartLimitBurst=5
 StartLimitIntervalSec=33

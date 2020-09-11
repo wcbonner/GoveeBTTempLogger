@@ -363,7 +363,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	}
 	return(rval);
 }
-bool GetLogEntry(const bdaddr_t &InAddress, Govee_Temp & OutValue)
+bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutValue)
 {
 	// Returned value is now the average of whatever values were recorded over the previous 5 minutes
 	bool rval = false;
@@ -406,7 +406,9 @@ bool GetLogEntry(const bdaddr_t &InAddress, Govee_Temp & OutValue)
 				TheValue.Temperature = atof(theTemp.c_str());
 				TheValue.Humidity = atof(theHumidity.c_str());
 				TheValue.Battery = atol(theBattery.c_str());
-				if (300.0 < difftime(now, TheValue.Time))	// If this entry is more than 300 seconds from current time, it's time to stop reading log file.
+				if ((Minutes == 0) && LogValues.empty()) // HACK: Special Case to always accept the last logged value
+					LogValues.push(TheValue);
+				if ((Minutes * 60.0) < difftime(now, TheValue.Time))	// If this entry is more than Minutes parameter from current time, it's time to stop reading log file.
 					break;
 				LogValues.push(TheValue);
 			}
@@ -431,12 +433,12 @@ bool GetLogEntry(const bdaddr_t &InAddress, Govee_Temp & OutValue)
 	}
 	return(rval);
 }
-void GetMRTGOutput(const std::string &TextAddress)
+void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 {
 	bdaddr_t TheAddress = { 0 };
 	str2ba(TextAddress.c_str(), &TheAddress);
 	Govee_Temp TheValue;
-	if (GetLogEntry(TheAddress, TheValue))
+	if (GetLogEntry(TheAddress, Minutes, TheValue))
 	{
 		std::cout << std::dec; // make sure I'm putting things in decimal format
 		std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
@@ -448,6 +450,7 @@ void GetMRTGOutput(const std::string &TextAddress)
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity = 1;
 int LogFileTime = 60;
+int MinutesAverage = 5;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
@@ -458,15 +461,17 @@ static void usage(int argc, char **argv)
 	std::cout << "    -t | --time seconds  time between log file writes [" << LogFileTime << "]" << std::endl;
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
+	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:";
+static const char short_options[] = "hl:t:v:m:a:";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
 		{ "time",   required_argument, NULL, 't' },
 		{ "verbose",required_argument, NULL, 'v' },
 		{ "mrtg",   required_argument, NULL, 'm' },
+		{ "average",required_argument, NULL, 'a' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -503,6 +508,11 @@ int main(int argc, char **argv)
 		case 'm':
 			MRTGAddress = std::string(optarg);
 			break;
+		case 'a':
+			try { MinutesAverage = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
+			break;
 		default:
 			usage(argc, argv);
 			exit(EXIT_FAILURE);
@@ -511,7 +521,7 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (!MRTGAddress.empty())
 	{
-		GetMRTGOutput(MRTGAddress);
+		GetMRTGOutput(MRTGAddress, MinutesAverage);
 		exit(EXIT_SUCCESS);
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////

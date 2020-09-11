@@ -31,3 +31,10 @@ make deb
 sudo apt-get install ./GoveeBTTempLogger.deb
 ```
 
+## Command Line Options
+ * -h (--help) Prints supported options and exits.
+ * -l (--log) Sets the log directory
+ * -t (--time) Sets the frequency data is written to the logs
+ * -v (--verbose) Sets output verbosity.
+ * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
+ * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
