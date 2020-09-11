@@ -75,6 +75,8 @@
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200911-1 Built on: " __DATE__ " at " __TIME__);
+/////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
 	std::ostringstream ISOTime;
@@ -449,7 +451,7 @@ int LogFileTime = 60;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
-	std::cout << "  Version 1.20200819-1 Built on: " __DATE__ " at " __TIME__ << std::endl;
+	std::cout << "  " << ProgramVersionString << std::endl;
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
@@ -515,8 +517,10 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (ConsoleVerbosity > 0)
 	{
-		std::cout << "[" << getTimeISO8601() << "] " << "GoveeBTTempLogger Built on: " __DATE__ " at " __TIME__ << std::endl;
+		std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << std::endl;
 	}
+	else
+		std::cerr << ProgramVersionString << " (starting)" << std::endl;
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	int device_id = hci_get_route(NULL);
 	if (device_id < 0)
@@ -814,5 +818,6 @@ int main(int argc, char **argv)
 		}
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
+	std::cerr << ProgramVersionString << " (exiting)" << std::endl;
 	return(EXIT_SUCCESS);
 }
