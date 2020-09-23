@@ -75,7 +75,7 @@
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200911-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200922-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -282,6 +282,7 @@ bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
+std::map<bdaddr_t, time_t> GoveeLastSeen;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -451,6 +452,7 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 int ConsoleVerbosity = 1;
 int LogFileTime = 60;
 int MinutesAverage = 5;
+bool DownloadData = false;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
@@ -462,9 +464,10 @@ static void usage(int argc, char **argv)
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
+	std::cout << "    -d | --download  periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:a:";
+static const char short_options[] = "hl:t:v:m:a:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -472,6 +475,7 @@ static const struct option long_options[] = {
 		{ "verbose",required_argument, NULL, 'v' },
 		{ "mrtg",   required_argument, NULL, 'm' },
 		{ "average",required_argument, NULL, 'a' },
+		{ "download",no_argument,NULL, 'd' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -513,6 +517,9 @@ int main(int argc, char **argv)
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
+		case 'd':
+			DownloadData = true;
+			break;
 		default:
 			usage(argc, argv);
 			exit(EXIT_FAILURE);
@@ -553,12 +560,27 @@ int main(int argc, char **argv)
 			else
 			{
 				// I came across the note: The Host shall not issue this command when scanning is enabled in the Controller; if it is the Command Disallowed error code shall be used. http://pureswift.github.io/Bluetooth/docs/Structs/HCILESetScanParameters.html
-				hci_le_set_scan_enable(device_handle, 0x00, 1, 1000); // Disable Scanning on the device before setting scan parameters!
-				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0010), htobs(0x0010), 0x00, 0x00, 1000) < 0)
+				hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device before setting scan parameters!
+				char LocalName[0xff] = { 0 };
+				hci_read_local_name(device_handle, sizeof(LocalName), LocalName, 1000);
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
+				// Scan Type: Active (0x01)
+				// Scan Interval: 18 (11.25 msec)
+				// Scan Window: 18 (11.25 msec)
+				// Own Address Type: Random Device Address (0x01)
+				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
+				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0012), htobs(0x0012), 0x01, 0x00, 1000) < 0)
 					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
 				else
 				{
-					if (hci_le_set_scan_enable(device_handle, 0x01, 1, 1000) < 0)
+					// Scan Interval : 8000 (5000 msec)
+					// Scan Window: 8000 (5000 msec)
+					if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), 0x01, 0x00, 1000) < 0)
+						std::cerr << "[                   ] Error: Failed to set scan parameters(Scan Interval : 8000 (5000 msec)): " << strerror(errno) << std::endl;
+					// Scan Enable: true (0x01)
+					// Filter Duplicates: false (0x00)
+					if (hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000) < 0)
 						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << std::endl;
 					else
 					{
@@ -761,6 +783,57 @@ int main(int argc, char **argv)
 											}
 											if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 												std::cout << ConsoleOutLine.str() << std::endl;
+											if (DownloadData && AddressInGoveeSet)
+											{
+												ConsoleOutLine = std::ostringstream();
+												time_t TimeNow;
+												time(&TimeNow);
+												auto foo = GoveeLastSeen.find(info->bdaddr);
+												if (foo != GoveeLastSeen.end())
+												{
+													//if (difftime(foo->second, TimeNow) > (60 * 60 * 24)) // 24 hours
+													{
+														// Try to connect and download now
+														// Bluetooth HCI Command - LE Set Scan Enable (false)
+														hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device
+														ConsoleOutLine << "Scanning Stopped" << std::endl;
+														// Bluetooth HCI Command - LE Create Connection (BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f))
+														//struct hci_dev_info devinfo;
+														//hci_devinfo(device_id, &devinfo);
+														//uint16_t ptype = htobs(devinfo.pkt_type & ACL_PTYPE_MASK);
+														uint16_t ptype = HCI_COMMAND_PKT;
+														uint16_t handle;
+														int timeout = 2000; // 20 seconds
+														if (hci_create_connection(device_handle, &(info->bdaddr), ptype, 0, 1, &handle, timeout) != -1)
+														{
+															ConsoleOutLine << "hci_create_connection" << std::endl;
+															// Bluetooth HCI Command - LE Read Remote Features
+															uint8_t features[8];
+															if (hci_read_remote_features(device_handle, handle, features, timeout) != -1)
+															{
+																ConsoleOutLine << "Features: " << lmp_featurestostr(features, "\t\t", 50) << std::endl;
+															}
+															// Bluetooth HCI Command - Read Remote Version Information
+															struct hci_version ver;
+															if (hci_read_remote_version(device_handle, handle, &ver, timeout) != -1)
+															{
+																ConsoleOutLine << "Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
+																ConsoleOutLine << "Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
+																ConsoleOutLine << "nManufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
+															}
+
+															hci_disconnect(device_handle, handle, HCI_OE_USER_ENDED_CONNECTION, timeout);
+															ConsoleOutLine << "hci_disconnect" << std::endl;
+														}
+														hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000); // Enable Scanning on the device
+														ConsoleOutLine << "Scanning Started" << std::endl;
+													}
+														
+													foo->second = TimeNow;
+												}
+												GoveeLastSeen.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, TimeNow));
+												std::cout << ConsoleOutLine.str();
+											}
 										}
 										else
 										{
