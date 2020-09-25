@@ -75,7 +75,7 @@
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200922-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200924-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -230,16 +230,16 @@ std::string iBeacon(const uint8_t * const data)
 			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
 			{
 				ssValue << " (UUID) ";
-				for (auto index = 6; index < 21; index++)
+				for (auto index = 6; index < 22; index++)
 					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
 				ssValue << " (Major) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[21]);
 				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[22]);
-				ssValue << " (Minor) ";
 				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[23]);
+				ssValue << " (Minor) ";
 				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[24]);
-				ssValue << " (RSSI) ";
 				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[25]);
+				ssValue << " (RSSI) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[26]);
 				// https://en.wikipedia.org/wiki/IBeacon
 				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
 				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
@@ -282,7 +282,7 @@ bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
-std::map<bdaddr_t, time_t> GoveeLastSeen;
+std::map<bdaddr_t, time_t> GoveeLastDownload;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -446,6 +446,165 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 		std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
 		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
 		std::cout << TextAddress << std::endl; // string, name of the target.
+	}
+}
+/////////////////////////////////////////////////////////////////////////////
+void ConnectAndDownload(int device_handle)
+{
+	time_t TimeNow;
+	time(&TimeNow);
+	for (auto iter = GoveeLastDownload.begin(); iter != GoveeLastDownload.end(); iter++)
+	{
+		char addr[19] = { 0 };
+		ba2str(&iter->first, addr);
+#ifdef DEBUG
+		if (difftime(TimeNow, iter->second) > (60 * 10)) // 10 minutes
+#else
+		if (difftime(TimeNow, iter->second) > (60 * 60 * 24)) // 24 hours
+#endif // DEBUG
+		{
+			std::cout << "[-------------------] [" << addr << "] " << timeToISO8601(iter->second) << std::endl;
+			bool bDownloadInProgress = true;
+
+			// Bluetooth HCI Command - LE Set Scan Enable (false)
+			hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device
+			std::cout << "[" << getTimeISO8601() << "] Scanning Stopped" << std::endl;
+
+			// Bluetooth HCI Command - LE Create Connection (BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f))
+			uint16_t handle = 0;
+			int iRet = hci_le_create_conn(
+				device_handle,
+				96, // interval, Scan Interval: 96 (60 msec)
+				48, // window, Scan Window: 48 (30 msec)
+				0x00, // initiator_filter, Initiator Filter Policy: Use Peer Address (0x00)
+				0x00, // peer_bdaddr_type, Peer Address Type: Public Device Address (0x00)
+				iter->first, // BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)
+				0x01, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
+				24, // min_interval, Connection Interval Min: 24 (30 msec)
+				40, // max_interval, Connection Interval Max: 40 (50 msec)
+				0, // latency, Connection Latency: 0 (number events)
+				2000, // supervision_timeout, Supervision Timeout: 2000 (20 sec)
+				0, // min_ce_length, Min CE Length: 0 (0 msec)
+				0, // max_ce_length, Max CE Length: 0 (0 msec)
+				&handle,
+				15000);	// A 15 second timeout gives me a better chance of success
+			std::cout << "[" << getTimeISO8601() << "] hci_le_create_conn [" << addr << "] Return(" << std::dec << iRet << ") handle (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+
+			unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
+			// The following while loop attempts to read from the non-blocking socket. 
+			// As long as the read call simply times out, we sleep for 100 microseconds and try again.
+			int RetryCount = 50;
+			while (bDownloadInProgress)
+			{
+				ssize_t bufDataLen = read(device_handle, buf, sizeof(buf));
+				if (bufDataLen > 1)
+				{
+					RetryCount = 50; 
+					if (buf[0] == HCI_EVENT_PKT)
+					{
+						// At this point I should have an HCI Event in buf (hci_event_hdr)
+						hci_event_hdr* header = (hci_event_hdr*)(buf + 1);
+						if (header->evt == EVT_LE_META_EVENT)
+						{
+							evt_le_meta_event* meta = (evt_le_meta_event*)(header + HCI_EVENT_HDR_SIZE);
+							if (meta->subevent == EVT_LE_CONN_COMPLETE)
+							{
+								evt_le_connection_complete* concomp = (evt_le_connection_complete*)(meta->data);
+								char metaaddr[19] = { 0 };
+								ba2str(&(concomp->peer_bdaddr), metaaddr);
+								std::cout << "[-------------------] EVT_LE_CONN_COMPLETE [" << metaaddr << "] Status(" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(concomp->status) << ") Handle(" << int(concomp->handle) << ")" << std::endl;
+								if (concomp->status == 0x00)
+								{
+									handle = concomp->handle;
+									if (handle != 0)
+									{
+										// Bluetooth HCI Command - LE Read Remote Features
+										uint8_t features[8];
+										//if (hci_read_remote_features(device_handle, handle, features, timeout) != -1)
+										if (hci_le_read_remote_features(device_handle, handle, features, 2000) != -1)
+										{
+											// TODO: I think the lmp fumction below may leak memory with a malloc
+											std::cout << "[-------------------] Features: " << lmp_featurestostr(features, "", 50) << std::endl;
+										}
+										// Bluetooth HCI Command - Read Remote Version Information
+										struct hci_version ver;
+										if (hci_read_remote_version(device_handle, handle, &ver, 2000) != -1)
+										{
+											std::cout << "[-------------------] Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
+											std::cout << "[-------------------] Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
+											std::cout << "[-------------------] Manufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
+										}
+									}
+
+								}
+							}
+							else if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
+							{
+								le_advertising_info* advrpt = (le_advertising_info*)(meta->data);
+								char metaaddr[19] = { 0 };
+								ba2str(&(advrpt->bdaddr), metaaddr);
+								std::cout << "[-------------------] EVT_LE_ADVERTISING_REPORT [" << metaaddr << "] evt_type(" << advrpt->evt_type << ")" << std::endl;
+							}
+							else if (meta->subevent == EVT_PHYSICAL_LINK_COMPLETE)
+							{
+								evt_physical_link_complete * ptr = (evt_physical_link_complete*)(meta->data);
+								std::cout << "[-------------------] EVT_PHYSICAL_LINK_COMPLETE Status(" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(ptr->status) << ") Handle(" << int(ptr->handle) << ")" << std::endl;
+								if (ptr->status == 0)
+									handle = ptr->handle;
+							}
+							else
+								std::cout << "[-------------------] EVT_LE_META_EVENT subevent(" << std::hex << int(meta->subevent) << ")" << std::endl;
+						}
+						else if (header->evt == EVT_CMD_COMPLETE)
+						{
+							evt_cmd_complete* ptr = (evt_cmd_complete*)(buf + (HCI_EVENT_HDR_SIZE + HCI_TYPE_LEN));
+							std::cout << "[-------------------] EVT_CMD_COMPLETE" << std::endl;
+
+						}
+						else if (header->evt == EVT_CMD_STATUS)
+						{
+							evt_cmd_status* ptr = (evt_cmd_status*)(buf + (HCI_EVENT_HDR_SIZE + HCI_TYPE_LEN));
+							std::cout << "[-------------------] EVT_CMD_STATUS" << std::endl;
+						}
+						else if (header->evt == EVT_DISCONN_COMPLETE)
+						{
+							evt_disconn_complete* ptr = (evt_disconn_complete*)(buf + (HCI_EVENT_HDR_SIZE + HCI_TYPE_LEN));
+							std::cout << "[-------------------] EVT_DISCONN_COMPLETE" << std::endl;
+							bDownloadInProgress = false;
+						}
+						else if (header->evt == EVT_READ_REMOTE_VERSION_COMPLETE)
+						{
+							std::cout << "[-------------------] EVT_READ_REMOTE_VERSION_COMPLETE" << std::endl;
+						}
+						else if (header->evt == EVT_NUM_COMP_PKTS)
+						{
+							std::cout << "[-------------------] EVT_NUM_COMP_PKTS" << std::endl;
+						}
+					}
+					else if (buf[0] == HCI_ACLDATA_PKT)
+					{
+						std::cout << "[-------------------] HCI_ACLDATA_PKT" << std::endl;
+					}
+				}
+				else
+				{
+					usleep(100000); // 1,000,000 = 1 second.
+					if (--RetryCount < 0)
+						bDownloadInProgress = false;
+				}
+
+			}
+			if (handle != 0)
+			{
+				hci_disconnect(device_handle, handle, HCI_OE_USER_ENDED_CONNECTION, 2000);
+				std::cout << "[-------------------] hci_disconnect" << std::endl;
+			}
+			time(&TimeNow);
+			iter->second = TimeNow;
+			hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), 0x01, 0x00, 1000);
+			hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000); // Enable Scanning on the device
+			std::cout << "[" << getTimeISO8601() << "] Scanning Started" << std::endl;
+		}
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -764,6 +923,7 @@ int main(int argc, char **argv)
 																	auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 																	ret.first->second.push(localTemp);
 																	AddressInGoveeSet = true;
+																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
 																}
 																else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																	ConsoleOutLine << iBeacon(info->data + current_offset);
@@ -783,57 +943,6 @@ int main(int argc, char **argv)
 											}
 											if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 												std::cout << ConsoleOutLine.str() << std::endl;
-											if (DownloadData && AddressInGoveeSet)
-											{
-												ConsoleOutLine = std::ostringstream();
-												time_t TimeNow;
-												time(&TimeNow);
-												auto foo = GoveeLastSeen.find(info->bdaddr);
-												if (foo != GoveeLastSeen.end())
-												{
-													//if (difftime(foo->second, TimeNow) > (60 * 60 * 24)) // 24 hours
-													{
-														// Try to connect and download now
-														// Bluetooth HCI Command - LE Set Scan Enable (false)
-														hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device
-														ConsoleOutLine << "Scanning Stopped" << std::endl;
-														// Bluetooth HCI Command - LE Create Connection (BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f))
-														//struct hci_dev_info devinfo;
-														//hci_devinfo(device_id, &devinfo);
-														//uint16_t ptype = htobs(devinfo.pkt_type & ACL_PTYPE_MASK);
-														uint16_t ptype = HCI_COMMAND_PKT;
-														uint16_t handle;
-														int timeout = 2000; // 20 seconds
-														if (hci_create_connection(device_handle, &(info->bdaddr), ptype, 0, 1, &handle, timeout) != -1)
-														{
-															ConsoleOutLine << "hci_create_connection" << std::endl;
-															// Bluetooth HCI Command - LE Read Remote Features
-															uint8_t features[8];
-															if (hci_read_remote_features(device_handle, handle, features, timeout) != -1)
-															{
-																ConsoleOutLine << "Features: " << lmp_featurestostr(features, "\t\t", 50) << std::endl;
-															}
-															// Bluetooth HCI Command - Read Remote Version Information
-															struct hci_version ver;
-															if (hci_read_remote_version(device_handle, handle, &ver, timeout) != -1)
-															{
-																ConsoleOutLine << "Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
-																ConsoleOutLine << "Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
-																ConsoleOutLine << "nManufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
-															}
-
-															hci_disconnect(device_handle, handle, HCI_OE_USER_ENDED_CONNECTION, timeout);
-															ConsoleOutLine << "hci_disconnect" << std::endl;
-														}
-														hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000); // Enable Scanning on the device
-														ConsoleOutLine << "Scanning Started" << std::endl;
-													}
-														
-													foo->second = TimeNow;
-												}
-												GoveeLastSeen.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, TimeNow));
-												std::cout << ConsoleOutLine.str();
-											}
 										}
 										else
 										{
@@ -857,12 +966,22 @@ int main(int argc, char **argv)
 										// EINTR : Interrupted function call (POSIX.1-2001); see signal(7).
 										bRun = false;
 									}
+									if (DownloadData)
+										ConnectAndDownload(device_handle);
 									time_t TimeNow;
 									time(&TimeNow);
 									if (difftime(TimeNow, TimeStart) > LogFileTime)
 									{
 										if (ConsoleVerbosity > 0)
-											std::cout << "[" << getTimeISO8601() << "] " << LogFileTime << " seconds or more have passed" << std::endl;
+										{
+											std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed" << std::endl;
+											for (auto iter = GoveeLastDownload.begin(); iter != GoveeLastDownload.end(); iter++)
+											{
+												char addr[19] = { 0 };
+												ba2str(&iter->first, addr);
+												std::cout << "[-------------------] [" << addr << "] " << timeToISO8601(iter->second) << std::endl;
+											}
+										}
 										TimeStart = TimeNow;
 										GenerateLogFile(GoveeTemperatures);
 									}
