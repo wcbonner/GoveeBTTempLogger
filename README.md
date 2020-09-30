@@ -38,6 +38,7 @@ sudo apt-get install ./GoveeBTTempLogger.deb
  * -v (--verbose) Sets output verbosity.
  * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
+ *  -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
 
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
@@ -45,7 +46,9 @@ The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 devi
 In frames 260, 261, 313, 320, 11126, 11402, and 11403 you can see advertisements from my H5074 device. (e3:5e:cc:21:5c:0f)
 
 Using the Govee Home App, I add a connection to Govee_H5074_5C0F and download it's historical data.
+
 In frames 5718, 5719, 5728, and 11450 you can see advertisements from one of my H5075 devices. (a4:c1:38:37:bc:ae)
+
 Interesting frames start around 543 in response to [UUID: 494e54454c4c495f524f434b535f2013].
 
 Two sequential values are:
@@ -53,11 +56,13 @@ Two sequential values are:
  * 707a0368eb036cd3036cd1036cd3036cd3036cd0
 
 Looking at the data I believe that the first two bytes are an offset into the total data, and then there are six repeating three byte datasets. 
+
 7080 03611c 036501 036500 0368ea 0368ea 0368ec
 
 Using the same math that decodes the BT LE Advertisements gets very reasonable values. (71.86424, 46.8) (72.0437, 46.5) (72.04352, 46.4) (72.22388, 46.6) (72.22388, 46.6) (72.22424, 46.8)
 
 If I zoom all the way to frame 5414, it appears to bt the last response to [UUID: 494e54454c4c495f524f434b535f2013] and has a value of 
+
 0002 030c6b 030c70 ffffffffffffffffffffffff
 
 Using the Govee Home App, I add a connection to GVH5075_BCAE and download it's historical data. 
@@ -66,10 +71,11 @@ The frames received from the thermometer start to look especially interesting ar
  * 7080031322031325031324031325031326031328
  * 707a031327031329031329031329031329031329
 
- 7080 031322 031325 031324 031325 031326 031328 
+7080 031322 031325 031324 031325 031326 031328 
 
- The last frame from [UUID: 494e54454c4c495f524f434b535f2013] (16687) has Value: 000603658f036590036590036590036590036590
- 0006 03658f 036590 036590 036590 036590 036590
+The last frame from [UUID: 494e54454c4c495f524f434b535f2013] (16687) has Value: 000603658f036590036590036590036590036590
 
- Off the top of my head each device is storing 0x7080 time/humidity values. That's 28,800. 20 days * 24 hours * 60 minutes = 28,800 entries.
+0006 03658f 036590 036590 036590 036590 036590
+
+Off the top of my head each device is storing 0x7080 time/humidity values. That's 28,800. 20 days * 24 hours * 60 minutes = 28,800 entries.
 
