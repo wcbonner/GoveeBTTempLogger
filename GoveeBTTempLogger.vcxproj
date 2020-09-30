@@ -103,10 +103,12 @@
     <PreBuildEvent />
     <RemotePostBuildEvent />
     <RemotePreBuildEvent>
-      <Command>set +o history</Command>
+      <Command>
+      </Command>
     </RemotePreBuildEvent>
     <RemotePostBuildEvent>
-      <Command>set -o history</Command>
+      <Command>
+      </Command>
     </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -120,10 +122,12 @@
     <PreBuildEvent />
     <RemotePostBuildEvent />
     <RemotePreBuildEvent>
-      <Command>set +o history</Command>
+      <Command>
+      </Command>
     </RemotePreBuildEvent>
     <RemotePostBuildEvent>
-      <Command>set -o history</Command>
+      <Command>
+      </Command>
     </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">

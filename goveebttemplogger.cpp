@@ -75,7 +75,7 @@
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200924-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200930-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -489,6 +489,30 @@ void ConnectAndDownload(int device_handle)
 				&handle,
 				15000);	// A 15 second timeout gives me a better chance of success
 			std::cout << "[" << getTimeISO8601() << "] hci_le_create_conn [" << addr << "] Return(" << std::dec << iRet << ") handle (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+
+			if ((iRet == 0) && (handle != 0))
+			{
+				// Bluetooth HCI Command - LE Read Remote Features
+				uint8_t features[8];
+				//if (hci_read_remote_features(device_handle, handle, features, timeout) != -1)
+				if (hci_le_read_remote_features(device_handle, handle, features, 15000) != -1)
+				{
+					// TODO: I think the lmp fumction below may leak memory with a malloc
+					std::cout << "[" << getTimeISO8601() << "] Features: " << lmp_featurestostr(features, "", 50) << std::endl;
+				}
+			}
+
+			if ((iRet == 0) && (handle != 0))
+			{
+				// Bluetooth HCI Command - Read Remote Version Information
+				struct hci_version ver;
+				if (hci_read_remote_version(device_handle, handle, &ver, 15000) != -1)
+				{
+					std::cout << "[" << getTimeISO8601() << "] Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
+					std::cout << "[-------------------] Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
+					std::cout << "[-------------------] Manufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
+				}
+			}
 
 			unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
 			// The following while loop attempts to read from the non-blocking socket. 
