@@ -509,7 +509,8 @@ void ConnectAndDownload(int device_handle)
 				if (hci_le_read_remote_features(device_handle, handle, features, 15000) != -1)
 				{
 					// TODO: I think the lmp fumction below may leak memory with a malloc
-					std::cout << "[" << getTimeISO8601() << "] Features: " << lmp_featurestostr(features, "", 50) << std::endl;
+					std::string ssFeatures(lmp_featurestostr(features, "", 50));
+					std::cout << "[" << getTimeISO8601() << "] Features: " << ssFeatures << std::endl;
 				}
 			}
 
@@ -580,7 +581,8 @@ void ConnectAndDownload(int device_handle)
 										if (hci_le_read_remote_features(device_handle, handle, features, 2000) != -1)
 										{
 											// TODO: I think the lmp fumction below may leak memory with a malloc
-											std::cout << "[-------------------] Features: " << lmp_featurestostr(features, "", 50) << std::endl;
+											std::string ssFeatures(lmp_featurestostr(features, "", 50));
+											std::cout << "[-------------------] Features: " << ssFeatures << std::endl;
 										}
 										// Bluetooth HCI Command - Read Remote Version Information
 										struct hci_version ver;
