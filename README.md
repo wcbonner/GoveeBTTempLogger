@@ -1,7 +1,7 @@
 # GoveeBTTempLogger
-Govee H5074 and H5075 Bluetooth Low Energy Temperature and Humidity Logger
+Govee H5074, H5075, and H5177 Bluetooth Low Energy Temperature and Humidity Logger
 
-Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074 and H5075 thermometers. 
+Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5177 thermometers. 
 
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 

@@ -71,11 +71,12 @@
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
+#include <bluetooth/l2cap.h>
 #include <sys/ioctl.h>
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20200930-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20201108-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -187,32 +188,42 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	const size_t data_len = data[0];
 	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
 	{
-		if ((data[2] == 0x88) && (data[3] == 0xEC))
+		if ((data_len == 9) && (data[2] == 0x88) && (data[3] == 0xEC)) // GVH5075_xxxx
 		{
-			if (data_len == 9) // GVH5075_xxxx
-			{
-				// This data came from https://github.com/Thrilleratplay/GoveeWatcher
-				// 88ec00 03519e 6400 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
-				// 1 2 3  4 5 6  7 8
-				int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
-				Temperature = ((float(iTemp) / 10000.0) * 9.0 / 5.0) + 32.0;
-				Humidity = float(iTemp % 1000) / 10.0;
-				Battery = int(data[8]);
-				rval = true;
-			}
-			else if (data_len == 10) // Govee_H5074_xxxx
-			{
-				// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
-				// 88ec00 dd07 9113 64 02
-				// 1 2 3  4 5  6 7  8  9
-				int iTemp = int(data[6]) << 8 | int(data[5]);
-				int iHumidity = int(data[8]) << 8 | int(data[7]);
-				Temperature = ((float(iTemp) / 100.0) * 9.0 / 5.0) + 32.0;
-				Humidity = float(iHumidity) / 100.0;
-				Battery = int(data[9]);
-				rval = true;
-			}
+			// This data came from https://github.com/Thrilleratplay/GoveeWatcher
+			// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
+			// 2 3 4  5 6 7  8
+			int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
+			Temperature = ((float(iTemp) / 10000.0) * 9.0 / 5.0) + 32.0;
+			Humidity = float(iTemp % 1000) / 10.0;
+			Battery = int(data[8]);
 			time(&Time);
+			rval = true;
+		}
+		else if ((data_len == 10) && (data[2] == 0x88) && (data[3] == 0xEC))// Govee_H5074_xxxx
+		{
+			// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
+			// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
+			// 2 3 4  5 6  7 8  9
+			int iTemp = int(data[6]) << 8 | int(data[5]);
+			int iHumidity = int(data[8]) << 8 | int(data[7]);
+			Temperature = ((float(iTemp) / 100.0) * 9.0 / 5.0) + 32.0;
+			Humidity = float(iHumidity) / 100.0;
+			Battery = int(data[9]);
+			time(&Time);
+			rval = true;
+		}
+		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx
+		{
+			// This is a guess based on the H5075 3 byte encoding
+			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
+			// 2 3 4 5  6 7 8  9
+			int iTemp = int(data[6]) << 16 | int(data[7]) << 8 | int(data[8]);
+			Temperature = ((float(iTemp) / 10000.0) * 9.0 / 5.0) + 32.0;
+			Humidity = float(iTemp % 1000) / 10.0;
+			Battery = int(data[9]);
+			time(&Time);
+			rval = true;
 		}
 	}
 	return(rval);
@@ -512,6 +523,27 @@ void ConnectAndDownload(int device_handle)
 					std::cout << "[-------------------] Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
 					std::cout << "[-------------------] Manufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
 				}
+			}
+
+			// allocate a socket
+			int l2cap_socket = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+			if (l2cap_socket > 0)
+			{
+				// set the connection parameters (who to connect to)
+				struct sockaddr_l2 l2cap_address = { 0 };
+				l2cap_address.l2_family = AF_BLUETOOTH;
+				l2cap_address.l2_psm = htobs(0x1001);
+				l2cap_address.l2_bdaddr = iter->first;
+				//str2ba(dest, &l2cap_address.l2_bdaddr);
+
+				// connect to server
+				int status = connect(l2cap_socket, (struct sockaddr*)&l2cap_address, sizeof(l2cap_address));
+
+				// send a message
+				if (status == 0) {
+					status = write(l2cap_socket, "hello!", 6);
+				}
+				close(l2cap_socket);
 			}
 
 			unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
