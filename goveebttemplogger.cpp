@@ -76,7 +76,7 @@
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20201108-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20201112-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -194,7 +194,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
 			// 2 3 4  5 6 7  8
 			int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
-			Temperature = ((float(iTemp) / 10000.0) * 9.0 / 5.0) + 32.0;
+			Temperature = float(iTemp) / 10000.0;
 			Humidity = float(iTemp % 1000) / 10.0;
 			Battery = int(data[8]);
 			time(&Time);
@@ -205,9 +205,9 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
 			// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
 			// 2 3 4  5 6  7 8  9
-			int iTemp = int(data[6]) << 8 | int(data[5]);
+			short iTemp = short(data[6]) << 8 | short(data[5]);
 			int iHumidity = int(data[8]) << 8 | int(data[7]);
-			Temperature = ((float(iTemp) / 100.0) * 9.0 / 5.0) + 32.0;
+			Temperature = float(iTemp) / 100.0;
 			Humidity = float(iHumidity) / 100.0;
 			Battery = int(data[9]);
 			time(&Time);
@@ -219,7 +219,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
 			// 2 3 4 5  6 7 8  9
 			int iTemp = int(data[6]) << 16 | int(data[7]) << 8 | int(data[8]);
-			Temperature = ((float(iTemp) / 10000.0) * 9.0 / 5.0) + 32.0;
+			Temperature = float(iTemp) / 10000.0;
 			Humidity = float(iTemp % 1000) / 10.0;
 			Battery = int(data[9]);
 			time(&Time);
@@ -454,7 +454,7 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 	{
 		std::cout << std::dec; // make sure I'm putting things in decimal format
 		std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
-		std::cout << TheValue.Temperature * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
+		std::cout << ((TheValue.Temperature * 9.0 / 5.0) + 32.0) * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
 		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
 		std::cout << TextAddress << std::endl; // string, name of the target.
 	}
@@ -976,7 +976,7 @@ int main(int argc, char **argv)
 																if (localTemp.ReadMSG((info->data + current_offset)))
 																{
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
-																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u00B0" << "F";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
 																	ConsoleOutLine << " (Humidity) " << localTemp.Humidity << "%";
