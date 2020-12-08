@@ -461,44 +461,47 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 }
 /////////////////////////////////////////////////////////////////////////////
 #include <vector>
-void ReadMRTGData(const std::string & MRTGLogFileName)
+void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues)
 {
 	std::ifstream TheInFile(MRTGLogFileName);
 	if (TheInFile.is_open())
 	{
-		double TempMin = 100;
-		double TempMax = -100;
-		double HumiMin = 100;
-		double HumiMax = -100;
-		std::vector<Govee_Temp> TheValues;
 		std::string Line;
 		int index = 0;
 		while (std::getline(TheInFile, Line))
 		{
 			std::stringstream Source(Line);
 			Govee_Temp TheValue;
-			long long data;
 			Source >> TheValue.Time;
 			Source >> TheValue.Humidity;
 			Source >> TheValue.Temperature;
 			TheValue.Humidity /= 1000.0;
 			TheValue.Temperature /= 1000.0;
 			TheValues.push_back(TheValue);
-			if (index++ < 400)
-			{
-				TempMin = std::min(TempMin, TheValue.Temperature);
-				TempMax = std::max(TempMax, TheValue.Temperature);
-				HumiMin = std::min(HumiMin, TheValue.Humidity);
-				HumiMax = std::max(HumiMax, TheValue.Humidity);
-			}
 		}
-		TheInFile.close();	
+		TheInFile.close();
+	}
+}
+void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName = "svg.html", const std::string& Title = "")
+{
+	if (TheValues.size() > 400)
+	{
+		double TempMin = 100;
+		double TempMax = -100;
+		double HumiMin = 100;
+		double HumiMax = -100;
+		for (auto index = 1; index < 400; index++)
+		{
+			TempMin = std::min(TempMin, TheValues[index].Temperature);
+			TempMax = std::max(TempMax, TheValues[index].Temperature);
+			HumiMin = std::min(HumiMin, TheValues[index].Humidity);
+			HumiMax = std::max(HumiMax, TheValues[index].Humidity);
+		}
 
-		std::ofstream SVGFile("svg.html");
+		std::ofstream SVGFile(SVGFileName);
 		if (SVGFile.is_open())
 		{
-			std::string Title("Main A4:C1:38:37:BC:AE");
-			std::string YLegendLeft("Temperature (&deg;F)");
+			std::string YLegendLeft("Temperature (°F)");
 			std::string YLegendRight("Humidity (%)");
 			int SVGWidth = 500;
 			int SVGHeight = 135;
@@ -513,17 +516,11 @@ void ReadMRTGData(const std::string & MRTGLogFileName)
 			double HumiVerticalFactor = (GraphBottom - GraphTop) / (HumiMax - HumiMin);
 			int TickSize = 2;
 
-			SVGFile << "<!DOCTYPE html>" << std::endl;
-			SVGFile << "<html lang=\"en\" xmlns=\"http://www.w3.org/1999/xhtml\">" << std::endl;
-			SVGFile << "<head>" << std::endl;
-			SVGFile << "\t<meta charset=\"utf-8\" />" << std::endl;
-			SVGFile << "\t<title>Example SVG Graph in MRTG Style</title>" << std::endl;
-			SVGFile << "</head>" << std::endl;
-			SVGFile << "<body>" << std::endl;
-			SVGFile << "\t<svg width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
+			SVGFile << "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" << std::endl;
+			SVGFile << "<svg xmlns = \"http://www.w3.org/2000/svg\" xmlns:xlink = \"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
 
 			// Humidity Graphic as a Filled polygon
-			SVGFile << "\t\t<polygon points=\"";
+			SVGFile << "\t<polygon points=\"";
 			SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 			for (auto index = 1; index < 400; index++)
 				SVGFile << index + GraphLeft << "," << ((HumiMax - TheValues[index].Humidity) * HumiVerticalFactor) + GraphTop << " ";
@@ -531,27 +528,27 @@ void ReadMRTGData(const std::string & MRTGLogFileName)
 			SVGFile << "\" style=\"fill:lime;stroke:lime\" />" << std::endl;
 
 			// Top Line
-			SVGFile << "\t\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\" style=\"stroke:black\" />" << std::endl;
-			SVGFile << "\t\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
-			SVGFile << "\t\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
+			SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\" style=\"stroke:black\" />" << std::endl;
+			SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
 
 			// Bottom Line
-			SVGFile << "\t\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\" style=\"stroke:black\" />" << std::endl;
-			SVGFile << "\t\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
-			SVGFile << "\t\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
+			SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\" style=\"stroke:black\" />" << std::endl;
+			SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
 
 			// Left Line
-			SVGFile << "\t\t<line x1=\"" << GraphLeft << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft << "\" y2=\"" << GraphBottom << "\" style=\"stroke:black\" />" << std::endl;
+			SVGFile << "\t<line x1=\"" << GraphLeft << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft << "\" y2=\"" << GraphBottom << "\" style=\"stroke:black\" />" << std::endl;
 
 			// Right Line
-			SVGFile << "\t\t<line x1=\"" << GraphRight << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight << "\" y2=\"" << GraphBottom << "\" style=\"stroke:black\" />" << std::endl;
+			SVGFile << "\t<line x1=\"" << GraphRight << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight << "\" y2=\"" << GraphBottom << "\" style=\"stroke:black\" />" << std::endl;
 
 			// Vertical Division Dashed Lines
 			for (auto index = 1; index < 4; index++)
 			{
-				SVGFile << "\t\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" style=\"stroke:black\" stroke-dasharray=\"1,1\" />" << std::endl;
-				SVGFile << "\t\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\" font-family=\"Consolas\" font-size=\"12\" \">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
-				SVGFile << "\t\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
+				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" style=\"stroke:black\" stroke-dasharray=\"1,1\" />" << std::endl;
+				SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
+				SVGFile << "\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\" font-family=\"Consolas\" font-size=\"12\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 			}
 
 			// Horizontal Division Dashed Lines
@@ -563,34 +560,32 @@ void ReadMRTGData(const std::string & MRTGLogFileName)
 					if (UTC.tm_min == 0)
 					{
 						if (UTC.tm_hour == 0)
-							SVGFile << "\t\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
+							SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
 						else
-							SVGFile << "\t\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:black\" stroke-dasharray=\"1,1\" />" << std::endl;
+							SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:black\" stroke-dasharray=\"1,1\" />" << std::endl;
 						if (UTC.tm_hour % 2 == 0)
-							SVGFile << "\t\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\" font-family=\"Consolas\" font-size=\"12\">" << UTC.tm_hour << "</text>" << std::endl;
+							SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\" font-family=\"Consolas\" font-size=\"12\">" << UTC.tm_hour << "</text>" << std::endl;
 					}
 				}
 			}
 
 			// Directional Arrow
-			SVGFile << "\t\t<path d=\"M" << GraphLeft-3 << " " << GraphBottom << " L" << GraphLeft+3 << " " << GraphBottom-3 << " L" << GraphLeft+3 << " " << GraphBottom+3 << " Z\" stroke=\"red\" />" << std::endl;
+			SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
 			// Legend Text
-			SVGFile << "\t\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\" font-family=\"Consolas\" font-size=\"12\" \">" << Title << "</text>" << std::endl;
-			SVGFile << "\t\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\" font-family=\"Consolas\" font-size=\"12\" \">" << timeToExcelDate(TheValues.front().Time) << "</text>" << std::endl;
+			SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\" font-family=\"Consolas\" font-size=\"12\">" << Title << "</text>" << std::endl;
+			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\" font-family=\"Consolas\" font-size=\"12\">" << timeToExcelDate(TheValues.front().Time) << "</text>" << std::endl;
 
-			SVGFile << "\t\t<text fill=\"blue\" text-anchor=\"middle\" x=\"12\" y=\"" << (GraphTop+GraphBottom)/2 << "\" font-family=\"Consolas\" font-size=\"12\" transform=\"rotate(270 12, " << (GraphTop + GraphBottom) / 2 << ") \">" << YLegendLeft << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"12\" y=\"" << (GraphTop+GraphBottom)/2 << "\" font-family=\"Consolas\" font-size=\"12\" transform=\"rotate(270 12," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendLeft << "</text>" << std::endl;
 			// I need to subtract 2 from the width to deal with descenders on the text
-			SVGFile << "\t\t<text fill=\"lime\" text-anchor=\"middle\" x=\"" << SVGWidth-2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" font-family=\"Consolas\" font-size=\"12\" transform=\"rotate(270 " << SVGWidth-2 << ", " << (GraphTop + GraphBottom) / 2 << ") \">" << YLegendRight << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"lime\" text-anchor=\"middle\" x=\"" << SVGWidth-2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" font-family=\"Consolas\" font-size=\"12\" transform=\"rotate(270 " << SVGWidth-2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
 
-			SVGFile << "\t\t<polyline points=\"";
+			SVGFile << "\t<polyline points=\"";
 			for (auto index = 1; index < 400; index++)
 				SVGFile << index + GraphLeft << "," << ((TempMax - TheValues[index].Temperature) * TempVerticalFactor) + GraphTop << " ";
 			SVGFile << "\" style=\"fill:none;stroke:blue\" />" << std::endl;
 
-			SVGFile << "\t</svg>" << std::endl;
-			SVGFile << "</body>" << std::endl;
-			SVGFile << "</html>" << std::endl;
+			SVGFile << "</svg>" << std::endl;
 		}
 	}
 }
@@ -842,6 +837,7 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	std::string MRTGAddress;
 	std::string MRTGLogFileName;
+	std::vector<Govee_Temp> MRTGValues;
 	for (;;)
 	{
 		int idx;
@@ -881,7 +877,8 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			MRTGLogFileName = optarg;
-			ReadMRTGData(MRTGLogFileName);
+			ReadMRTGData(MRTGLogFileName, MRTGValues);
+			WriteMRTGSVG(MRTGValues, "svg.svg", "Main A4:C1:38:37:BC:AE");
 			exit(EXIT_SUCCESS);
 			break;
 		default:
