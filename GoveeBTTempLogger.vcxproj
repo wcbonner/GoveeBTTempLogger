@@ -91,6 +91,7 @@
   <ItemGroup>
     <Text Include="BTData\btsnoop-details.txt" />
     <Text Include="BTData\btsnoop_hci.log" />
+    <Text Include="BTData\svg.log" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
