@@ -482,22 +482,24 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 		TheInFile.close();
 	}
 }
-void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "")
+enum class GraphType {daily = 1, weekly = 603, monthly = 1204, yearly = 1805};
+void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily)
 {
-	if (TheValues.size() > 400)
+	// By declaring these items here, I'm then basing all my other dimensions on these
+	const int SVGWidth = 500;
+	const int SVGHeight = 135;
+	const int FontSize = 12;
+	const int TickSize = 2;
+	const int GraphWidth = SVGWidth - (FontSize * 7);
+	int TheOffset = 1;
+	if (graph == GraphType::weekly)
+		TheOffset = 603;
+	else if (graph == GraphType::monthly)
+		TheOffset = 1204;
+	else if (graph == GraphType::yearly)
+		TheOffset = 1805;
+	if (TheValues.size() > GraphWidth)
 	{
-		double TempMin = 100;
-		double TempMax = -100;
-		double HumiMin = 100;
-		double HumiMax = -100;
-		for (auto index = 1; index < 400; index++)
-		{
-			TempMin = std::min(TempMin, TheValues[index].Temperature);
-			TempMax = std::max(TempMax, TheValues[index].Temperature);
-			HumiMin = std::min(HumiMin, TheValues[index].Humidity);
-			HumiMax = std::max(HumiMax, TheValues[index].Humidity);
-		}
-
 		std::ofstream SVGFile(SVGFileName);
 		if (SVGFile.is_open())
 		{
@@ -507,18 +509,26 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			tempOString = std::ostringstream();
 			tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].Humidity << "%)";
 			std::string YLegendRight(tempOString.str());
-			int SVGWidth = 500;
-			int SVGHeight = 135;
-			int GraphTop = 14;
+			int GraphTop = FontSize + TickSize;
 			int GraphBottom = SVGHeight - GraphTop;
-			int GraphRight = SVGWidth - (GraphTop + 30);
-			int GraphLeft = GraphRight - 400;
+			int GraphRight = SVGWidth - (GraphTop * 2);
+			int GraphLeft = GraphRight - GraphWidth;
 			int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
+			double TempMin = 100;
+			double TempMax = -100;
+			double HumiMin = 100;
+			double HumiMax = -100;
+			for (auto index = 0; index < GraphWidth; index++)
+			{
+				TempMin = std::min(TempMin, TheValues[index + TheOffset].Temperature);
+				TempMax = std::max(TempMax, TheValues[index + TheOffset].Temperature);
+				HumiMin = std::min(HumiMin, TheValues[index + TheOffset].Humidity);
+				HumiMax = std::max(HumiMax, TheValues[index + TheOffset].Humidity);
+			}
 			double TempVerticalDivision = (TempMax - TempMin) / 4;
 			double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
 			double HumiVerticalDivision = (HumiMax - HumiMin) / 4;
 			double HumiVerticalFactor = (GraphBottom - GraphTop) / (HumiMax - HumiMin);
-			int TickSize = 2;
 
 			// MRTG Log File has 602 rows of five minute intervals, 602 rows 30 minute intervals, 602 rows of two hour intervals
 
@@ -527,20 +537,26 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			SVGFile << "\t<style>" << std::endl;
 			SVGFile << "\t\ttext {" << std::endl;
 			SVGFile << "\t\t\tfont-family: Consolas;" << std::endl;
-			SVGFile << "\t\t\tfont-size: 12px;" << std::endl;
+			SVGFile << "\t\t\tfont-size: " << FontSize << "px;" << std::endl;
 			SVGFile << "\t\t}" << std::endl;
 			SVGFile << "\t\tline {" << std::endl;
 			SVGFile << "\t\t\tstroke: black;" << std::endl;
 			SVGFile << "\t\t}" << std::endl;
 			SVGFile << "\t</style>" << std::endl;
 
+			// Legend Text
+			SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendLeft << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"lime\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
+			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelDate(TheValues[TheOffset].Time) << "</text>" << std::endl;
+
 			// Humidity Graphic as a Filled polygon
-			SVGFile << "\t<polygon points=\"";
+			SVGFile << "\t<polygon style=\"fill:lime;stroke:lime\" points=\"";
 			SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
-			for (auto index = 1; index < 400; index++)
-				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].Humidity) * HumiVerticalFactor) + GraphTop) << " ";
+			for (auto index = 0; index < GraphWidth; index++)
+				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index + TheOffset].Humidity) * HumiVerticalFactor) + GraphTop) << " ";
 			SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
-			SVGFile << "\" style=\"fill:lime;stroke:lime\" />" << std::endl;
+			SVGFile << "\" />" << std::endl;
 
 			// Top Line
 			SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\"/>" << std::endl;
@@ -567,7 +583,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			}
 
 			// Horizontal Division Dashed Lines
-			for (auto index = 1; index < 400; index++)
+			for (auto index = 1; index < GraphWidth; index++)
 			{
 				struct tm UTC;
 				if (0 != gmtime_r(&TheValues[index].Time, &UTC))
@@ -587,18 +603,10 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			// Directional Arrow
 			SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
-			// Legend Text
-			SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
-			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelDate(TheValues.front().Time) << "</text>" << std::endl;
-
-			SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"12\" y=\"" << (GraphTop+GraphBottom)/2 << "\" transform=\"rotate(270 12," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendLeft << "</text>" << std::endl;
-			// I need to subtract 2 from the width to deal with descenders on the text
-			SVGFile << "\t<text fill=\"lime\" text-anchor=\"middle\" x=\"" << SVGWidth-2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << SVGWidth-2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
-
-			SVGFile << "\t<polyline points=\"";
-			for (auto index = 1; index < 400; index++)
-				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].Temperature) * TempVerticalFactor) + GraphTop) << " ";
-			SVGFile << "\" style=\"fill:none;stroke:blue\" />" << std::endl;
+			SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
+			for (auto index = 1; index < GraphWidth; index++)
+				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index + TheOffset].Temperature) * TempVerticalFactor) + GraphTop) << " ";
+			SVGFile << "\" />" << std::endl;
 
 			SVGFile << "</svg>" << std::endl;
 		}
