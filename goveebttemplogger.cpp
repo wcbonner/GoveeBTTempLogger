@@ -464,16 +464,10 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 enum class GraphType { daily, weekly, monthly, yearly};
 void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
-	//int TheOffset = 1;
-	//if (graph == GraphType::weekly)
-	//	TheOffset = 603;
-	//else if (graph == GraphType::monthly)
-	//	TheOffset = 1204;
-	//else if (graph == GraphType::yearly)
-	//	TheOffset = 1805;
 	std::ifstream TheInFile(MRTGLogFileName);
 	if (TheInFile.is_open())
 	{
+		TheValues.clear();
 		std::string Line;
 		while (std::getline(TheInFile, Line))
 		{
@@ -502,6 +496,40 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 				if (0 != gmtime_r(&iter->Time, &UTC))
 				{
 					if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+						TempValues.push_back(*iter);
+				}
+			}
+			TheValues.resize(TempValues.size());
+			for (auto index = 0; index < TheValues.size(); index++)
+				TheValues[index] = TempValues[index];
+		}
+		else if (graph == GraphType::monthly)
+		{
+			TheValues.erase(TheValues.begin()); // get rid of the first element
+			std::vector<Govee_Temp> TempValues;
+			for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+			{
+				struct tm UTC;
+				if (0 != gmtime_r(&iter->Time, &UTC))
+				{
+					if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
+						TempValues.push_back(*iter);
+				}
+			}
+			TheValues.resize(TempValues.size());
+			for (auto index = 0; index < TheValues.size(); index++)
+				TheValues[index] = TempValues[index];
+		}
+		else if (graph == GraphType::yearly)
+		{
+			TheValues.erase(TheValues.begin()); // get rid of the first element
+			std::vector<Govee_Temp> TempValues;
+			for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+			{
+				struct tm UTC;
+				if (0 != gmtime_r(&iter->Time, &UTC))
+				{
+					if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
 						TempValues.push_back(*iter);
 				}
 			}
@@ -614,9 +642,9 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 						if (UTC.tm_min == 0)
 						{
 							if (UTC.tm_hour == 0)
-								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
+								SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							else
-								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" stroke-dasharray=\"1,1\" />" << std::endl;
+								SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							if (UTC.tm_hour % 2 == 0)
 								SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << UTC.tm_hour << "</text>" << std::endl;
 						}
@@ -627,12 +655,31 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 						if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
 						{
 							if (UTC.tm_wday == 1)
-								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
+								SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							else
-								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" stroke-dasharray=\"1,1\" />" << std::endl;
+								SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 						}
 						else if ((UTC.tm_hour == 12) && (UTC.tm_min == 0))
 							SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Weekday[UTC.tm_wday] << "</text>" << std::endl;
+					}
+					else if (graph == GraphType::monthly)
+					{
+						if ((UTC.tm_mday == 1) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
+							SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+						if ((UTC.tm_wday == 0) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
+							SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+						else if ((UTC.tm_wday == 3) && (UTC.tm_hour == 12) && (UTC.tm_min == 0))
+							SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">Week " << UTC.tm_yday / 7 + 1 << "</text>" << std::endl;
+					}
+					else if (graph == GraphType::yearly)
+					{
+						const std::string Month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+						if ((UTC.tm_yday == 0) && (UTC.tm_mday == 1) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
+							SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+						else if ((UTC.tm_mday == 1) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
+							SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+						else if ((UTC.tm_mday == 15) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
+							SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Month[UTC.tm_mon] << "</text>" << std::endl;
 					}
 				}
 			}
@@ -937,8 +984,14 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			MRTGLogFileName = optarg;
+			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::daily);
+			WriteMRTGSVG(MRTGValues, "day.svg", "Test Daily", GraphType::daily);
 			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::weekly);
-			WriteMRTGSVG(MRTGValues, "svg.svg", "Main A4:C1:38:37:BC:AE", GraphType::weekly);
+			WriteMRTGSVG(MRTGValues, "week.svg", "Test Weekly", GraphType::weekly);
+			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::monthly);
+			WriteMRTGSVG(MRTGValues, "month.svg", "Test Monthly", GraphType::monthly);
+			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::yearly);
+			WriteMRTGSVG(MRTGValues, "year.svg", "Test Yearly", GraphType::yearly);
 			exit(EXIT_SUCCESS);
 			break;
 		default:
