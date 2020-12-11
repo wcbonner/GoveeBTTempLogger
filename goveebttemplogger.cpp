@@ -461,13 +461,20 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 }
 /////////////////////////////////////////////////////////////////////////////
 #include <vector>
-void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues)
+enum class GraphType { daily, weekly, monthly, yearly};
+void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
+	//int TheOffset = 1;
+	//if (graph == GraphType::weekly)
+	//	TheOffset = 603;
+	//else if (graph == GraphType::monthly)
+	//	TheOffset = 1204;
+	//else if (graph == GraphType::yearly)
+	//	TheOffset = 1805;
 	std::ifstream TheInFile(MRTGLogFileName);
 	if (TheInFile.is_open())
 	{
 		std::string Line;
-		int index = 0;
 		while (std::getline(TheInFile, Line))
 		{
 			std::stringstream Source(Line);
@@ -480,9 +487,30 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 			TheValues.push_back(TheValue);
 		}
 		TheInFile.close();
+		if (graph == GraphType::daily)
+		{
+			TheValues.resize(603); // get rid of anything beyond the five minute data
+			TheValues.erase(TheValues.begin()); // get rid of the first element
+		}
+		else if (graph == GraphType::weekly)
+		{
+			TheValues.erase(TheValues.begin()); // get rid of the first element
+			std::vector<Govee_Temp> TempValues;
+			for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+			{
+				struct tm UTC;
+				if (0 != gmtime_r(&iter->Time, &UTC))
+				{
+					if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+						TempValues.push_back(*iter);
+				}
+			}
+			TheValues.resize(TempValues.size());
+			for (auto index = 0; index < TheValues.size(); index++)
+				TheValues[index] = TempValues[index];
+		}
 	}
 }
-enum class GraphType {daily = 1, weekly = 603, monthly = 1204, yearly = 1805};
 void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
@@ -491,13 +519,6 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 	const int FontSize = 12;
 	const int TickSize = 2;
 	const int GraphWidth = SVGWidth - (FontSize * 7);
-	int TheOffset = 1;
-	if (graph == GraphType::weekly)
-		TheOffset = 603;
-	else if (graph == GraphType::monthly)
-		TheOffset = 1204;
-	else if (graph == GraphType::yearly)
-		TheOffset = 1805;
 	if (TheValues.size() > GraphWidth)
 	{
 		std::ofstream SVGFile(SVGFileName);
@@ -520,10 +541,10 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			double HumiMax = -100;
 			for (auto index = 0; index < GraphWidth; index++)
 			{
-				TempMin = std::min(TempMin, TheValues[index + TheOffset].Temperature);
-				TempMax = std::max(TempMax, TheValues[index + TheOffset].Temperature);
-				HumiMin = std::min(HumiMin, TheValues[index + TheOffset].Humidity);
-				HumiMax = std::max(HumiMax, TheValues[index + TheOffset].Humidity);
+				TempMin = std::min(TempMin, TheValues[index].Temperature);
+				TempMax = std::max(TempMax, TheValues[index].Temperature);
+				HumiMin = std::min(HumiMin, TheValues[index].Humidity);
+				HumiMax = std::max(HumiMax, TheValues[index].Humidity);
 			}
 			double TempVerticalDivision = (TempMax - TempMin) / 4;
 			double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
@@ -547,26 +568,26 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			// Legend Text
 			SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
 			SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendLeft << "</text>" << std::endl;
-			SVGFile << "\t<text fill=\"lime\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
-			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelDate(TheValues[TheOffset].Time) << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
+			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelDate(TheValues[0].Time) << "</text>" << std::endl;
 
 			// Humidity Graphic as a Filled polygon
-			SVGFile << "\t<polygon style=\"fill:lime;stroke:lime\" points=\"";
+			SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
 			SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 			for (auto index = 0; index < GraphWidth; index++)
-				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index + TheOffset].Humidity) * HumiVerticalFactor) + GraphTop) << " ";
+				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].Humidity) * HumiVerticalFactor) + GraphTop) << " ";
 			SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
 			SVGFile << "\" />" << std::endl;
 
 			// Top Line
 			SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\"/>" << std::endl;
 			SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
-			SVGFile << "\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
 
 			// Bottom Line
 			SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
 			SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
-			SVGFile << "\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
+			SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
 
 			// Left Line
 			SVGFile << "\t<line x1=\"" << GraphLeft << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
@@ -579,23 +600,39 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			{
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" stroke-dasharray=\"1,1\" />" << std::endl;
 				SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"lime\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
+				SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 			}
 
 			// Horizontal Division Dashed Lines
-			for (auto index = 1; index < GraphWidth; index++)
+			for (auto index = 0; index < GraphWidth; index++)
 			{
 				struct tm UTC;
 				if (0 != gmtime_r(&TheValues[index].Time, &UTC))
 				{
-					if (UTC.tm_min == 0)
+					if (graph == GraphType::daily)
 					{
-						if (UTC.tm_hour == 0)
-							SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
-						else
-							SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" stroke-dasharray=\"1,1\" />" << std::endl;
-						if (UTC.tm_hour % 2 == 0)
-							SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << UTC.tm_hour << "</text>" << std::endl;
+						if (UTC.tm_min == 0)
+						{
+							if (UTC.tm_hour == 0)
+								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
+							else
+								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" stroke-dasharray=\"1,1\" />" << std::endl;
+							if (UTC.tm_hour % 2 == 0)
+								SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << UTC.tm_hour << "</text>" << std::endl;
+						}
+					}
+					else if (graph == GraphType::weekly)
+					{
+						const std::string Weekday[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+						if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
+						{
+							if (UTC.tm_wday == 1)
+								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" style=\"stroke:red\" />" << std::endl;
+							else
+								SVGFile << "\t<line x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" stroke-dasharray=\"1,1\" />" << std::endl;
+						}
+						else if ((UTC.tm_hour == 12) && (UTC.tm_min == 0))
+							SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Weekday[UTC.tm_wday] << "</text>" << std::endl;
 					}
 				}
 			}
@@ -605,7 +642,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 
 			SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
 			for (auto index = 1; index < GraphWidth; index++)
-				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index + TheOffset].Temperature) * TempVerticalFactor) + GraphTop) << " ";
+				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].Temperature) * TempVerticalFactor) + GraphTop) << " ";
 			SVGFile << "\" />" << std::endl;
 
 			SVGFile << "</svg>" << std::endl;
@@ -900,8 +937,8 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			MRTGLogFileName = optarg;
-			ReadMRTGData(MRTGLogFileName, MRTGValues);
-			WriteMRTGSVG(MRTGValues, "svg.svg", "Main A4:C1:38:37:BC:AE");
+			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::weekly);
+			WriteMRTGSVG(MRTGValues, "svg.svg", "Main A4:C1:38:37:BC:AE", GraphType::weekly);
 			exit(EXIT_SUCCESS);
 			break;
 		default:
