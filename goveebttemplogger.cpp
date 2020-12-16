@@ -560,7 +560,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			std::string YLegendRight(tempOString.str());
 			int GraphTop = FontSize + TickSize;
 			int GraphBottom = SVGHeight - GraphTop;
-			int GraphRight = SVGWidth - (GraphTop * 2);
+			int GraphRight = SVGWidth - (GraphTop * 2) - 2;
 			int GraphLeft = GraphRight - GraphWidth;
 			int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 			double TempMin = 100;
@@ -592,6 +592,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			SVGFile << "\t\t\tstroke: black;" << std::endl;
 			SVGFile << "\t\t}" << std::endl;
 			SVGFile << "\t</style>" << std::endl;
+			SVGFile << "\t<rect width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\" stroke=\"grey\" stroke-width=\"2\" fill-opacity=\"0\" />" << std::endl;
 
 			// Legend Text
 			SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
