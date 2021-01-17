@@ -76,7 +76,7 @@
 #include <getopt.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20201208-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210117-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -194,7 +194,11 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
 			// 2 3 4  5 6 7  8
 			int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
+			bool bNegative = iTemp & 0x800000;	// check sign bit
+			iTemp = iTemp & 0x7ffff;			// mask off sign bit
 			Temperature = float(iTemp) / 10000.0;
+			if (bNegative)						// apply sign bit
+				Temperature = -1.0 * Temperature;
 			Humidity = float(iTemp % 1000) / 10.0;
 			Battery = int(data[8]);
 			time(&Time);
@@ -219,8 +223,12 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
 			// 2 3 4 5  6 7 8  9
 			int iTemp = int(data[6]) << 16 | int(data[7]) << 8 | int(data[8]);
+			bool bNegative = iTemp & 0x800000;	// check sign bit
+			iTemp = iTemp & 0x7ffff;			// mask off sign bit
 			Temperature = float(iTemp) / 10000.0;
 			Humidity = float(iTemp % 1000) / 10.0;
+			if (bNegative)						// apply sign bit
+				Temperature = -1.0 * Temperature;
 			Battery = int(data[9]);
 			time(&Time);
 			rval = true;
@@ -306,7 +314,21 @@ void SignalHandlerSIGHUP(int signal)
 	bRun = false;
 	std::cerr << "***************** SIGHUP: Caught HangUp, finishing loop and quitting. *****************" << std::endl;
 }
+/////////////////////////////////////////////////////////////////////////////
 std::string LogDirectory("./");
+std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
+// The following details were taken from https://github.com/oetiker/mrtg
+const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
+const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
+const size_t MONTH_COUNT = 600;			/* 400 samples is 33.33 days */
+const size_t YEAR_COUNT = 2 * 366;		/* 1 sample / day, 366 days, 2 years */
+const size_t DAY_SAMPLE = 5 * 60;		/* Sample every 5 minutes */
+const size_t WEEK_SAMPLE = 30 * 60;		/* Sample every 30 minutes */
+const size_t MONTH_SAMPLE = 2 * 60 * 60;/* Sample every 2 hours */
+const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
+// One 'rounding error' per sample period, so add 4 to total and for good mesure we take 10 :-)
+const size_t MAX_HISTORY = DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT + 10;
+/////////////////////////////////////////////////////////////////////////////
 std::string GenerateLogFileName(const bdaddr_t &a)
 {
 	std::ostringstream OutputFilename;
@@ -461,6 +483,7 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 }
 /////////////////////////////////////////////////////////////////////////////
 #include <vector>
+std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // Memory structure similar to MRTG Log Files
 enum class GraphType { daily, weekly, monthly, yearly};
 void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
@@ -697,6 +720,15 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 		}
 	}
 }
+void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
+{
+	std::vector<Govee_Temp> foo;
+	auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
+	auto FakeMRTGFile = ret.first->second;
+	if (FakeMRTGFile.empty())
+		FakeMRTGFile.resize(MAX_HISTORY);
+	FakeMRTGFile[0] = TheValue;
+}
 /////////////////////////////////////////////////////////////////////////////
 void ConnectAndDownload(int device_handle)
 {
@@ -923,7 +955,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
-	std::cout << "    -s | --svg file Create SVG Temperature Graphics from MRTG Log File" << std::endl;
+	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
 	std::cout << "    -d | --download  periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
@@ -944,8 +976,6 @@ int main(int argc, char **argv)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	std::string MRTGAddress;
-	std::string MRTGLogFileName;
-	std::vector<Govee_Temp> MRTGValues;
 	for (;;)
 	{
 		int idx;
@@ -984,16 +1014,7 @@ int main(int argc, char **argv)
 			DownloadData = true;
 			break;
 		case 's':
-			MRTGLogFileName = optarg;
-			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::daily);
-			WriteMRTGSVG(MRTGValues, "day.svg", "Test Daily", GraphType::daily);
-			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::weekly);
-			WriteMRTGSVG(MRTGValues, "week.svg", "Test Weekly", GraphType::weekly);
-			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::monthly);
-			WriteMRTGSVG(MRTGValues, "month.svg", "Test Monthly", GraphType::monthly);
-			ReadMRTGData(MRTGLogFileName, MRTGValues, GraphType::yearly);
-			WriteMRTGSVG(MRTGValues, "year.svg", "Test Yearly", GraphType::yearly);
-			exit(EXIT_SUCCESS);
+			SVGDirectory = std::string(optarg);
 			break;
 		default:
 			usage(argc, argv);
@@ -1240,6 +1261,7 @@ int main(int argc, char **argv)
 																	ret.first->second.push(localTemp);
 																	AddressInGoveeSet = true;
 																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
+																	UpdateMRTGData(info->bdaddr, localTemp);
 																}
 																else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																	ConsoleOutLine << iBeacon(info->data + current_offset);
