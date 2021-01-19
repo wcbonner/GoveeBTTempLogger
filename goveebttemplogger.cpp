@@ -53,10 +53,12 @@
 #include <cstdio>
 #include <ctime>
 #include <csignal>
+#include <cmath>
 #include <iostream>
 #include <locale>
 #include <queue>
 #include <map>
+#include <vector>
 #include <algorithm>
 #include <locale>
 #include <iomanip>
@@ -74,6 +76,9 @@
 #include <bluetooth/l2cap.h>
 #include <sys/ioctl.h>
 #include <getopt.h>
+#include <sys/types.h>
+#include <dirent.h>
+
 
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210117-1 Built on: " __DATE__ " at " __TIME__);
@@ -482,8 +487,7 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
-#include <vector>
-std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // Memory structure similar to MRTG Log Files
+std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 enum class GraphType { daily, weekly, monthly, yearly};
 void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
@@ -728,6 +732,66 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	if (FakeMRTGFile.empty())
 		FakeMRTGFile.resize(MAX_HISTORY);
 	FakeMRTGFile[0] = TheValue;
+	FakeMRTGFile[1] = TheValue;
+	FakeMRTGFile[2] = TheValue;
+	if (fabs(difftime(FakeMRTGFile[0].Time, FakeMRTGFile[3].Time)) > DAY_SAMPLE)
+	{
+		if (fabs(difftime(FakeMRTGFile[602].Time, FakeMRTGFile[603].Time)) > WEEK_SAMPLE)
+		{
+			if (fabs(difftime(FakeMRTGFile[1203].Time, FakeMRTGFile[1204].Time)) > MONTH_SAMPLE)
+			{
+				if (fabs(difftime(FakeMRTGFile[1804].Time, FakeMRTGFile[1805].Time)) > YEAR_SAMPLE)
+				{
+					// shuffle all the year samples toward the end
+					for (auto index = 2536; index > 1805; index--)
+						FakeMRTGFile[index] = FakeMRTGFile[index - 1];
+					// Create the first sample from previous set samples
+					FakeMRTGFile[1805] = FakeMRTGFile[1804];
+					// the next line is a hack to make the time fall on an even date. It's taking advantage of truncation in integer arithmatic.
+					FakeMRTGFile[1805].Time = (FakeMRTGFile[1805].Time / YEAR_SAMPLE) * YEAR_SAMPLE;
+				}
+				// shuffle all the month samples toward the end
+				for (auto index = 1804; index > 1205; index--)
+					FakeMRTGFile[index] = FakeMRTGFile[index - 1];
+				// Create the first sample from previous set samples
+				FakeMRTGFile[1204] = FakeMRTGFile[1203];
+				// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
+				FakeMRTGFile[1204].Time = (FakeMRTGFile[1204].Time / MONTH_SAMPLE) * MONTH_SAMPLE;
+			}
+			// shuffle all the week samples toward the end
+			for (auto index = 1203; index > 603; index--)
+				FakeMRTGFile[index] = FakeMRTGFile[index - 1];
+			// Create the first sample from previous set samples
+			FakeMRTGFile[603] = FakeMRTGFile[602];
+			// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
+			FakeMRTGFile[603].Time = (FakeMRTGFile[603].Time / WEEK_SAMPLE) * WEEK_SAMPLE;
+		}
+		// shuffle all the day samples toward the end
+		for (auto index = 602; index > 3; index--)
+			FakeMRTGFile[index] = FakeMRTGFile[index - 1];
+		// Create the first sample from previous set samples
+		FakeMRTGFile[3] = FakeMRTGFile[2];
+		// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
+		FakeMRTGFile[3].Time = (FakeMRTGFile[3].Time / DAY_SAMPLE) * DAY_SAMPLE;
+	}
+}
+void ReadLoggedData(void)
+{
+	DIR* dp;
+	if ((dp = opendir(LogDirectory.c_str())) != NULL)
+	{
+		std::deque<std::string> files;
+		struct dirent* dirp;
+		while ((dirp = readdir(dp)) != NULL)
+			if (DT_REG == dirp->d_type)
+			{
+				std::string filename = LogDirectory + "/" + std::string(dirp->d_name);
+				files.push_back(filename);
+			}
+		closedir(dp);
+		if (!files.empty())
+			sort(files.begin(), files.end());
+	}
 }
 /////////////////////////////////////////////////////////////////////////////
 void ConnectAndDownload(int device_handle)
@@ -1015,6 +1079,7 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			SVGDirectory = std::string(optarg);
+			ReadLoggedData();
 			break;
 		default:
 			usage(argc, argv);
@@ -1098,7 +1163,7 @@ int main(int argc, char **argv)
 									std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
 
 								bRun = true;
-								time_t TimeStart;
+								time_t TimeStart, TimeSVG = 0;
 								time(&TimeStart);
 								while (bRun)
 								{
@@ -1308,6 +1373,11 @@ int main(int argc, char **argv)
 										ConnectAndDownload(device_handle);
 									time_t TimeNow;
 									time(&TimeNow);
+									if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
+									{
+										TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
+
+									}
 									if (difftime(TimeNow, TimeStart) > LogFileTime)
 									{
 										if (ConsoleVerbosity > 0)
