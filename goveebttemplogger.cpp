@@ -320,6 +320,7 @@ void SignalHandlerSIGHUP(int signal)
 	std::cerr << "***************** SIGHUP: Caught HangUp, finishing loop and quitting. *****************" << std::endl;
 }
 /////////////////////////////////////////////////////////////////////////////
+int ConsoleVerbosity = 1;
 std::string LogDirectory("./");
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 // The following details were taken from https://github.com/oetiker/mrtg
@@ -575,7 +576,72 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 		}
 	}
 }
-void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily)
+void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
+{
+	auto it = GoveeMRTGLogs.find(TheAddress);
+	if (it != GoveeMRTGLogs.end())
+	{
+		if (it->second.size() > 0)
+		{
+			TheValues.resize(it->second.size());
+			std::copy(it->second.begin(), it->second.end(), TheValues.begin());
+			if (graph == GraphType::daily)
+			{
+				TheValues.erase(TheValues.begin()); // get rid of the first element
+				TheValues.resize(DAY_COUNT); // get rid of anything beyond the five minute data
+			}
+			else if (graph == GraphType::weekly)
+			{
+				TheValues.erase(TheValues.begin()); // get rid of the first element
+				std::vector<Govee_Temp> TempValues;
+				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+				{
+					struct tm UTC;
+					if (0 != gmtime_r(&iter->Time, &UTC))
+					{
+						if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+							TempValues.push_back(*iter);
+					}
+				}
+				TheValues.resize(TempValues.size());
+				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
+			}
+			else if (graph == GraphType::monthly)
+			{
+				TheValues.erase(TheValues.begin()); // get rid of the first element
+				std::vector<Govee_Temp> TempValues;
+				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+				{
+					struct tm UTC;
+					if (0 != gmtime_r(&iter->Time, &UTC))
+					{
+						if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
+							TempValues.push_back(*iter);
+					}
+				}
+				TheValues.resize(TempValues.size());
+				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
+			}
+			else if (graph == GraphType::yearly)
+			{
+				TheValues.erase(TheValues.begin()); // get rid of the first element
+				std::vector<Govee_Temp> TempValues;
+				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+				{
+					struct tm UTC;
+					if (0 != gmtime_r(&iter->Time, &UTC))
+					{
+						if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
+							TempValues.push_back(*iter);
+					}
+				}
+				TheValues.resize(TempValues.size());
+				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
+			}
+		}
+	}
+}
+void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
 	const int SVGWidth = 500;
@@ -589,7 +655,16 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 		if (SVGFile.is_open())
 		{
 			std::ostringstream tempOString;
-			tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].Temperature << "°F)";
+			if (Fahrenheit)
+			{
+				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].Temperature << "°F)";
+				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
+					iter->Temperature = (iter->Temperature * 9.0 / 5.0) + 32.0;
+			}
+			else
+			{
+				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].Temperature << "°C)";
+			}
 			std::string YLegendLeft(tempOString.str());
 			tempOString = std::ostringstream();
 			tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].Humidity << "%)";
@@ -737,7 +812,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 {
 	std::vector<Govee_Temp> foo;
 	auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
-	auto FakeMRTGFile = ret.first->second;
+	std::vector<Govee_Temp> &FakeMRTGFile = ret.first->second;
 	if (FakeMRTGFile.empty())
 		FakeMRTGFile.resize(MAX_HISTORY);
 	FakeMRTGFile[0] = TheValue;
@@ -805,17 +880,13 @@ void ReadLoggedData(void)
 			{
 				std::string filename(files.begin()->c_str());
 				files.pop_front();
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
 				// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
-				bdaddr_t TheBlueToothAddress;
-				// TODO: get the bluetooth address from the filename
 				std::string ssBTAddress(filename.substr(LogDirectory.length() + 8, 12));
 				for (auto index = ssBTAddress.length() - 2; index > 0;index -= 2)
 					ssBTAddress.insert(index, ":");
-				//ssBTAddress.insert(10, ":");
-				//ssBTAddress.insert(8, ":");
-				//ssBTAddress.insert(6, ":");
-				//ssBTAddress.insert(4, ":");
-				//ssBTAddress.insert(2, ":");
+				bdaddr_t TheBlueToothAddress;
 				str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
 				std::ifstream TheFile(filename);
 				if (TheFile.is_open())
@@ -1057,7 +1128,6 @@ void ConnectAndDownload(int device_handle)
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
-int ConsoleVerbosity = 1;
 int LogFileTime = 60;
 int MinutesAverage = 5;
 bool DownloadData = false;
@@ -1436,8 +1506,48 @@ int main(int argc, char **argv)
 									time(&TimeNow);
 									if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
 									{
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed, writing SVG Files" << std::endl;
 										TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-
+										for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+										{
+											const bdaddr_t TheAddress = it->first;
+											char addr[19] = { 0 };
+											ba2str(&TheAddress, addr);
+											std::string btAddress(addr);
+											for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+												btAddress.erase(pos, 1);
+											std::ostringstream OutputFilename;
+											OutputFilename.str("");
+											OutputFilename << SVGDirectory;
+											OutputFilename << "gvh507x-";
+											OutputFilename << btAddress;
+											OutputFilename << "-day.svg";
+											std::vector<Govee_Temp> TheValues;
+											ReadMRTGData(TheAddress, TheValues, GraphType::daily);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), btAddress, GraphType::daily);
+											OutputFilename.str("");
+											OutputFilename << SVGDirectory;
+											OutputFilename << "gvh507x-";
+											OutputFilename << btAddress;
+											OutputFilename << "-week.svg";
+											ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), btAddress, GraphType::weekly);
+											OutputFilename.str("");
+											OutputFilename << SVGDirectory;
+											OutputFilename << "gvh507x-";
+											OutputFilename << btAddress;
+											OutputFilename << "-month.svg";
+											ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), btAddress, GraphType::monthly);
+											OutputFilename.str("");
+											OutputFilename << SVGDirectory;
+											OutputFilename << "gvh507x-";
+											OutputFilename << btAddress;
+											OutputFilename << "-year.svg";
+											ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), btAddress, GraphType::yearly);
+										}
 									}
 									if (difftime(TimeNow, TimeStart) > LogFileTime)
 									{
