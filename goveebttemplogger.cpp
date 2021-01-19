@@ -81,7 +81,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210117-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210119-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -334,6 +334,15 @@ const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
 // One 'rounding error' per sample period, so add 4 to total and for good mesure we take 10 :-)
 const size_t MAX_HISTORY = DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT + 10;
 /////////////////////////////////////////////////////////////////////////////
+bool ValidateDirectory(std::string& DirectoryName)
+{
+	//TODO: I want to make sure the dorectory name ends with a "/"
+	if (DirectoryName.back() != '/')
+		DirectoryName += '/';
+	//TODO: I want to make sure the dorectory exists
+	//TODO: I want to make sure the dorectory is writable by the current user
+	return(true);
+}
 std::string GenerateLogFileName(const bdaddr_t &a)
 {
 	std::ostringstream OutputFilename;
@@ -785,12 +794,56 @@ void ReadLoggedData(void)
 		while ((dirp = readdir(dp)) != NULL)
 			if (DT_REG == dirp->d_type)
 			{
-				std::string filename = LogDirectory + "/" + std::string(dirp->d_name);
+				std::string filename = LogDirectory + std::string(dirp->d_name);
 				files.push_back(filename);
 			}
 		closedir(dp);
 		if (!files.empty())
+		{
 			sort(files.begin(), files.end());
+			while (!files.empty())
+			{
+				std::string filename(files.begin()->c_str());
+				files.pop_front();
+				// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
+				bdaddr_t TheBlueToothAddress;
+				// TODO: get the bluetooth address from the filename
+				std::string ssBTAddress(filename.substr(LogDirectory.length() + 8, 12));
+				for (auto index = ssBTAddress.length() - 2; index > 0;index -= 2)
+					ssBTAddress.insert(index, ":");
+				//ssBTAddress.insert(10, ":");
+				//ssBTAddress.insert(8, ":");
+				//ssBTAddress.insert(6, ":");
+				//ssBTAddress.insert(4, ":");
+				//ssBTAddress.insert(2, ":");
+				str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
+				std::ifstream TheFile(filename);
+				if (TheFile.is_open())
+				{
+					std::string TheLine;
+					while (std::getline(TheFile, TheLine))
+					{
+						char buffer[256];
+						if (TheLine.size() < sizeof(buffer))
+						{
+							TheLine.copy(buffer, TheLine.size());
+							buffer[TheLine.size()] = '\0';
+							std::string theDate(strtok(buffer, "\t"));
+							std::string theTemp(strtok(NULL, "\t"));
+							std::string theHumidity(strtok(NULL, "\t"));
+							std::string theBattery(strtok(NULL, "\t"));
+							Govee_Temp TheValue;
+							TheValue.Time = ISO8601totime(theDate);
+							TheValue.Temperature = atof(theTemp.c_str());
+							TheValue.Humidity = atof(theHumidity.c_str());
+							TheValue.Battery = atol(theBattery.c_str());
+							UpdateMRTGData(TheBlueToothAddress, TheValue);
+						}
+					}
+					TheFile.close();
+				}
+			}
+		}
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1054,7 +1107,9 @@ int main(int argc, char **argv)
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
 		case 'l':
-			LogDirectory = optarg;
+			LogDirectory = std::string(optarg);
+			if (!ValidateDirectory(LogDirectory))
+				LogDirectory = "./";
 			break;
 		case 't':
 			try { LogFileTime = std::stoi(optarg); }
@@ -1079,7 +1134,8 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			SVGDirectory = std::string(optarg);
-			ReadLoggedData();
+			if (!ValidateDirectory(SVGDirectory))
+				SVGDirectory.clear();
 			break;
 		default:
 			usage(argc, argv);
@@ -1099,6 +1155,11 @@ int main(int argc, char **argv)
 	}
 	else
 		std::cerr << ProgramVersionString << " (starting)" << std::endl;
+	///////////////////////////////////////////////////////////////////////////////////////////////
+	if (!SVGDirectory.empty())
+	{
+		ReadLoggedData();
+	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	int device_id = hci_get_route(NULL);
 	if (device_id < 0)
