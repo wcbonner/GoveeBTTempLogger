@@ -81,7 +81,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210119-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210120-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -197,7 +197,7 @@ public:
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
 	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(0), Averages(0) { };
-	Govee_Temp(time_t tim, double tem, double hum, int bat)
+	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
 		Temperature = tem;
@@ -579,8 +579,7 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 				}
 			}
 			TheValues.resize(TempValues.size());
-			for (auto index = 0; index < TheValues.size(); index++)
-				TheValues[index] = TempValues[index];
+			std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
 		}
 		else if (graph == GraphType::monthly)
 		{
@@ -596,8 +595,7 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 				}
 			}
 			TheValues.resize(TempValues.size());
-			for (auto index = 0; index < TheValues.size(); index++)
-				TheValues[index] = TempValues[index];
+			std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
 		}
 		else if (graph == GraphType::yearly)
 		{
@@ -613,8 +611,7 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 				}
 			}
 			TheValues.resize(TempValues.size());
-			for (auto index = 0; index < TheValues.size(); index++)
-				TheValues[index] = TempValues[index];
+			std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
 		}
 	}
 }
