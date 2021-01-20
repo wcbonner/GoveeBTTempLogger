@@ -140,6 +140,8 @@ time_t ISO8601totime(const std::string & ISOTime)
 	long DST_seconds = 0;
 	_get_dstbias(&DST_seconds);
 	timer += DST_hours * DST_seconds;
+#else
+	timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
 #endif
 	return(timer);
 }
