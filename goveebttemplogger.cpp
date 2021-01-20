@@ -733,7 +733,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
 			SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendLeft << "</text>" << std::endl;
 			SVGFile << "\t<text fill=\"green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
-			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelDate(TheValues[0].Time) << "</text>" << std::endl;
+			SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
 
 			// Humidity Graphic as a Filled polygon
 			SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
@@ -771,7 +771,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			for (auto index = 0; index < GraphWidth; index++)
 			{
 				struct tm UTC;
-				if (0 != gmtime_r(&TheValues[index].Time, &UTC))
+				if (0 != localtime_r(&TheValues[index].Time, &UTC))
 				{
 					if (graph == GraphType::daily)
 					{
