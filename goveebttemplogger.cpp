@@ -194,12 +194,26 @@ std::string timeToExcelLocal(const time_t& TheTime)
 class  Govee_Temp {
 public:
 	time_t Time;
+	std::string WriteTXT(const char seperator = '\t') const;
+	bool ReadMSG(const uint8_t * const data);
+	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(0), Averages(0) { };
+	Govee_Temp(time_t tim, double tem, double hum, int bat)
+	{
+		Time = tim;
+		Temperature = tem;
+		Humidity = hum;
+		Battery = bat;
+		Averages = 1;
+	};
+	Govee_Temp operator + (const Govee_Temp&);
+	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
+	double GetHumidity(void) const { return(Humidity); };
+	double GetBattery(void) const { return(Battery); };
+protected:
 	double Temperature;
 	double Humidity;
 	int Battery;
-	std::string WriteTXT(const char seperator = '\t') const;
-	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(0) { };
+	int Averages;
 };
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
@@ -229,6 +243,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 				Temperature = -1.0 * Temperature;
 			Humidity = float(iTemp % 1000) / 10.0;
 			Battery = int(data[8]);
+			Averages = 1;
 			time(&Time);
 			rval = true;
 		}
@@ -242,6 +257,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Temperature = float(iTemp) / 100.0;
 			Humidity = float(iHumidity) / 100.0;
 			Battery = int(data[9]);
+			Averages = 1;
 			time(&Time);
 			rval = true;
 		}
@@ -258,11 +274,22 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			if (bNegative)						// apply sign bit
 				Temperature = -1.0 * Temperature;
 			Battery = int(data[9]);
+			Averages = 1;
 			time(&Time);
 			rval = true;
 		}
 	}
 	return(rval);
+}
+Govee_Temp Govee_Temp::operator+(const Govee_Temp& b)
+{
+	Govee_Temp a;
+	a.Time = Time > b.Time ? Time : b.Time; // Use the maximum time
+	a.Battery = Battery < b.Battery ? Battery : b.Battery; // use the minimum battery
+	a.Averages = Averages + b.Averages;
+	a.Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / a.Averages;
+	a.Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / a.Averages;
+	return(a);
 }
 /////////////////////////////////////////////////////////////////////////////
 std::string iBeacon(const uint8_t * const data)
@@ -473,11 +500,7 @@ bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutV
 				std::string theTemp(strtok(NULL, "\t"));
 				std::string theHumidity(strtok(NULL, "\t"));
 				std::string theBattery(strtok(NULL, "\t"));
-				Govee_Temp TheValue;
-				TheValue.Time = ISO8601totime(theDate);
-				TheValue.Temperature = atof(theTemp.c_str());
-				TheValue.Humidity = atof(theHumidity.c_str());
-				TheValue.Battery = atol(theBattery.c_str());
+				Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
 				if ((Minutes == 0) && LogValues.empty()) // HACK: Special Case to always accept the last logged value
 					LogValues.push(TheValue);
 				if ((Minutes * 60.0) < difftime(now, TheValue.Time))	// If this entry is more than Minutes parameter from current time, it's time to stop reading log file.
@@ -486,21 +509,12 @@ bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutV
 			}
 		} while (TheFile.tellg() > 0);	// If we are at the beginning of the file, there's nothing more to do
 		TheFile.close();
-		double NumElements = double(LogValues.size());
-		if (NumElements > 0)
+		while (!LogValues.empty())
 		{
-			while (!LogValues.empty())
-			{
-				OutValue.Time = OutValue.Time > LogValues.front().Time ? OutValue.Time : LogValues.front().Time;
-				OutValue.Temperature += LogValues.front().Temperature;
-				OutValue.Humidity += LogValues.front().Humidity;
-				OutValue.Battery += LogValues.front().Battery;
-				LogValues.pop();
-			}
-			OutValue.Temperature /= NumElements;
-			OutValue.Humidity /= NumElements;
-			OutValue.Battery /= int(NumElements);
-			rval = true;
+			OutValue.Time = OutValue.Time > LogValues.front().Time ? OutValue.Time : LogValues.front().Time;
+			OutValue = OutValue + LogValues.front();
+			LogValues.pop();
+			rval = true;	// I'm doing this multiple times, but it was easier than having an extra check
 		}
 	}
 	return(rval);
@@ -513,8 +527,8 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 	if (GetLogEntry(TheAddress, Minutes, TheValue))
 	{
 		std::cout << std::dec; // make sure I'm putting things in decimal format
-		std::cout << TheValue.Humidity * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
-		std::cout << ((TheValue.Temperature * 9.0 / 5.0) + 32.0) * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
+		std::cout << TheValue.GetHumidity() * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
+		std::cout << ((TheValue.GetTemperature() * 9.0 / 5.0) + 32.0) * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
 		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
 		std::cout << TextAddress << std::endl; // string, name of the target.
 	}
@@ -533,12 +547,16 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 		while (std::getline(TheInFile, Line))
 		{
 			std::stringstream Source(Line);
-			Govee_Temp TheValue;
-			Source >> TheValue.Time;
-			Source >> TheValue.Humidity;
-			Source >> TheValue.Temperature;
-			TheValue.Humidity /= 1000.0;
-			TheValue.Temperature /= 1000.0;
+			time_t tim;
+			double tem;
+			double hum;
+			int bat;
+			Source >> tim;
+			Source >> hum;
+			Source >> tem;
+			hum /= 1000.0;
+			tem /= 1000.0;
+			Govee_Temp TheValue(tim, tem, hum, bat);
 			TheValues.push_back(TheValue);
 		}
 		TheInFile.close();
@@ -683,17 +701,15 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			std::ostringstream tempOString;
 			if (Fahrenheit)
 			{
-				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-					iter->Temperature = (iter->Temperature * 9.0 / 5.0) + 32.0;
-				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].Temperature << "°F)";
+				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << "°F)";
 			}
 			else
 			{
-				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].Temperature << "°C)";
+				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << "°C)";
 			}
 			std::string YLegendLeft(tempOString.str());
 			tempOString = std::ostringstream();
-			tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].Humidity << "%)";
+			tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].GetHumidity() << "%)";
 			std::string YLegendRight(tempOString.str());
 			int GraphTop = FontSize + TickSize;
 			int GraphBottom = SVGHeight - GraphTop;
@@ -706,10 +722,10 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			double HumiMax = -100;
 			for (auto index = 0; index < GraphWidth; index++)
 			{
-				TempMin = std::min(TempMin, TheValues[index].Temperature);
-				TempMax = std::max(TempMax, TheValues[index].Temperature);
-				HumiMin = std::min(HumiMin, TheValues[index].Humidity);
-				HumiMax = std::max(HumiMax, TheValues[index].Humidity);
+				TempMin = std::min(TempMin, TheValues[index].GetTemperature(Fahrenheit));
+				TempMax = std::max(TempMax, TheValues[index].GetTemperature(Fahrenheit));
+				HumiMin = std::min(HumiMin, TheValues[index].GetHumidity());
+				HumiMax = std::max(HumiMax, TheValues[index].GetHumidity());
 			}
 			double TempVerticalDivision = (TempMax - TempMin) / 4;
 			double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
@@ -741,7 +757,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
 			SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 			for (auto index = 0; index < GraphWidth; index++)
-				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].Humidity) * HumiVerticalFactor) + GraphTop) << " ";
+				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidity()) * HumiVerticalFactor) + GraphTop) << " ";
 			SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
 			SVGFile << "\" />" << std::endl;
 
@@ -827,7 +843,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 
 			SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
 			for (auto index = 1; index < GraphWidth; index++)
-				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].Temperature) * TempVerticalFactor) + GraphTop) << " ";
+				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 			SVGFile << "\" />" << std::endl;
 
 			SVGFile << "</svg>" << std::endl;
@@ -929,11 +945,7 @@ void ReadLoggedData(void)
 							std::string theTemp(strtok(NULL, "\t"));
 							std::string theHumidity(strtok(NULL, "\t"));
 							std::string theBattery(strtok(NULL, "\t"));
-							Govee_Temp TheValue;
-							TheValue.Time = ISO8601totime(theDate);
-							TheValue.Temperature = atof(theTemp.c_str());
-							TheValue.Humidity = atof(theHumidity.c_str());
-							TheValue.Battery = atol(theBattery.c_str());
+							Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
 							UpdateMRTGData(TheBlueToothAddress, TheValue);
 						}
 					}
@@ -1498,11 +1510,11 @@ int main(int argc, char **argv)
 																if (localTemp.ReadMSG((info->data + current_offset)))
 																{
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
-																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																	ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
 																	//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
-																	ConsoleOutLine << " (Humidity) " << localTemp.Humidity << "%";
-																	ConsoleOutLine << " (Battery) " << localTemp.Battery << "%";
+																	ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
+																	ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
 																	std::queue<Govee_Temp> foo;
 																	auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 																	ret.first->second.push(localTemp);
