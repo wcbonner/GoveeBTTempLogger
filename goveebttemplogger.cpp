@@ -54,6 +54,7 @@
 #include <ctime>
 #include <csignal>
 #include <cmath>
+#include <climits>
 #include <iostream>
 #include <locale>
 #include <queue>
@@ -81,7 +82,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 1.20210120-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210121-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -196,7 +197,7 @@ public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(0), Averages(0) { };
+	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(INT_MAX), Averages(0) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
@@ -286,9 +287,11 @@ Govee_Temp Govee_Temp::operator+(const Govee_Temp& b)
 	Govee_Temp a;
 	a.Time = Time > b.Time ? Time : b.Time; // Use the maximum time
 	a.Battery = Battery < b.Battery ? Battery : b.Battery; // use the minimum battery
-	a.Averages = Averages + b.Averages;
+	a.Averages = Averages + b.Averages; // existing average + new average
 	a.Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / a.Averages;
 	a.Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / a.Averages;
+	
+	a = b; // Hack to test
 	return(a);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -854,48 +857,55 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	std::vector<Govee_Temp> &FakeMRTGFile = ret.first->second;
 	if (FakeMRTGFile.empty())
 		FakeMRTGFile.resize(MAX_HISTORY);
-	FakeMRTGFile[0] = TheValue;
-	FakeMRTGFile[1] = TheValue;
-	FakeMRTGFile[2] = TheValue;
-	if (fabs(difftime(FakeMRTGFile[0].Time, FakeMRTGFile[3].Time)) > DAY_SAMPLE)
+	FakeMRTGFile[0] = TheValue;	// current value
+	FakeMRTGFile[1] = FakeMRTGFile[1] + TheValue; // averaged value up to DAY_SAMPLE size
+	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
+	while (difftime(FakeMRTGFile[1].Time, FakeMRTGFile[2].Time) > DAY_SAMPLE)
 	{
-		if (fabs(difftime(FakeMRTGFile[602].Time, FakeMRTGFile[603].Time)) > WEEK_SAMPLE)
-		{
-			if (fabs(difftime(FakeMRTGFile[1203].Time, FakeMRTGFile[1204].Time)) > MONTH_SAMPLE)
-			{
-				if (fabs(difftime(FakeMRTGFile[1804].Time, FakeMRTGFile[1805].Time)) > YEAR_SAMPLE)
-				{
-					// shuffle all the year samples toward the end
-					for (auto index = 2536; index > 1805; index--)
-						FakeMRTGFile[index] = FakeMRTGFile[index - 1];
-					// Create the first sample from previous set samples
-					FakeMRTGFile[1805] = FakeMRTGFile[1804];
-					// the next line is a hack to make the time fall on an even date. It's taking advantage of truncation in integer arithmatic.
-					FakeMRTGFile[1805].Time = (FakeMRTGFile[1805].Time / YEAR_SAMPLE) * YEAR_SAMPLE;
-				}
-				// shuffle all the month samples toward the end
-				for (auto index = 1804; index > 1205; index--)
-					FakeMRTGFile[index] = FakeMRTGFile[index - 1];
-				// Create the first sample from previous set samples
-				FakeMRTGFile[1204] = FakeMRTGFile[1203];
-				// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
-				FakeMRTGFile[1204].Time = (FakeMRTGFile[1204].Time / MONTH_SAMPLE) * MONTH_SAMPLE;
-			}
-			// shuffle all the week samples toward the end
-			for (auto index = 1203; index > 603; index--)
-				FakeMRTGFile[index] = FakeMRTGFile[index - 1];
-			// Create the first sample from previous set samples
-			FakeMRTGFile[603] = FakeMRTGFile[602];
-			// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
-			FakeMRTGFile[603].Time = (FakeMRTGFile[603].Time / WEEK_SAMPLE) * WEEK_SAMPLE;
-		}
 		// shuffle all the day samples toward the end
-		for (auto index = 602; index > 3; index--)
-			FakeMRTGFile[index] = FakeMRTGFile[index - 1];
-		// Create the first sample from previous set samples
-		FakeMRTGFile[3] = FakeMRTGFile[2];
+		std::copy_backward(
+			FakeMRTGFile.begin() + 1,
+			FakeMRTGFile.begin() + DAY_COUNT + 1,
+			FakeMRTGFile.begin() + DAY_COUNT + 2);
 		// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
-		FakeMRTGFile[3].Time = (FakeMRTGFile[3].Time / DAY_SAMPLE) * DAY_SAMPLE;
+		FakeMRTGFile[2].Time = (FakeMRTGFile[2].Time / DAY_SAMPLE) * DAY_SAMPLE;
+		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
+		while (difftime(FakeMRTGFile[1 + DAY_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT].Time) > WEEK_SAMPLE)
+		{
+			// shuffle all the week samples toward the end
+			std::copy_backward(
+				FakeMRTGFile.begin() + DAY_COUNT + 1,
+				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
+				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 2);
+			// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
+			FakeMRTGFile[2 + DAY_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT].Time / WEEK_SAMPLE) * WEEK_SAMPLE;
+			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
+			while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
+			{
+				if (ConsoleVerbosity > 1)
+					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
+				// shuffle all the month samples toward the end
+				std::copy_backward(
+					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
+					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
+					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
+				// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
+				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time / MONTH_SAMPLE) * MONTH_SAMPLE;
+				// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] that's greater than YEAR_SAMPLE we shift that data towards the back.
+				while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
+				{
+					if (ConsoleVerbosity > 1)
+						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
+					// shuffle all the year samples toward the end
+					std::copy_backward(
+						FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
+						FakeMRTGFile.end() - 1,
+						FakeMRTGFile.end());
+					// the next line is a hack to make the time fall on an even date. It's taking advantage of truncation in integer arithmatic.
+					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time / YEAR_SAMPLE) * YEAR_SAMPLE;
+				}
+			}
+		}
 	}
 }
 void ReadLoggedData(void)
