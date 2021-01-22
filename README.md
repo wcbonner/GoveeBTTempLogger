@@ -9,10 +9,21 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file for each of the devices it receives broadcasted data from using a simple tab seperated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date, Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+## Major update to version 2.
+Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
+
+Here is an example filename: gvh-E35ECC215C0F-day.svg
+
+The most recent temperature and humidity are displayed in the vertical scale on the left. The temperature scale is displayed on the left side of the graph, the humidity scale on the right. The most recent time data is displayed in the top right, with a title on the top left of the graph.
+
+A simple text file mapping bluetooth addresses to title will be read from the filename gvh-titlemap.txt in the svg output directory.  If no title mapping exists, the bluetooth address is used for the graph title.
+
+If the --svg option is not added to the command line, the program shoudl continue to operate exactly the same as it did before.
+
 ## Verbosity has been significantly changed since the intial release.
 
  * -v 0 no output to stdout. Errors still sent to stderr.
- * -v 1 prints all advertisments that have been decoded from Govee H5075 and H5074 thermometers to stdout.
+ * -v 1 prints all advertisments that have been decoded from Govee H5075, H5074, and H5177 thermometers to stdout.
  * -v 2 prints all advertisments recieved and categorized
  * -v levels higher than 2 print way too much debugging information, but can be interesting to look at.
 
@@ -38,7 +49,8 @@ sudo apt-get install ./GoveeBTTempLogger.deb
  * -v (--verbose) Sets output verbosity.
  * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
- *  -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
+ * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
+ * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
 
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
