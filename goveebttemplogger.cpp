@@ -27,7 +27,7 @@
 // GoveeBTTempLogger is designed as a project to run on a Raspberry Pi with 
 // Bluetooth Low Energy support. It listens for advertisments from Govee 
 // https://www.govee.com/product/thermometers-hygrometers/indoor-thermometers-hygrometers
-// Currently the H5075 and 5074 are decoded and logged.
+// Currently the H5074, GVH5075, and GVH5177 are decoded and logged.
 // Each unit has its data logged to it's own file, with a new file created daily.
 /////////////////////////////////////////////////////////////////////////////
 
@@ -82,7 +82,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210121-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210122-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -291,7 +291,7 @@ Govee_Temp Govee_Temp::operator+(const Govee_Temp& b)
 	a.Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / a.Averages;
 	a.Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / a.Averages;
 	
-	a = b; // Hack to test
+	a = b; // HACK: my averaging code isn't working, so I'm simply replacing for now.
 	return(a);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -553,13 +553,12 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 			time_t tim;
 			double tem;
 			double hum;
-			int bat;
 			Source >> tim;
 			Source >> hum;
 			Source >> tem;
 			hum /= 1000.0;
 			tem /= 1000.0;
-			Govee_Temp TheValue(tim, tem, hum, bat);
+			Govee_Temp TheValue(tim, tem, hum, 0);
 			TheValues.push_back(TheValue);
 		}
 		TheInFile.close();
@@ -639,7 +638,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
 				{
 					struct tm UTC;
-					if (0 != gmtime_r(&iter->Time, &UTC))
+					if (0 != localtime_r(&iter->Time, &UTC))
 					{
 						if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
 							TempValues.push_back(*iter);
@@ -655,7 +654,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
 				{
 					struct tm UTC;
-					if (0 != gmtime_r(&iter->Time, &UTC))
+					if (0 != localtime_r(&iter->Time, &UTC))
 					{
 						if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
 							TempValues.push_back(*iter);
@@ -671,7 +670,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
 				{
 					struct tm UTC;
-					if (0 != gmtime_r(&iter->Time, &UTC))
+					if (0 != localtime_r(&iter->Time, &UTC))
 					{
 						if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
 							TempValues.push_back(*iter);
@@ -691,7 +690,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 	const int FontSize = 12;
 	const int TickSize = 2;
 	const int GraphWidth = SVGWidth - (FontSize * 7);
-	if (TheValues.size() > GraphWidth)
+	if (!TheValues.empty())
 	{
 		std::ofstream SVGFile(SVGFileName);
 		if (SVGFile.is_open())
@@ -720,7 +719,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			double TempMax = -100;
 			double HumiMin = 100;
 			double HumiMax = -100;
-			for (auto index = 0; index < GraphWidth; index++)
+			for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 			{
 				TempMin = std::min(TempMin, TheValues[index].GetTemperature(Fahrenheit));
 				TempMax = std::max(TempMax, TheValues[index].GetTemperature(Fahrenheit));
@@ -756,9 +755,12 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			// Humidity Graphic as a Filled polygon
 			SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
 			SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
-			for (auto index = 0; index < GraphWidth; index++)
+			for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 				SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidity()) * HumiVerticalFactor) + GraphTop) << " ";
-			SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
+			if (GraphWidth < TheValues.size())
+				SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
+			else
+				SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
 			SVGFile << "\" />" << std::endl;
 
 			// Top Line
@@ -786,7 +788,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			}
 
 			// Horizontal Division Dashed Lines
-			for (auto index = 0; index < GraphWidth; index++)
+			for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 			{
 				struct tm UTC;
 				if (0 != localtime_r(&TheValues[index].Time, &UTC))
@@ -842,7 +844,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
 			SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
-			for (auto index = 1; index < GraphWidth; index++)
+			for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 				SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 			SVGFile << "\" />" << std::endl;
 
@@ -901,8 +903,18 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 						FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
 						FakeMRTGFile.end() - 1,
 						FakeMRTGFile.end());
-					// the next line is a hack to make the time fall on an even date. It's taking advantage of truncation in integer arithmatic.
-					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time / YEAR_SAMPLE) * YEAR_SAMPLE;
+					if (ConsoleVerbosity > 1)
+						std::cout << "[" << getTimeISO8601() << "] Timestamp normalized from " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " to ";
+					struct tm UTC;
+					if (0 != localtime_r(&(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time), &UTC))
+						{
+						UTC.tm_hour = 0;
+						UTC.tm_min = 0;
+						UTC.tm_sec = 0;
+						FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = mktime(&UTC);
+					}
+					if (ConsoleVerbosity > 1)
+						std::cout << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
 				}
 			}
 		}
