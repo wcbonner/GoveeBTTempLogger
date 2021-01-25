@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210124-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210124-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -706,6 +706,8 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 			{
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGFileName << " With Title: " << Title << std::endl;
+				else
+					std::cerr << "Writing: " << SVGFileName << " With Title: " << Title << std::endl;
 				std::ostringstream tempOString;
 				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << (Fahrenheit ? "°F)" : "°C)");
 				std::string YLegendLeft(tempOString.str());
@@ -952,6 +954,8 @@ void ReadLoggedData(void)
 				files.pop_front();
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
+				else
+					std::cerr << "Reading: " << filename << std::endl;
 				// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
 				std::string ssBTAddress(filename.substr(LogDirectory.length() + 8, 12));
 				for (auto index = ssBTAddress.length() - 2; index > 0;index -= 2)
