@@ -110,6 +110,7 @@
       <Command>
       </Command>
     </RemotePostBuildEvent>
+    <ClCompile />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
