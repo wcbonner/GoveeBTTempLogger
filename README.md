@@ -14,6 +14,8 @@ Added the SVG output function, directly creating SVG graphs from internal data i
 
 Here is an example filename: gvh-E35ECC215C0F-day.svg
 
+![Image](./gvh-E35ECC215C0F-day.svg)
+
 The most recent temperature and humidity are displayed in the vertical scale on the left. The temperature scale is displayed on the left side of the graph, the humidity scale on the right. The most recent time data is displayed in the top right, with a title on the top left of the graph.
 
 A simple text file mapping bluetooth addresses to title will be read from the filename gvh-titlemap.txt in the svg output directory.  If no title mapping exists, the bluetooth address is used for the graph title.
