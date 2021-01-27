@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210124-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210126-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -289,10 +289,12 @@ Govee_Temp Govee_Temp::operator+(const Govee_Temp& b)
 	a.Time = Time > b.Time ? Time : b.Time; // Use the maximum time
 	a.Battery = Battery < b.Battery ? Battery : b.Battery; // use the minimum battery
 	a.Averages = Averages + b.Averages; // existing average + new average
+	Averages = 1;
+	a.Averages = 2;
 	a.Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / a.Averages;
 	a.Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / a.Averages;
 	
-	a = b; // HACK: my averaging code isn't working, so I'm simply replacing for now.
+	// a = b; // HACK: my averaging code isn't working, so I'm simply replacing for now.
 	return(a);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -739,6 +741,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 
 				SVGFile << "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" << std::endl;
 				SVGFile << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
+				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
 				SVGFile << "\t\ttext {" << std::endl;
 				SVGFile << "\t\t\tfont-family: Consolas;" << std::endl;
@@ -851,7 +854,6 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 					SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 				SVGFile << "\" />" << std::endl;
-
 				SVGFile << "</svg>" << std::endl;
 				SVGFile.close();
 				struct utimbuf SVGut;
@@ -874,45 +876,48 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
 	while (difftime(FakeMRTGFile[1].Time, FakeMRTGFile[2].Time) > DAY_SAMPLE)
 	{
-		// shuffle all the day samples toward the end
-		std::copy_backward(
-			FakeMRTGFile.begin() + 1,
-			FakeMRTGFile.begin() + DAY_COUNT + 1,
-			FakeMRTGFile.begin() + DAY_COUNT + 2);
 		// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
 		FakeMRTGFile[2].Time = (FakeMRTGFile[2].Time / DAY_SAMPLE) * DAY_SAMPLE;
 		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
 		while (difftime(FakeMRTGFile[1 + DAY_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT].Time) > WEEK_SAMPLE)
 		{
-			// shuffle all the week samples toward the end
-			std::copy_backward(
-				FakeMRTGFile.begin() + DAY_COUNT + 1,
-				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
-				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 2);
+			auto LastDaySample = FakeMRTGFile.begin() + 1 + DAY_COUNT;
 			// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
 			FakeMRTGFile[2 + DAY_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT].Time / WEEK_SAMPLE) * WEEK_SAMPLE;
 			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
 			while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
 			{
+				// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
+				//auto LastWeekSample = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+				//auto iter = LastWeekSample - 1;
+				//while (difftime((iter->Time / MONTH_SAMPLE) * MONTH_SAMPLE, LastWeekSample->Time) < MONTH_SAMPLE)
+				//{
+				//	*LastWeekSample = *LastWeekSample + *iter;
+				//	iter--;
+				//}
+				// Average routine ends here
 				if (ConsoleVerbosity > 1)
 					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
-				// shuffle all the month samples toward the end
-				std::copy_backward(
-					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
-					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
-					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
 				// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
 				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time / MONTH_SAMPLE) * MONTH_SAMPLE;
 				// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] that's greater than YEAR_SAMPLE we shift that data towards the back.
 				while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
 				{
-					if (ConsoleVerbosity > 1)
+					// Average Last Days worth of values into the last value, since that is the value that will be moved into the first year value.
+					//auto LastMonthSample = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+					//auto iter = LastMonthSample - 1;
+					//struct tm lastDate, iterDate;
+					//localtime_r(&(LastMonthSample->Time), &lastDate);
+					//localtime_r(&(iter->Time), &iterDate);
+					//while (iterDate.tm_mday == lastDate.tm_mday)
+					//{
+					//	*LastMonthSample = *LastMonthSample + *iter;
+					//	iter--;
+					//	localtime_r(&(iter->Time), &iterDate);
+					//}
+					// Average routine ends here
+					if (ConsoleVerbosity > 0)
 						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
-					// shuffle all the year samples toward the end
-					std::copy_backward(
-						FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
-						FakeMRTGFile.end() - 1,
-						FakeMRTGFile.end());
 					if (ConsoleVerbosity > 1)
 						std::cout << "[" << getTimeISO8601() << "] Timestamp normalized from " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " to ";
 					struct tm UTC;
@@ -925,9 +930,29 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 					}
 					if (ConsoleVerbosity > 1)
 						std::cout << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
+					// shuffle all the year samples toward the end
+					std::copy_backward(
+						FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
+						FakeMRTGFile.end() - 1,
+						FakeMRTGFile.end());
 				}
+				// shuffle all the month samples toward the end
+				std::copy_backward(
+					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
+					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
+					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
 			}
+			// shuffle all the week samples toward the end
+			std::copy_backward(
+				FakeMRTGFile.begin() + DAY_COUNT + 1,
+				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
+				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 2);
 		}
+		// shuffle all the day samples toward the end
+		std::copy_backward(
+			FakeMRTGFile.begin() + 1,
+			FakeMRTGFile.begin() + DAY_COUNT + 1,
+			FakeMRTGFile.begin() + DAY_COUNT + 2);
 	}
 }
 void ReadLoggedData(void)

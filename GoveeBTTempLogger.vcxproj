@@ -83,6 +83,8 @@
     <None Include="GoveeBTTempLogger\DEBIAN\postrm" />
     <None Include="GoveeBTTempLogger\DEBIAN\prerm" />
     <None Include="GoveeBTTempLogger\usr\local\lib\systemd\system\goveebttemplogger.service" />
+    <None Include="gvh-E35ECC215C0F-day.svg" />
+    <None Include="index.html" />
     <None Include="LICENSE" />
     <None Include="makefile" />
     <None Include="mrtg.conf" />
@@ -91,6 +93,7 @@
   <ItemGroup>
     <Text Include="BTData\btsnoop-details.txt" />
     <Text Include="BTData\btsnoop_hci.log" />
+    <Text Include="gvh-titlemap.txt" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
