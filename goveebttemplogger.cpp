@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210126-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210127-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -207,10 +207,11 @@ public:
 		Battery = bat;
 		Averages = 1;
 	};
-	Govee_Temp operator + (const Govee_Temp&);
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
 	double GetHumidity(void) const { return(Humidity); };
 	double GetBattery(void) const { return(Battery); };
+	friend Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b);
+	friend Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last);
 protected:
 	double Temperature;
 	double Humidity;
@@ -283,19 +284,34 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	}
 	return(rval);
 }
-Govee_Temp Govee_Temp::operator+(const Govee_Temp& b)
+Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 {
-	Govee_Temp a;
-	a.Time = Time > b.Time ? Time : b.Time; // Use the maximum time
-	a.Battery = Battery < b.Battery ? Battery : b.Battery; // use the minimum battery
-	a.Averages = Averages + b.Averages; // existing average + new average
-	Averages = 1;
-	a.Averages = 2;
-	a.Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / a.Averages;
-	a.Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / a.Averages;
-	
-	// a = b; // HACK: my averaging code isn't working, so I'm simply replacing for now.
-	return(a);
+	Govee_Temp rval;
+	rval.Time = a.Time < b.Time ? a.Time : b.Time; // Use the minimum time (oldest time)
+	rval.Battery = a.Battery < b.Battery ? a.Battery : b.Battery; // use the minimum battery
+	rval.Averages = a.Averages + b.Averages; // existing average + new average
+	rval.Temperature = ((a.Temperature * a.Averages) + (b.Temperature * b.Averages)) / rval.Averages;
+	rval.Humidity = ((a.Humidity * a.Averages) + (b.Humidity * b.Averages)) / rval.Averages;
+	rval = b; // HACK: Averaging still needs work, just use last value passed
+	return(rval);
+}
+Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last)
+{
+	Govee_Temp rval(*last);
+	while (first < last)
+	{
+		last--;
+		rval.Time = rval.Time > last->Time ? rval.Time : last->Time;
+		rval.Temperature += last->Temperature;
+		rval.Humidity += last->Humidity;
+		rval.Battery += last->Battery;
+		rval.Averages++;
+	}
+	double NumElements = double(rval.Averages);
+	rval.Temperature /= NumElements;
+	rval.Humidity /= NumElements;
+	rval.Battery /= int(NumElements);
+	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
 std::string iBeacon(const uint8_t * const data)
@@ -518,7 +534,7 @@ bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutV
 		while (!LogValues.empty())
 		{
 			OutValue.Time = OutValue.Time > LogValues.front().Time ? OutValue.Time : LogValues.front().Time;
-			OutValue = OutValue + LogValues.front();
+			OutValue = Average(LogValues.front(), OutValue);
 			LogValues.pop();
 			rval = true;	// I'm doing this multiple times, but it was easier than having an extra check
 		}
@@ -872,7 +888,8 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	if (FakeMRTGFile.empty())
 		FakeMRTGFile.resize(MAX_HISTORY);
 	FakeMRTGFile[0] = TheValue;	// current value
-	FakeMRTGFile[1] = FakeMRTGFile[1] + TheValue; // averaged value up to DAY_SAMPLE size
+	FakeMRTGFile[1] = Average(FakeMRTGFile[1], FakeMRTGFile[0]); // averaged value up to DAY_SAMPLE size
+	//FakeMRTGFile[1] = Average(FakeMRTGFile.begin(), FakeMRTGFile.begin() + 1);
 	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
 	while (difftime(FakeMRTGFile[1].Time, FakeMRTGFile[2].Time) > DAY_SAMPLE)
 	{
@@ -881,20 +898,26 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
 		while (difftime(FakeMRTGFile[1 + DAY_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT].Time) > WEEK_SAMPLE)
 		{
-			auto LastDaySample = FakeMRTGFile.begin() + 1 + DAY_COUNT;
+			// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
+			auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT;
+			auto First = Last - 1;
+			while (difftime((First->Time / WEEK_SAMPLE) * WEEK_SAMPLE, Last->Time) < WEEK_SAMPLE)
+				First--;
+			First++;
+			*Last = Average(First, Last);
+			// Average routine ends here
 			// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
 			FakeMRTGFile[2 + DAY_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT].Time / WEEK_SAMPLE) * WEEK_SAMPLE;
 			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
 			while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
 			{
 				// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
-				//auto LastWeekSample = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-				//auto iter = LastWeekSample - 1;
-				//while (difftime((iter->Time / MONTH_SAMPLE) * MONTH_SAMPLE, LastWeekSample->Time) < MONTH_SAMPLE)
-				//{
-				//	*LastWeekSample = *LastWeekSample + *iter;
-				//	iter--;
-				//}
+				auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+				auto First = Last - 1;
+				while (difftime((First->Time / MONTH_SAMPLE) * MONTH_SAMPLE, Last->Time) < MONTH_SAMPLE)
+					First--;
+				First++;
+				*Last = Average(First, Last);
 				// Average routine ends here
 				if (ConsoleVerbosity > 1)
 					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
@@ -904,17 +927,19 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 				while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
 				{
 					// Average Last Days worth of values into the last value, since that is the value that will be moved into the first year value.
-					//auto LastMonthSample = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-					//auto iter = LastMonthSample - 1;
-					//struct tm lastDate, iterDate;
-					//localtime_r(&(LastMonthSample->Time), &lastDate);
-					//localtime_r(&(iter->Time), &iterDate);
-					//while (iterDate.tm_mday == lastDate.tm_mday)
-					//{
-					//	*LastMonthSample = *LastMonthSample + *iter;
-					//	iter--;
-					//	localtime_r(&(iter->Time), &iterDate);
-					//}
+					auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+					struct tm LastDate;
+					localtime_r(&(Last->Time), &LastDate);
+					auto First = Last - 1;
+					struct tm FirstDate;
+					localtime_r(&(First->Time), &FirstDate);
+					while (FirstDate.tm_mday == LastDate.tm_mday)
+					{
+						First--;
+						localtime_r(&(First->Time), &FirstDate);
+					}
+					First++;
+					*Last = Average(First, Last);
 					// Average routine ends here
 					if (ConsoleVerbosity > 0)
 						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
