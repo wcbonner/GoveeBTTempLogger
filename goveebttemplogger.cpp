@@ -298,19 +298,21 @@ Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last)
 {
 	Govee_Temp rval(*last);
+	rval.Temperature *= double(rval.Averages);
+	rval.Humidity *= double(rval.Averages);
+	rval.Battery *= rval.Averages;
 	while (first < last)
 	{
 		last--;
 		rval.Time = rval.Time > last->Time ? rval.Time : last->Time;
-		rval.Temperature += last->Temperature;
-		rval.Humidity += last->Humidity;
-		rval.Battery += last->Battery;
-		rval.Averages++;
+		rval.Temperature += last->Temperature * double(last->Averages);
+		rval.Humidity += last->Humidity * double(last->Averages);
+		rval.Battery += last->Battery * last->Averages;
+		rval.Averages += last->Averages;
 	}
-	double NumElements = double(rval.Averages);
-	rval.Temperature /= NumElements;
-	rval.Humidity /= NumElements;
-	rval.Battery /= int(NumElements);
+	rval.Temperature /= double(rval.Averages);
+	rval.Humidity /= double(rval.Averages);
+	rval.Battery /= rval.Averages;
 	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -416,6 +418,7 @@ bool ValidateDirectory(std::string& DirectoryName)
 	//TODO: I want to make sure the dorectory is writable by the current user
 	return(true);
 }
+// Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
 std::string GenerateLogFileName(const bdaddr_t &a)
 {
 	std::ostringstream OutputFilename;
@@ -559,6 +562,7 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles; 
 enum class GraphType { daily, weekly, monthly, yearly};
+// Returns a curated vector of data points specific to the requested graph type read directly from a real MRTG log file on disk.
 void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
 	std::ifstream TheInFile(MRTGLogFileName);
@@ -636,6 +640,7 @@ void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& T
 		}
 	}
 }
+// Returns a curated vector of data points specific to the requested graph type from the internal memory structure map keyed off the Bluetooth address.
 void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
 	auto it = GoveeMRTGLogs.find(TheAddress);
@@ -701,6 +706,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 		}
 	}
 }
+// Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
 void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
@@ -880,6 +886,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 		}
 	}
 }
+// Takes a Bluetooth address and current datapoint and updates the mapped structure in memory simulating the contents of a MRTG log file.
 void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 {
 	std::vector<Govee_Temp> foo;
@@ -980,6 +987,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 			FakeMRTGFile.begin() + DAY_COUNT + 2);
 	}
 }
+// Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
 	DIR* dp;
@@ -1038,6 +1046,7 @@ void ReadLoggedData(void)
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
+// Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 void ConnectAndDownload(int device_handle)
 {
 	time_t TimeNow;
