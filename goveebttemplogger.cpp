@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210127-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210130-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -192,6 +192,19 @@ std::string timeToExcelLocal(const time_t& TheTime)
 	return(ExcelDate.str());
 }
 /////////////////////////////////////////////////////////////////////////////
+int ConsoleVerbosity = 1;
+std::string LogDirectory("./");
+std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
+// The following details were taken from https://github.com/oetiker/mrtg
+const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
+const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
+const size_t MONTH_COUNT = 600;			/* 400 samples is 33.33 days */
+const size_t YEAR_COUNT = 2 * 366;		/* 1 sample / day, 366 days, 2 years */
+const size_t DAY_SAMPLE = 5 * 60;		/* Sample every 5 minutes */
+const size_t WEEK_SAMPLE = 30 * 60;		/* Sample every 30 minutes */
+const size_t MONTH_SAMPLE = 2 * 60 * 60;/* Sample every 2 hours */
+const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
+/////////////////////////////////////////////////////////////////////////////
 // Class I'm using for storing raw data from the Govee thermometers
 class  Govee_Temp {
 public:
@@ -210,6 +223,9 @@ public:
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
 	double GetHumidity(void) const { return(Humidity); };
 	double GetBattery(void) const { return(Battery); };
+	enum granularity {day, week, month, year};
+	void NormalizeTime(granularity type);
+	bool IsValid(void) const { return(Averages > 0); };
 	friend Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b);
 	friend Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last);
 protected:
@@ -284,15 +300,35 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	}
 	return(rval);
 }
+void Govee_Temp::NormalizeTime(granularity type)
+{
+	if (type == day)
+		Time = (Time / DAY_SAMPLE) * DAY_SAMPLE;
+	else if (type == week)
+		Time = (Time / WEEK_SAMPLE) * WEEK_SAMPLE;
+	else if (type == month)
+		Time = (Time / MONTH_SAMPLE) * MONTH_SAMPLE;
+	else if (type == year)
+	{
+		struct tm UTC;
+		if (0 != localtime_r(&Time, &UTC))
+		{
+			UTC.tm_hour = 0;
+			UTC.tm_min = 0;
+			UTC.tm_sec = 0;
+			Time = mktime(&UTC);
+		}
+	}
+}
 Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 {
 	Govee_Temp rval;
-	rval.Time = a.Time < b.Time ? a.Time : b.Time; // Use the minimum time (oldest time)
+	rval.Time = a.Time > b.Time ? a.Time : b.Time; // Use the maximum time (newest time)
 	rval.Battery = a.Battery < b.Battery ? a.Battery : b.Battery; // use the minimum battery
 	rval.Averages = a.Averages + b.Averages; // existing average + new average
 	rval.Temperature = ((a.Temperature * a.Averages) + (b.Temperature * b.Averages)) / rval.Averages;
 	rval.Humidity = ((a.Humidity * a.Averages) + (b.Humidity * b.Averages)) / rval.Averages;
-	rval = b; // HACK: Averaging still needs work, just use last value passed
+	rval = a; // HACK: Averaging still needs work, just use first value passed
 	return(rval);
 }
 Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last)
@@ -304,7 +340,7 @@ Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Te
 	while (first < last)
 	{
 		last--;
-		rval.Time = rval.Time > last->Time ? rval.Time : last->Time;
+		rval.Time = rval.Time > last->Time ? rval.Time : last->Time; // Use the maximum time (newest time)
 		rval.Temperature += last->Temperature * double(last->Averages);
 		rval.Humidity += last->Humidity * double(last->Averages);
 		rval.Battery += last->Battery * last->Averages;
@@ -393,21 +429,6 @@ void SignalHandlerSIGHUP(int signal)
 	bRun = false;
 	std::cerr << "***************** SIGHUP: Caught HangUp, finishing loop and quitting. *****************" << std::endl;
 }
-/////////////////////////////////////////////////////////////////////////////
-int ConsoleVerbosity = 1;
-std::string LogDirectory("./");
-std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
-// The following details were taken from https://github.com/oetiker/mrtg
-const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
-const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
-const size_t MONTH_COUNT = 600;			/* 400 samples is 33.33 days */
-const size_t YEAR_COUNT = 2 * 366;		/* 1 sample / day, 366 days, 2 years */
-const size_t DAY_SAMPLE = 5 * 60;		/* Sample every 5 minutes */
-const size_t WEEK_SAMPLE = 30 * 60;		/* Sample every 30 minutes */
-const size_t MONTH_SAMPLE = 2 * 60 * 60;/* Sample every 2 hours */
-const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
-// One 'rounding error' per sample period, so add 4 to total and for good mesure we take 10 :-)
-const size_t MAX_HISTORY = DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT + 10;
 /////////////////////////////////////////////////////////////////////////////
 bool ValidateDirectory(std::string& DirectoryName)
 {
@@ -652,20 +673,23 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 			std::copy(it->second.begin(), it->second.end(), TheValues.begin());
 			if (graph == GraphType::daily)
 			{
-				TheValues.erase(TheValues.begin()); // get rid of the first element
+				TheValues.erase(TheValues.begin()+1); // get rid of the second element
 				TheValues.resize(DAY_COUNT); // get rid of anything beyond the five minute data
 			}
 			else if (graph == GraphType::weekly)
 			{
-				TheValues.erase(TheValues.begin()); // get rid of the first element
+				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
 				std::vector<Govee_Temp> TempValues;
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
 				{
-					struct tm UTC;
-					if (0 != localtime_r(&iter->Time, &UTC))
+					if (iter->IsValid())
 					{
-						if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
-							TempValues.push_back(*iter);
+						struct tm UTC;
+						if (0 != localtime_r(&iter->Time, &UTC))
+						{
+							if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+								TempValues.push_back(*iter);
+						}
 					}
 				}
 				TheValues.resize(TempValues.size());
@@ -673,15 +697,18 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 			}
 			else if (graph == GraphType::monthly)
 			{
-				TheValues.erase(TheValues.begin()); // get rid of the first element
+				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
 				std::vector<Govee_Temp> TempValues;
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
 				{
-					struct tm UTC;
-					if (0 != localtime_r(&iter->Time, &UTC))
+					if (iter->IsValid())
 					{
-						if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
-							TempValues.push_back(*iter);
+						struct tm UTC;
+						if (0 != localtime_r(&iter->Time, &UTC))
+						{
+							if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
+								TempValues.push_back(*iter);
+						}
 					}
 				}
 				TheValues.resize(TempValues.size());
@@ -689,15 +716,18 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 			}
 			else if (graph == GraphType::yearly)
 			{
-				TheValues.erase(TheValues.begin()); // get rid of the first element
+				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
 				std::vector<Govee_Temp> TempValues;
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
 				{
-					struct tm UTC;
-					if (0 != localtime_r(&iter->Time, &UTC))
+					if (iter->IsValid())
 					{
-						if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
-							TempValues.push_back(*iter);
+						struct tm UTC;
+						if (0 != localtime_r(&iter->Time, &UTC))
+						{
+							if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
+								TempValues.push_back(*iter);
+						}
 					}
 				}
 				TheValues.resize(TempValues.size());
@@ -766,7 +796,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
 				SVGFile << "\t\ttext {" << std::endl;
-				SVGFile << "\t\t\tfont-family: Consolas;" << std::endl;
+				SVGFile << "\t\t\tfont-family: Consolas, monospace;" << std::endl;
 				SVGFile << "\t\t\tfont-size: " << FontSize << "px;" << std::endl;
 				SVGFile << "\t\t}" << std::endl;
 				SVGFile << "\t\tline {" << std::endl;
@@ -893,15 +923,27 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
 	std::vector<Govee_Temp> &FakeMRTGFile = ret.first->second;
 	if (FakeMRTGFile.empty())
-		FakeMRTGFile.resize(MAX_HISTORY);
-	FakeMRTGFile[0] = TheValue;	// current value
-	FakeMRTGFile[1] = Average(FakeMRTGFile[1], FakeMRTGFile[0]); // averaged value up to DAY_SAMPLE size
-	//FakeMRTGFile[1] = Average(FakeMRTGFile.begin(), FakeMRTGFile.begin() + 1);
+	{
+		FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
+		FakeMRTGFile[0] = TheValue;	// current value
+		FakeMRTGFile[1] = TheValue;
+		for (auto index = 0; index < DAY_COUNT; index++)
+			FakeMRTGFile[index + 2].Time = FakeMRTGFile[index + 1].Time - DAY_SAMPLE;
+		for (auto index = 0; index < WEEK_COUNT; index++)
+			FakeMRTGFile[index + 2 + DAY_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT].Time - WEEK_SAMPLE;
+		for (auto index = 0; index < MONTH_COUNT; index++)
+			FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
+		for (auto index = 0; index < YEAR_COUNT; index++)
+			FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
+	}
+	else
+	{
+		FakeMRTGFile[0] = TheValue;	// current value
+		FakeMRTGFile[1] = Average(FakeMRTGFile[0], FakeMRTGFile[1]); // averaged value up to DAY_SAMPLE size
+	}
 	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
 	while (difftime(FakeMRTGFile[1].Time, FakeMRTGFile[2].Time) > DAY_SAMPLE)
 	{
-		// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
-		FakeMRTGFile[2].Time = (FakeMRTGFile[2].Time / DAY_SAMPLE) * DAY_SAMPLE;
 		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
 		while (difftime(FakeMRTGFile[1 + DAY_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT].Time) > WEEK_SAMPLE)
 		{
@@ -911,10 +953,8 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 			while (difftime((First->Time / WEEK_SAMPLE) * WEEK_SAMPLE, Last->Time) < WEEK_SAMPLE)
 				First--;
 			First++;
-			*Last = Average(First, Last);
+			//*Last = Average(First, Last);
 			// Average routine ends here
-			// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
-			FakeMRTGFile[2 + DAY_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT].Time / WEEK_SAMPLE) * WEEK_SAMPLE;
 			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
 			while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
 			{
@@ -924,12 +964,10 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 				while (difftime((First->Time / MONTH_SAMPLE) * MONTH_SAMPLE, Last->Time) < MONTH_SAMPLE)
 					First--;
 				First++;
-				*Last = Average(First, Last);
+				//*Last = Average(First, Last);
 				// Average routine ends here
 				if (ConsoleVerbosity > 1)
 					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
-				// the next line is a hack to make the time line up. It's taking advantage of truncation in integer arithmatic.
-				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time = (FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time / MONTH_SAMPLE) * MONTH_SAMPLE;
 				// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] that's greater than YEAR_SAMPLE we shift that data towards the back.
 				while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
 				{
@@ -946,45 +984,45 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 						localtime_r(&(First->Time), &FirstDate);
 					}
 					First++;
-					*Last = Average(First, Last);
+					//*Last = Average(First, Last);
 					// Average routine ends here
 					if (ConsoleVerbosity > 0)
 						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
-					if (ConsoleVerbosity > 1)
-						std::cout << "[" << getTimeISO8601() << "] Timestamp normalized from " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " to ";
-					struct tm UTC;
-					if (0 != localtime_r(&(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time), &UTC))
-						{
-						UTC.tm_hour = 0;
-						UTC.tm_min = 0;
-						UTC.tm_sec = 0;
-						FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = mktime(&UTC);
-					}
-					if (ConsoleVerbosity > 1)
-						std::cout << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
 					// shuffle all the year samples toward the end
 					std::copy_backward(
 						FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
 						FakeMRTGFile.end() - 1,
 						FakeMRTGFile.end());
+					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].NormalizeTime(Govee_Temp::granularity::year);
+					//if (difftime(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
+					//	FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time + YEAR_SAMPLE;
 				}
 				// shuffle all the month samples toward the end
 				std::copy_backward(
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
+				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].NormalizeTime(Govee_Temp::granularity::month);
+				//if (difftime(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
+				//	FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT].Time + MONTH_SAMPLE;
 			}
 			// shuffle all the week samples toward the end
 			std::copy_backward(
 				FakeMRTGFile.begin() + DAY_COUNT + 1,
 				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
 				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 2);
+			FakeMRTGFile[2 + DAY_COUNT].NormalizeTime(Govee_Temp::granularity::week);
+			//if (difftime(FakeMRTGFile[2 + DAY_COUNT].Time, FakeMRTGFile[3 + DAY_COUNT].Time) > WEEK_SAMPLE)
+			//	FakeMRTGFile[2 + DAY_COUNT].Time = FakeMRTGFile[3 + DAY_COUNT].Time + WEEK_SAMPLE;
 		}
 		// shuffle all the day samples toward the end
 		std::copy_backward(
 			FakeMRTGFile.begin() + 1,
 			FakeMRTGFile.begin() + DAY_COUNT + 1,
 			FakeMRTGFile.begin() + DAY_COUNT + 2);
+		FakeMRTGFile[2].NormalizeTime(Govee_Temp::granularity::day);
+		if (difftime(FakeMRTGFile[2].Time, FakeMRTGFile[3].Time) > DAY_SAMPLE)
+			FakeMRTGFile[2].Time = FakeMRTGFile[3].Time + DAY_SAMPLE;
 	}
 }
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
