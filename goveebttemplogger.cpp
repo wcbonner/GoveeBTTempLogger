@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210130-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210131-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -986,7 +986,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 					First++;
 					//*Last = Average(First, Last);
 					// Average routine ends here
-					if (ConsoleVerbosity > 0)
+					if (ConsoleVerbosity > 1)
 						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
 					// shuffle all the year samples toward the end
 					std::copy_backward(
@@ -994,8 +994,6 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 						FakeMRTGFile.end() - 1,
 						FakeMRTGFile.end());
 					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].NormalizeTime(Govee_Temp::granularity::year);
-					//if (difftime(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
-					//	FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time + YEAR_SAMPLE;
 				}
 				// shuffle all the month samples toward the end
 				std::copy_backward(
@@ -1003,8 +1001,6 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
 				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].NormalizeTime(Govee_Temp::granularity::month);
-				//if (difftime(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
-				//	FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[3 + DAY_COUNT + WEEK_COUNT].Time + MONTH_SAMPLE;
 			}
 			// shuffle all the week samples toward the end
 			std::copy_backward(
@@ -1012,8 +1008,6 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
 				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 2);
 			FakeMRTGFile[2 + DAY_COUNT].NormalizeTime(Govee_Temp::granularity::week);
-			//if (difftime(FakeMRTGFile[2 + DAY_COUNT].Time, FakeMRTGFile[3 + DAY_COUNT].Time) > WEEK_SAMPLE)
-			//	FakeMRTGFile[2 + DAY_COUNT].Time = FakeMRTGFile[3 + DAY_COUNT].Time + WEEK_SAMPLE;
 		}
 		// shuffle all the day samples toward the end
 		std::copy_backward(
