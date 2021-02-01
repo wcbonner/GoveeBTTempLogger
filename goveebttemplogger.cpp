@@ -1478,6 +1478,8 @@ int main(int argc, char **argv)
 							{
 								if (ConsoleVerbosity > 0)
 									std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
+								else
+									std::cerr << ProgramVersionString << " (listening for Bluetooth Low Energy Advertisements)" << std::endl;
 
 								bRun = true;
 								time_t TimeStart, TimeSVG = 0;
