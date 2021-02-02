@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210131-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210202-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1077,6 +1077,42 @@ void ReadLoggedData(void)
 		}
 	}
 }
+void ReadTitleMap(void)
+{
+	std::ostringstream TitleMapFilename;
+	TitleMapFilename << SVGDirectory;
+	TitleMapFilename << "gvh-titlemap.txt";
+	static time_t LastModified = 0;
+	struct stat64 TitleMapFileStat;
+	TitleMapFileStat.st_mtim.tv_sec = 0;
+	stat64(TitleMapFilename.str().c_str(), &TitleMapFileStat);
+	if (TitleMapFileStat.st_mtim.tv_sec > LastModified)	// only read the file if it's modified
+	{
+		std::ifstream TheFile(TitleMapFilename.str());
+		if (TheFile.is_open())
+		{
+			LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename.str() << std::endl;
+			std::string TheLine;
+			while (std::getline(TheFile, TheLine))
+			{
+				char buffer[256];
+				if (TheLine.size() < sizeof(buffer))
+				{
+					TheLine.copy(buffer, TheLine.size());
+					buffer[TheLine.size()] = '\0';
+					std::string theAddress(strtok(buffer, "\t"));
+					std::string theTitle(strtok(NULL, "\t"));
+					bdaddr_t TheBlueToothAddress;
+					str2ba(theAddress.c_str(), &TheBlueToothAddress);
+					GoveeBluetoothTitles.insert(std::pair<bdaddr_t, std::string>(TheBlueToothAddress, theTitle));
+				}
+			}
+			TheFile.close();
+		}
+	}
+}
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 void ConnectAndDownload(int device_handle)
@@ -1389,31 +1425,7 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (!SVGDirectory.empty())
 	{
-		std::ostringstream TitleMapFilename;
-		TitleMapFilename << SVGDirectory;
-		TitleMapFilename << "gvh-titlemap.txt";
-		std::ifstream TheFile(TitleMapFilename.str());
-		if (TheFile.is_open())
-		{
-			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename.str() << std::endl;
-			std::string TheLine;
-			while (std::getline(TheFile, TheLine))
-			{
-				char buffer[256];
-				if (TheLine.size() < sizeof(buffer))
-				{
-					TheLine.copy(buffer, TheLine.size());
-					buffer[TheLine.size()] = '\0';
-					std::string theAddress(strtok(buffer, "\t"));
-					std::string theTitle(strtok(NULL, "\t"));
-					bdaddr_t TheBlueToothAddress;
-					str2ba(theAddress.c_str(), &TheBlueToothAddress);
-					GoveeBluetoothTitles.insert(std::pair<bdaddr_t, std::string>(TheBlueToothAddress, theTitle));
-				}
-			}
-			TheFile.close();
-		}
+		ReadTitleMap();
 		ReadLoggedData();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1697,6 +1709,7 @@ int main(int argc, char **argv)
 										if (ConsoleVerbosity > 0)
 											std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 										TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
+										ReadTitleMap();
 										for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 										{
 											const bdaddr_t TheAddress = it->first;
