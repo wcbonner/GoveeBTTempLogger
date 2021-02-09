@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210202-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210209-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -128,11 +128,19 @@ time_t ISO8601totime(const std::string & ISOTime)
 	UTC.tm_hour = stol(ISOTime.substr(11, 2));
 	UTC.tm_min = stol(ISOTime.substr(14, 2));
 	UTC.tm_sec = stol(ISOTime.substr(17, 2));
+	UTC.tm_gmtoff = 0;
+	UTC.tm_isdst = 0;
+	UTC.tm_zone = 0;
 #ifdef _MSC_VER
 	_tzset();
 	_get_daylight(&(UTC.tm_isdst));
 #endif
+# ifdef __USE_MISC
+	time_t timer = timegm(&UTC);	
+#else
 	time_t timer = mktime(&UTC);
+	timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
+#endif
 #ifdef _MSC_VER
 	long Timezone_seconds = 0;
 	_get_timezone(&Timezone_seconds);
@@ -143,7 +151,6 @@ time_t ISO8601totime(const std::string & ISOTime)
 	_get_dstbias(&DST_seconds);
 	timer += DST_hours * DST_seconds;
 #else
-	timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
 #endif
 	return(timer);
 }
@@ -323,7 +330,7 @@ void Govee_Temp::NormalizeTime(granularity type)
 Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 {
 	Govee_Temp rval;
-	rval.Time = a.Time > b.Time ? a.Time : b.Time; // Use the maximum time (newest time)
+	rval.Time = a.Time < b.Time ? a.Time : b.Time; // Use the minimum time (oldest time)
 	rval.Battery = a.Battery < b.Battery ? a.Battery : b.Battery; // use the minimum battery
 	rval.Averages = a.Averages + b.Averages; // existing average + new average
 	rval.Temperature = ((a.Temperature * a.Averages) + (b.Temperature * b.Averages)) / rval.Averages;
@@ -340,15 +347,18 @@ Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Te
 	while (first < last)
 	{
 		last--;
-		rval.Time = rval.Time > last->Time ? rval.Time : last->Time; // Use the maximum time (newest time)
+		rval.Time = rval.Time < last->Time ? rval.Time : last->Time; // Use the minimum time (oldest time)
 		rval.Temperature += last->Temperature * double(last->Averages);
 		rval.Humidity += last->Humidity * double(last->Averages);
 		rval.Battery += last->Battery * last->Averages;
 		rval.Averages += last->Averages;
 	}
-	rval.Temperature /= double(rval.Averages);
-	rval.Humidity /= double(rval.Averages);
-	rval.Battery /= rval.Averages;
+	if (rval.Averages > 0)
+	{
+		rval.Temperature /= double(rval.Averages);
+		rval.Humidity /= double(rval.Averages);
+		rval.Battery /= rval.Averages;
+	}
 	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -947,25 +957,9 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
 		while (difftime(FakeMRTGFile[1 + DAY_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT].Time) > WEEK_SAMPLE)
 		{
-			// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
-			auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT;
-			auto First = Last - 1;
-			while (difftime((First->Time / WEEK_SAMPLE) * WEEK_SAMPLE, Last->Time) < WEEK_SAMPLE)
-				First--;
-			First++;
-			//*Last = Average(First, Last);
-			// Average routine ends here
 			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
 			while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
 			{
-				// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
-				auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-				auto First = Last - 1;
-				while (difftime((First->Time / MONTH_SAMPLE) * MONTH_SAMPLE, Last->Time) < MONTH_SAMPLE)
-					First--;
-				First++;
-				//*Last = Average(First, Last);
-				// Average routine ends here
 				if (ConsoleVerbosity > 1)
 					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
 				// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] that's greater than YEAR_SAMPLE we shift that data towards the back.
@@ -995,6 +989,14 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 						FakeMRTGFile.end());
 					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].NormalizeTime(Govee_Temp::granularity::year);
 				}
+				// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
+				auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+				auto First = Last - 1;
+				while (difftime((First->Time / MONTH_SAMPLE) * MONTH_SAMPLE, Last->Time) < MONTH_SAMPLE)
+					First--;
+				First++;
+				//*Last = Average(First, Last);
+				// Average routine ends here
 				// shuffle all the month samples toward the end
 				std::copy_backward(
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
@@ -1002,6 +1004,14 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
 				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].NormalizeTime(Govee_Temp::granularity::month);
 			}
+			// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
+			auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT;
+			auto First = Last - 1;
+			while (difftime((First->Time / WEEK_SAMPLE) * WEEK_SAMPLE, Last->Time) < WEEK_SAMPLE)
+				First--;
+			First++;
+			//*Last = Average(First, Last);
+			// Average routine ends here
 			// shuffle all the week samples toward the end
 			std::copy_backward(
 				FakeMRTGFile.begin() + DAY_COUNT + 1,
@@ -1097,16 +1107,21 @@ void ReadTitleMap(void)
 			std::string TheLine;
 			while (std::getline(TheFile, TheLine))
 			{
-				char buffer[256];
-				if (TheLine.size() < sizeof(buffer))
+				// rudimentary line checking. It's at least as long as the BT Address and has a Tab character
+				if ((TheLine.size() > 18) &&
+					(TheLine.find("\t") != std::string::npos))
 				{
-					TheLine.copy(buffer, TheLine.size());
-					buffer[TheLine.size()] = '\0';
-					std::string theAddress(strtok(buffer, "\t"));
-					std::string theTitle(strtok(NULL, "\t"));
-					bdaddr_t TheBlueToothAddress;
-					str2ba(theAddress.c_str(), &TheBlueToothAddress);
-					GoveeBluetoothTitles.insert(std::pair<bdaddr_t, std::string>(TheBlueToothAddress, theTitle));
+					char buffer[256];
+					if (TheLine.size() < sizeof(buffer))
+					{
+						TheLine.copy(buffer, TheLine.size());
+						buffer[TheLine.size()] = '\0';
+						std::string theAddress(strtok(buffer, "\t"));
+						std::string theTitle(strtok(NULL, "\t"));
+						bdaddr_t TheBlueToothAddress;
+						str2ba(theAddress.c_str(), &TheBlueToothAddress);
+						GoveeBluetoothTitles.insert(std::pair<bdaddr_t, std::string>(TheBlueToothAddress, theTitle));
+					}
 				}
 			}
 			TheFile.close();
@@ -1422,6 +1437,8 @@ int main(int argc, char **argv)
 	}
 	else
 		std::cerr << ProgramVersionString << " (starting)" << std::endl;
+	///////////////////////////////////////////////////////////////////////////////////////////////
+	tzset();
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (!SVGDirectory.empty())
 	{
