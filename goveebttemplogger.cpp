@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210209-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210212-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -202,6 +202,7 @@ std::string timeToExcelLocal(const time_t& TheTime)
 int ConsoleVerbosity = 1;
 std::string LogDirectory("./");
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
+int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
@@ -1350,15 +1351,16 @@ static void usage(int argc, char **argv)
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
-	std::cout << "    -t | --time seconds  time between log file writes [" << LogFileTime << "]" << std::endl;
+	std::cout << "    -t | --time seconds  Time between log file writes [" << LogFileTime << "]" << std::endl;
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
-	std::cout << "    -d | --download  periodically attempt to connect and download stored data" << std::endl;
+	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
+	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:a:s:d";
+static const char short_options[] = "hl:t:v:m:a:s:b:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -1367,6 +1369,7 @@ static const struct option long_options[] = {
 		{ "mrtg",   required_argument, NULL, 'm' },
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
+		{ "battery",	required_argument, NULL, 'b' },
 		{ "download",no_argument,NULL, 'd' },
 		{ 0, 0, 0, 0 }
 };
@@ -1418,6 +1421,11 @@ int main(int argc, char **argv)
 			SVGDirectory = std::string(optarg);
 			if (!ValidateDirectory(SVGDirectory))
 				SVGDirectory.clear();
+			break;
+		case 'b':
+			try { SVGBattery = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
 		default:
 			usage(argc, argv);
