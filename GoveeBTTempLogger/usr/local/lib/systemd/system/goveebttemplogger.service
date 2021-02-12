@@ -10,7 +10,7 @@ StartLimitIntervalSec=33
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/local/bin/goveebttemplogger -v 0 -l /var/log/goveebttemplogger/ -s /var/www/html/goveebttemplogger/
+ExecStart=/usr/local/bin/goveebttemplogger -v 0 -l /var/log/goveebttemplogger/ --svg /var/www/html/goveebttemplogger/ --battery 8
 KillSignal=SIGINT
 
 [Install]

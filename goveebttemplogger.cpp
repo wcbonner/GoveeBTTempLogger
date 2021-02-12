@@ -203,6 +203,7 @@ int ConsoleVerbosity = 1;
 std::string LogDirectory("./");
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
+bool SVGFahrenheit = true;
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
@@ -748,14 +749,16 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 	}
 }
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
-void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true)
+void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
 	const int SVGWidth = 500;
 	const int SVGHeight = 135;
 	const int FontSize = 12;
 	const int TickSize = 2;
-	const int GraphWidth = SVGWidth - (FontSize * 7);
+	int GraphWidth = SVGWidth - (FontSize * 7);
+	if (DrawBattery)
+		GraphWidth -= FontSize;
 	if (!TheValues.empty())
 	{
 		struct stat64 SVGStat;
@@ -775,10 +778,13 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 					std::cerr << "Writing: " << SVGFileName << " With Title: " << Title << std::endl;
 				std::ostringstream tempOString;
 				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << (Fahrenheit ? "°F)" : "°C)");
-				std::string YLegendLeft(tempOString.str());
+				std::string YLegendTemperature(tempOString.str());
 				tempOString = std::ostringstream();
 				tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].GetHumidity() << "%)";
-				std::string YLegendRight(tempOString.str());
+				std::string YLegendHumidity(tempOString.str());
+				tempOString = std::ostringstream();
+				tempOString << "Battery (" << TheValues[0].GetBattery() << "%)";
+				std::string YLegendBattery(tempOString.str());
 				int GraphTop = FontSize + TickSize;
 				int GraphBottom = SVGHeight - GraphTop;
 				int GraphRight = SVGWidth - (GraphTop * 2) - 2;
@@ -807,7 +813,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
 				SVGFile << "\t\ttext {" << std::endl;
-				SVGFile << "\t\t\tfont-family: Consolas, monospace;" << std::endl;
+				SVGFile << "\t\t\tfont-family: sans-serif;" << std::endl;
 				SVGFile << "\t\t\tfont-size: " << FontSize << "px;" << std::endl;
 				SVGFile << "\t\t}" << std::endl;
 				SVGFile << "\t\tline {" << std::endl;
@@ -818,8 +824,10 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 
 				// Legend Text
 				SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendLeft << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendRight << "</text>" << std::endl;
+				SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
+				SVGFile << "\t<text fill=\"green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
+				if (DrawBattery)
+					SVGFile << "\t<text fill=\"OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * 3 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 3 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
 				SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
 
 				// Humidity Graphic as a Filled polygon
@@ -913,6 +921,17 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				// Directional Arrow
 				SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
+				// Battery Values as a continuous line
+				if (DrawBattery)
+				{
+					double BatteryVerticalFactor = (GraphBottom - GraphTop) / 100.0;
+					SVGFile << "\t<polyline style=\"fill:none;stroke:OrangeRed\" points=\"";
+					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						SVGFile << index + GraphLeft << "," << int(((100 - TheValues[index].GetBattery()) * BatteryVerticalFactor) + GraphTop) << " ";
+					SVGFile << "\" />" << std::endl;
+				}
+
+				// Temperature Values as a continuous line
 				SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
 				for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 					SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
@@ -1754,28 +1773,28 @@ int main(int argc, char **argv)
 											OutputFilename << "-day.svg";
 											std::vector<Govee_Temp> TheValues;
 											ReadMRTGData(TheAddress, TheValues, GraphType::daily);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01);
 											OutputFilename.str("");
 											OutputFilename << SVGDirectory;
 											OutputFilename << "gvh-";
 											OutputFilename << btAddress;
 											OutputFilename << "-week.svg";
 											ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02);
 											OutputFilename.str("");
 											OutputFilename << SVGDirectory;
 											OutputFilename << "gvh-";
 											OutputFilename << btAddress;
 											OutputFilename << "-month.svg";
 											ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04);
 											OutputFilename.str("");
 											OutputFilename << SVGDirectory;
 											OutputFilename << "gvh-";
 											OutputFilename << btAddress;
 											OutputFilename << "-year.svg";
 											ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly);
+											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08);
 										}
 									}
 									if (difftime(TimeNow, TimeStart) > LogFileTime)
