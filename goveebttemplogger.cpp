@@ -83,7 +83,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210212-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210213-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -805,8 +805,17 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
 				double HumiVerticalDivision = (HumiMax - HumiMin) / 4;
 				double HumiVerticalFactor = (GraphBottom - GraphTop) / (HumiMax - HumiMin);
-
-				// MRTG Log File has 602 rows of five minute intervals, 602 rows 30 minute intervals, 602 rows of two hour intervals
+				int FreezingLine = 0; // outside the range of the graph
+				if (Fahrenheit)
+				{
+					if ((TempMin < 32) && (32 < TempMax))
+						FreezingLine = ((TempMax - 32.0) * TempVerticalFactor) + GraphTop;
+				}
+				else
+				{
+					if ((TempMin < 0) && (0 < TempMax))
+						FreezingLine = (TempMax * TempVerticalFactor) + GraphTop;
+				}
 
 				SVGFile << "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" << std::endl;
 				SVGFile << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
@@ -864,6 +873,11 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 					SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
 					SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 				}
+
+				// Horizontal Line drawn at the freezing point
+				SVGFile << "\t<!-- FreezingLine = " << FreezingLine << " -->" << std::endl;
+				if ((GraphTop < FreezingLine) && (FreezingLine < GraphBottom))
+					SVGFile << "\t<line style=\"fill:red;stroke:red;stroke-dasharray:1;\" x1=\"" << GraphLeft - TickSize << "\" y1=\"" << FreezingLine << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << FreezingLine << "\" />" << std::endl;
 
 				// Horizontal Division Dashed Lines
 				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
