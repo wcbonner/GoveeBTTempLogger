@@ -55,6 +55,7 @@
 #include <csignal>
 #include <cmath>
 #include <climits>
+#include <cfloat>
 #include <iostream>
 #include <locale>
 #include <queue>
@@ -83,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210213-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210216-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -220,16 +221,20 @@ public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature(0), Humidity(0), Battery(INT_MAX), Averages(0) { };
+	Govee_Temp() : Time(0), Temperature(0), TemperatureMin(DBL_MAX), TemperatureMax(DBL_MIN), Humidity(0), Battery(INT_MAX), Averages(0) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
 		Temperature = tem;
+		TemperatureMin = tem;
+		TemperatureMax = tem;
 		Humidity = hum;
 		Battery = bat;
 		Averages = 1;
 	};
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
+	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMin * 9.0 / 5.0) + 32.0); return(TemperatureMin); };
+	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMax * 9.0 / 5.0) + 32.0); return(TemperatureMax); };
 	double GetHumidity(void) const { return(Humidity); };
 	double GetBattery(void) const { return(Battery); };
 	enum granularity {day, week, month, year};
@@ -239,6 +244,8 @@ public:
 	friend Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last);
 protected:
 	double Temperature;
+	double TemperatureMin;
+	double TemperatureMax;
 	double Humidity;
 	int Battery;
 	int Averages;
@@ -306,6 +313,8 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			time(&Time);
 			rval = true;
 		}
+		if (rval)
+			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
 	}
 	return(rval);
 }
@@ -331,11 +340,15 @@ void Govee_Temp::NormalizeTime(granularity type)
 }
 Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 {
-	Govee_Temp rval;
+	Govee_Temp rval(a);
 	rval.Time = a.Time < b.Time ? a.Time : b.Time; // Use the minimum time (oldest time)
 	rval.Battery = a.Battery < b.Battery ? a.Battery : b.Battery; // use the minimum battery
 	rval.Averages = a.Averages + b.Averages; // existing average + new average
 	rval.Temperature = ((a.Temperature * a.Averages) + (b.Temperature * b.Averages)) / rval.Averages;
+	rval.TemperatureMin = a.TemperatureMin < b.TemperatureMin ? a.TemperatureMin : b.TemperatureMin;
+	rval.TemperatureMax = a.TemperatureMax > b.TemperatureMax ? a.TemperatureMax : b.TemperatureMax;
+	rval.TemperatureMin = a.Temperature < a.TemperatureMin ? a.Temperature : a.TemperatureMin;
+	rval.TemperatureMax = a.Temperature > a.TemperatureMax ? a.Temperature : a.TemperatureMax;
 	rval.Humidity = ((a.Humidity * a.Averages) + (b.Humidity * b.Averages)) / rval.Averages;
 	rval = a; // HACK: Averaging still needs work, just use first value passed
 	return(rval);
@@ -344,6 +357,8 @@ Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Te
 {
 	Govee_Temp rval(*last);
 	rval.Temperature *= double(rval.Averages);
+	rval.TemperatureMin = rval.TemperatureMin < rval.Temperature ? rval.TemperatureMin : rval.Temperature;
+	rval.TemperatureMax = rval.TemperatureMax > rval.Temperature ? rval.TemperatureMax : rval.Temperature;
 	rval.Humidity *= double(rval.Averages);
 	rval.Battery *= rval.Averages;
 	while (first < last)
@@ -351,6 +366,8 @@ Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Te
 		last--;
 		rval.Time = rval.Time < last->Time ? rval.Time : last->Time; // Use the minimum time (oldest time)
 		rval.Temperature += last->Temperature * double(last->Averages);
+		rval.TemperatureMin = rval.TemperatureMin < last->TemperatureMin ? rval.TemperatureMin : last->TemperatureMin;
+		rval.TemperatureMax = rval.TemperatureMax > last->TemperatureMax ? rval.TemperatureMax : last->TemperatureMax;
 		rval.Humidity += last->Humidity * double(last->Averages);
 		rval.Battery += last->Battery * last->Averages;
 		rval.Averages += last->Averages;
