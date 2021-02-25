@@ -1222,6 +1222,52 @@ void ReadTitleMap(void)
 		}
 	}
 }
+void WriteAllSVG()
+{
+	ReadTitleMap();
+	for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+	{
+		const bdaddr_t TheAddress = it->first;
+		char addr[19] = { 0 };
+		ba2str(&TheAddress, addr);
+		std::string btAddress(addr);
+		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+			btAddress.erase(pos, 1);
+		std::string ssTitle(btAddress);
+		if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
+			ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
+		std::ostringstream OutputFilename;
+		OutputFilename.str("");
+		OutputFilename << SVGDirectory;
+		OutputFilename << "gvh-";
+		OutputFilename << btAddress;
+		OutputFilename << "-day.svg";
+		std::vector<Govee_Temp> TheValues;
+		ReadMRTGData(TheAddress, TheValues, GraphType::daily);
+		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01);
+		OutputFilename.str("");
+		OutputFilename << SVGDirectory;
+		OutputFilename << "gvh-";
+		OutputFilename << btAddress;
+		OutputFilename << "-week.svg";
+		ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
+		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02);
+		OutputFilename.str("");
+		OutputFilename << SVGDirectory;
+		OutputFilename << "gvh-";
+		OutputFilename << btAddress;
+		OutputFilename << "-month.svg";
+		ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
+		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04);
+		OutputFilename.str("");
+		OutputFilename << SVGDirectory;
+		OutputFilename << "gvh-";
+		OutputFilename << btAddress;
+		OutputFilename << "-year.svg";
+		ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
+		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08);
+	}
+}
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 void ConnectAndDownload(int device_handle)
@@ -1545,6 +1591,7 @@ int main(int argc, char **argv)
 	{
 		ReadTitleMap();
 		ReadLoggedData();
+		WriteAllSVG();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	int device_id = hci_get_route(NULL);
@@ -1827,49 +1874,7 @@ int main(int argc, char **argv)
 										if (ConsoleVerbosity > 0)
 											std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 										TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-										ReadTitleMap();
-										for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
-										{
-											const bdaddr_t TheAddress = it->first;
-											char addr[19] = { 0 };
-											ba2str(&TheAddress, addr);
-											std::string btAddress(addr);
-											for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
-												btAddress.erase(pos, 1);
-											std::string ssTitle(btAddress);
-											if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
-												ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
-											std::ostringstream OutputFilename;
-											OutputFilename.str("");
-											OutputFilename << SVGDirectory;
-											OutputFilename << "gvh-";
-											OutputFilename << btAddress;
-											OutputFilename << "-day.svg";
-											std::vector<Govee_Temp> TheValues;
-											ReadMRTGData(TheAddress, TheValues, GraphType::daily);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01);
-											OutputFilename.str("");
-											OutputFilename << SVGDirectory;
-											OutputFilename << "gvh-";
-											OutputFilename << btAddress;
-											OutputFilename << "-week.svg";
-											ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02);
-											OutputFilename.str("");
-											OutputFilename << SVGDirectory;
-											OutputFilename << "gvh-";
-											OutputFilename << btAddress;
-											OutputFilename << "-month.svg";
-											ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04);
-											OutputFilename.str("");
-											OutputFilename << SVGDirectory;
-											OutputFilename << "gvh-";
-											OutputFilename << btAddress;
-											OutputFilename << "-year.svg";
-											ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
-											WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08);
-										}
+										WriteAllSVG();
 									}
 									if (difftime(TimeNow, TimeStart) > LogFileTime)
 									{
