@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210216-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210225-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -130,7 +130,7 @@ time_t ISO8601totime(const std::string & ISOTime)
 	UTC.tm_min = stol(ISOTime.substr(14, 2));
 	UTC.tm_sec = stol(ISOTime.substr(17, 2));
 	UTC.tm_gmtoff = 0;
-	UTC.tm_isdst = 0;
+	UTC.tm_isdst = -1;
 	UTC.tm_zone = 0;
 #ifdef _MSC_VER
 	_tzset();
@@ -235,10 +235,12 @@ public:
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
 	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMin * 9.0 / 5.0) + 32.0); return(TemperatureMin); };
 	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMax * 9.0 / 5.0) + 32.0); return(TemperatureMax); };
+	void SetTemperatureMinMax(const Govee_Temp & a);
 	double GetHumidity(void) const { return(Humidity); };
 	double GetBattery(void) const { return(Battery); };
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
+	granularity GetTimeGranularity(void) const;
 	bool IsValid(void) const { return(Averages > 0); };
 	friend Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b);
 	friend Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last);
@@ -318,6 +320,14 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	}
 	return(rval);
 }
+void Govee_Temp::SetTemperatureMinMax(const Govee_Temp& a)
+{
+	TemperatureMin = TemperatureMin < Temperature ? TemperatureMin : Temperature;
+	TemperatureMax = TemperatureMax > Temperature ? TemperatureMax : Temperature;
+
+	TemperatureMin = TemperatureMin < a.TemperatureMin ? TemperatureMin : a.TemperatureMin;
+	TemperatureMax = TemperatureMax > a.TemperatureMax ? TemperatureMax : a.TemperatureMax;
+}
 void Govee_Temp::NormalizeTime(granularity type)
 {
 	if (type == day)
@@ -337,6 +347,22 @@ void Govee_Temp::NormalizeTime(granularity type)
 			Time = mktime(&UTC);
 		}
 	}
+}
+Govee_Temp::granularity Govee_Temp::GetTimeGranularity(void) const
+{
+	granularity rval = granularity::day;
+	struct tm UTC;
+	if (0 != localtime_r(&Time, &UTC))
+	{
+		//if (((UTC.tm_hour == 0) && (UTC.tm_min == 0)) || ((UTC.tm_hour == 23) && (UTC.tm_min == 0) && (UTC.tm_isdst == 1)))
+		if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
+				rval = granularity::year;
+		else if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
+			rval = granularity::month;
+		else if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+			rval = granularity::week;
+	}
+	return(rval);
 }
 Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 {
@@ -710,17 +736,14 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
 				std::vector<Govee_Temp> TempValues;
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-				{
 					if (iter->IsValid())
 					{
-						struct tm UTC;
-						if (0 != localtime_r(&iter->Time, &UTC))
-						{
-							if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+						auto test = iter->GetTimeGranularity();
+						if ((test == Govee_Temp::granularity::week) ||
+							(test == Govee_Temp::granularity::month) ||
+							(test == Govee_Temp::granularity::year))
 								TempValues.push_back(*iter);
-						}
 					}
-				}
 				TheValues.resize(TempValues.size());
 				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
 			}
@@ -729,17 +752,13 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
 				std::vector<Govee_Temp> TempValues;
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-				{
 					if (iter->IsValid())
 					{
-						struct tm UTC;
-						if (0 != localtime_r(&iter->Time, &UTC))
-						{
-							if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
-								TempValues.push_back(*iter);
-						}
+						auto test = iter->GetTimeGranularity();
+						if ((test == Govee_Temp::granularity::month) ||
+							(test == Govee_Temp::granularity::year))
+							TempValues.push_back(*iter);
 					}
-				}
 				TheValues.resize(TempValues.size());
 				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
 			}
@@ -748,23 +767,17 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
 				std::vector<Govee_Temp> TempValues;
 				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-				{
 					if (iter->IsValid())
-					{
-						struct tm UTC;
-						if (0 != localtime_r(&iter->Time, &UTC))
-						{
-							if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
-								TempValues.push_back(*iter);
-						}
-					}
-				}
+						if (iter->GetTimeGranularity() == Govee_Temp::granularity::year)
+							TempValues.push_back(*iter);
 				TheValues.resize(TempValues.size());
 				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
 			}
 		}
 	}
 }
+// Interesting ideas about SVG and possible tools to look at: https://blog.usejournal.com/of-svg-minification-and-gzip-21cd26a5d007
+// Tools Mentioned: svgo gzthermal https://github.com/subzey/svg-gz-supplement/
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
 void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false)
 {
@@ -952,6 +965,27 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				// Directional Arrow
 				SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
+				if ((graph == GraphType::monthly) || (graph == GraphType::yearly))
+				{
+					// Temperature Values as a series of vertical bars
+					//for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					//	SVGFile << "\t<line style=\"fill:blue;stroke:blue;\" x1=\"" << index + GraphLeft << "\" y1=\"" << int(((TempMax - TheValues[index].GetTemperatureMin(Fahrenheit)) * TempVerticalFactor) + GraphTop) << "\" x2=\"" << index + GraphLeft << "\" y2=\"" << int(((TempMax - TheValues[index].GetTemperatureMin(Fahrenheit)) * TempVerticalFactor) + GraphTop) << "\" />" << std::endl;
+					SVGFile << "\t<polygon style=\"fill:cyan;fill-opacity:0.25;stroke:blue\" points=\"";
+					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMax(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
+					for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)
+						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMin(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
+					SVGFile << "\" />" << std::endl;
+				}
+				else
+				{
+					// Temperature Values as a continuous line
+					SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
+					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
+					SVGFile << "\" />" << std::endl;
+				}
+
 				// Battery Values as a continuous line
 				if (DrawBattery)
 				{
@@ -962,11 +996,6 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 					SVGFile << "\" />" << std::endl;
 				}
 
-				// Temperature Values as a continuous line
-				SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
-				for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
-					SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
-				SVGFile << "\" />" << std::endl;
 				SVGFile << "</svg>" << std::endl;
 				SVGFile.close();
 				struct utimbuf SVGut;
@@ -1002,57 +1031,76 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 		FakeMRTGFile[0] = TheValue;	// current value
 		FakeMRTGFile[1] = Average(FakeMRTGFile[0], FakeMRTGFile[1]); // averaged value up to DAY_SAMPLE size
 	}
+	auto DaySampleFirst = FakeMRTGFile.begin() + 2;
+	auto DaySampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT;
+	auto WeekSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT;
+	auto WeekSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+	auto MonthSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT;
+	auto MonthSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+	auto YearSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+	auto YearSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
 	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
-	while (difftime(FakeMRTGFile[1].Time, FakeMRTGFile[2].Time) > DAY_SAMPLE)
+	while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
 	{
 		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
-		while (difftime(FakeMRTGFile[1 + DAY_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT].Time) > WEEK_SAMPLE)
+		while (difftime(DaySampleLast->Time, WeekSampleFirst->Time) > WEEK_SAMPLE)
 		{
 			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
-			while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) > MONTH_SAMPLE)
+			while (difftime(WeekSampleLast->Time, MonthSampleFirst->Time) > MONTH_SAMPLE)
 			{
-				if (ConsoleVerbosity > 1)
-					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
 				// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] that's greater than YEAR_SAMPLE we shift that data towards the back.
-				while (difftime(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time, FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) > YEAR_SAMPLE)
+				while (difftime(MonthSampleLast->Time, YearSampleFirst->Time) > YEAR_SAMPLE)
 				{
-					// Average Last Days worth of values into the last value, since that is the value that will be moved into the first year value.
-					auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-					struct tm LastDate;
-					localtime_r(&(Last->Time), &LastDate);
-					auto First = Last - 1;
-					struct tm FirstDate;
-					localtime_r(&(First->Time), &FirstDate);
-					while (FirstDate.tm_mday == LastDate.tm_mday)
-					{
-						First--;
-						localtime_r(&(First->Time), &FirstDate);
-					}
-					First++;
-					//*Last = Average(First, Last);
-					// Average routine ends here
 					if (ConsoleVerbosity > 1)
 						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
 					// shuffle all the year samples toward the end
-					std::copy_backward(
-						FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
-						FakeMRTGFile.end() - 1,
-						FakeMRTGFile.end());
-					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].NormalizeTime(Govee_Temp::granularity::year);
+					std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
+
+					// Start at oldest of month data. 
+					// If (GetTimeGranularity() == Govee_Temp::granularity::year) do the following, because we are about to get rid of that datapoint when we shuffle.
+					// Scan towards beginning to find a midnight value (GetTimeGranularity() == Govee_Temp::granularity::year)
+					// Scan towards the beginning one position. 
+					// Call that position LAST
+					// Scan towards the beginning to find the next midnight value. (GetTimeGranularity() == Govee_Temp::granularity::year)
+					// Call that position FIRST.
+					// Average all values between FIRST and LAST into FIRST, inclusive.
+					auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+					//while ((Last != FakeMRTGFile.begin()) &&
+					//	(Last->GetTimeGranularity() != Govee_Temp::granularity::year))
+					//	Last--;
+					if (Last->GetTimeGranularity() == Govee_Temp::granularity::year)
+					{
+						auto First = Last - 1;
+						while ((First != FakeMRTGFile.begin()) &&
+							(First->GetTimeGranularity() != Govee_Temp::granularity::year))
+							First--;
+						First++;
+						*Last = Average(First, Last);
+					}
+					// Average routine ends here
+
+					// move the last midnight sample from the month samples into the first of the year sample position.
+					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] = *Last;
+					// The next line should now be redundant, but I'm leaving it here.
+					//FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].NormalizeTime(Govee_Temp::granularity::year);
 				}
+				if (ConsoleVerbosity > 1)
+					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
+				// shuffle all the month samples toward the end
+				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
+
 				// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
 				auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-				auto First = Last - 1;
-				while (difftime((First->Time / MONTH_SAMPLE) * MONTH_SAMPLE, Last->Time) < MONTH_SAMPLE)
-					First--;
-				First++;
-				//*Last = Average(First, Last);
-				// Average routine ends here
-				// shuffle all the month samples toward the end
-				std::copy_backward(
-					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
-					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 1,
-					FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + 2);
+				if (Last->GetTimeGranularity() == Govee_Temp::granularity::month)
+				{
+					auto First = Last - 1;
+					while ((First != FakeMRTGFile.begin()) &&
+						(First->GetTimeGranularity() != Govee_Temp::granularity::month))
+						First--;
+					First++;
+					*Last = Average(First, Last);
+				}
+				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] = *Last;
 				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].NormalizeTime(Govee_Temp::granularity::month);
 			}
 			// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
@@ -1064,20 +1112,15 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 			//*Last = Average(First, Last);
 			// Average routine ends here
 			// shuffle all the week samples toward the end
-			std::copy_backward(
-				FakeMRTGFile.begin() + DAY_COUNT + 1,
-				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 1,
-				FakeMRTGFile.begin() + DAY_COUNT + WEEK_COUNT + 2);
+			std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
 			FakeMRTGFile[2 + DAY_COUNT].NormalizeTime(Govee_Temp::granularity::week);
 		}
 		// shuffle all the day samples toward the end
-		std::copy_backward(
-			FakeMRTGFile.begin() + 1,
-			FakeMRTGFile.begin() + DAY_COUNT + 1,
-			FakeMRTGFile.begin() + DAY_COUNT + 2);
-		FakeMRTGFile[2].NormalizeTime(Govee_Temp::granularity::day);
-		if (difftime(FakeMRTGFile[2].Time, FakeMRTGFile[3].Time) > DAY_SAMPLE)
-			FakeMRTGFile[2].Time = FakeMRTGFile[3].Time + DAY_SAMPLE;
+		std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
+		*DaySampleFirst = FakeMRTGFile[1];
+		DaySampleFirst->NormalizeTime(Govee_Temp::granularity::day);
+		if (difftime(DaySampleFirst->Time, (DaySampleFirst+1)->Time) > DAY_SAMPLE)
+			DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
 	}
 }
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
