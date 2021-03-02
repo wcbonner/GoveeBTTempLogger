@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210225-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210302-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -204,6 +204,7 @@ int ConsoleVerbosity = 1;
 std::string LogDirectory("./");
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
+int SVGMinMax = 0; // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
 bool SVGFahrenheit = true;
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
@@ -221,7 +222,7 @@ public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature(0), TemperatureMin(DBL_MAX), TemperatureMax(DBL_MIN), Humidity(0), Battery(INT_MAX), Averages(0) { };
+	Govee_Temp() : Time(0), Temperature(0), TemperatureMin(DBL_MAX), TemperatureMax(DBL_MIN), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(DBL_MIN), Battery(INT_MAX), Averages(0) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
@@ -229,14 +230,18 @@ public:
 		TemperatureMin = tem;
 		TemperatureMax = tem;
 		Humidity = hum;
+		HumidityMin = hum;
+		HumidityMax = hum;
 		Battery = bat;
 		Averages = 1;
 	};
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
 	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMin * 9.0 / 5.0) + 32.0); return(TemperatureMin); };
 	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMax * 9.0 / 5.0) + 32.0); return(TemperatureMax); };
-	void SetTemperatureMinMax(const Govee_Temp & a);
+	void SetMinMax(const Govee_Temp & a);
 	double GetHumidity(void) const { return(Humidity); };
+	double GetHumidityMin(void) const { return(HumidityMin); };
+	double GetHumidityMax(void) const { return(HumidityMax); };
 	double GetBattery(void) const { return(Battery); };
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
@@ -249,6 +254,8 @@ protected:
 	double TemperatureMin;
 	double TemperatureMax;
 	double Humidity;
+	double HumidityMin;
+	double HumidityMax;
 	int Battery;
 	int Averages;
 };
@@ -320,13 +327,19 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	}
 	return(rval);
 }
-void Govee_Temp::SetTemperatureMinMax(const Govee_Temp& a)
+void Govee_Temp::SetMinMax(const Govee_Temp& a)
 {
 	TemperatureMin = TemperatureMin < Temperature ? TemperatureMin : Temperature;
 	TemperatureMax = TemperatureMax > Temperature ? TemperatureMax : Temperature;
 
 	TemperatureMin = TemperatureMin < a.TemperatureMin ? TemperatureMin : a.TemperatureMin;
 	TemperatureMax = TemperatureMax > a.TemperatureMax ? TemperatureMax : a.TemperatureMax;
+
+	HumidityMin = HumidityMin < Humidity ? HumidityMin : Humidity;
+	HumidityMax = HumidityMax > Humidity ? HumidityMax : Humidity;
+
+	HumidityMin = HumidityMin < a.HumidityMin ? HumidityMin : a.HumidityMin;
+	HumidityMax = HumidityMax > a.HumidityMax ? HumidityMax : a.HumidityMax;
 }
 void Govee_Temp::NormalizeTime(granularity type)
 {
@@ -724,54 +737,49 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 	{
 		if (it->second.size() > 0)
 		{
-			TheValues.resize(it->second.size());
-			std::copy(it->second.begin(), it->second.end(), TheValues.begin());
+			auto DaySampleFirst = it->second.begin() + 2;
+			auto DaySampleLast = it->second.begin() + 1 + DAY_COUNT;
+			auto WeekSampleFirst = it->second.begin() + 2 + DAY_COUNT;
+			auto WeekSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+			auto MonthSampleFirst = it->second.begin() + 2 + DAY_COUNT + WEEK_COUNT;
+			auto MonthSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+			auto YearSampleFirst = it->second.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+			auto YearSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
 			if (graph == GraphType::daily)
 			{
-				TheValues.erase(TheValues.begin()+1); // get rid of the second element
-				TheValues.resize(DAY_COUNT); // get rid of anything beyond the five minute data
+				TheValues.resize(DAY_COUNT);
+				std::copy(DaySampleFirst, DaySampleLast, TheValues.begin());
+				auto iter = TheValues.begin();
+				while (iter->IsValid() && (iter != TheValues.end()))
+					iter++;
+				TheValues.resize(iter - TheValues.begin());
 			}
 			else if (graph == GraphType::weekly)
 			{
-				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
-				std::vector<Govee_Temp> TempValues;
-				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-					if (iter->IsValid())
-					{
-						auto test = iter->GetTimeGranularity();
-						if ((test == Govee_Temp::granularity::week) ||
-							(test == Govee_Temp::granularity::month) ||
-							(test == Govee_Temp::granularity::year))
-								TempValues.push_back(*iter);
-					}
-				TheValues.resize(TempValues.size());
-				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
+				TheValues.resize(WEEK_COUNT);
+				std::copy(WeekSampleFirst, WeekSampleLast, TheValues.begin());
+				auto iter = TheValues.begin();
+				while (iter->IsValid() && (iter != TheValues.end()))
+					iter++;
+				TheValues.resize(iter - TheValues.begin());
 			}
 			else if (graph == GraphType::monthly)
 			{
-				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
-				std::vector<Govee_Temp> TempValues;
-				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-					if (iter->IsValid())
-					{
-						auto test = iter->GetTimeGranularity();
-						if ((test == Govee_Temp::granularity::month) ||
-							(test == Govee_Temp::granularity::year))
-							TempValues.push_back(*iter);
-					}
-				TheValues.resize(TempValues.size());
-				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
+				TheValues.resize(MONTH_COUNT);
+				std::copy(MonthSampleFirst, MonthSampleLast, TheValues.begin());
+				auto iter = TheValues.begin();
+				while (iter->IsValid() && (iter != TheValues.end()))
+					iter++;
+				TheValues.resize(iter - TheValues.begin());
 			}
 			else if (graph == GraphType::yearly)
 			{
-				TheValues.erase(TheValues.begin() + 1); // get rid of the second element
-				std::vector<Govee_Temp> TempValues;
-				for (auto iter = TheValues.begin(); iter != TheValues.end(); iter++)
-					if (iter->IsValid())
-						if (iter->GetTimeGranularity() == Govee_Temp::granularity::year)
-							TempValues.push_back(*iter);
-				TheValues.resize(TempValues.size());
-				std::copy(TempValues.begin(), TempValues.end(), TheValues.begin());
+				TheValues.resize(YEAR_COUNT);
+				std::copy(YearSampleFirst, YearSampleLast, TheValues.begin());
+				auto iter = TheValues.begin();
+				while (iter->IsValid() && (iter != TheValues.end()))
+					iter++;
+				TheValues.resize(iter - TheValues.begin());
 			}
 		}
 	}
@@ -779,7 +787,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 // Interesting ideas about SVG and possible tools to look at: https://blog.usejournal.com/of-svg-minification-and-gzip-21cd26a5d007
 // Tools Mentioned: svgo gzthermal https://github.com/subzey/svg-gz-supplement/
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
-void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false)
+void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
 	const int SVGWidth = 500;
@@ -826,10 +834,10 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				double HumiMax = -100;
 				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 				{
-					TempMin = std::min(TempMin, TheValues[index].GetTemperature(Fahrenheit));
-					TempMax = std::max(TempMax, TheValues[index].GetTemperature(Fahrenheit));
-					HumiMin = std::min(HumiMin, TheValues[index].GetHumidity());
-					HumiMax = std::max(HumiMax, TheValues[index].GetHumidity());
+					TempMin = std::min(TempMin, TheValues[index].GetTemperatureMin(Fahrenheit));
+					TempMax = std::max(TempMax, TheValues[index].GetTemperatureMax(Fahrenheit));
+					HumiMin = std::min(HumiMin, TheValues[index].GetHumidityMin());
+					HumiMax = std::max(HumiMax, TheValues[index].GetHumidityMax());
 				}
 				double TempVerticalDivision = (TempMax - TempMin) / 4;
 				double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
@@ -869,16 +877,42 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 					SVGFile << "\t<text fill=\"OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * 3 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 3 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
 				SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
 
-				// Humidity Graphic as a Filled polygon
-				SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
-				SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
-				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
-					SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidity()) * HumiVerticalFactor) + GraphTop) << " ";
-				if (GraphWidth < TheValues.size())
-					SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
+				if (MinMax)
+				{
+					SVGFile << "\t<!-- Humidity Max -->" << std::endl;
+					SVGFile << "\t<polygon style=\"fill:lime;fill-opacity:0.5;stroke:green\" points=\"";
+					SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
+					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMax()) * HumiVerticalFactor) + GraphTop) << " ";
+					if (GraphWidth < TheValues.size())
+						SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
+					else
+						SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
+					SVGFile << "\" />" << std::endl;
+					SVGFile << "\t<!-- Humidity Min -->" << std::endl;
+					SVGFile << "\t<polygon style=\"fill:lime;fill-opacity:0.5;stroke:green\" points=\"";
+					SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
+					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMin()) * HumiVerticalFactor) + GraphTop) << " ";
+					if (GraphWidth < TheValues.size())
+						SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
+					else
+						SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
+					SVGFile << "\" />" << std::endl;
+				}
 				else
-					SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
-				SVGFile << "\" />" << std::endl;
+				{
+					// Humidity Graphic as a Filled polygon
+					SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
+					SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
+					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidity()) * HumiVerticalFactor) + GraphTop) << " ";
+					if (GraphWidth < TheValues.size())
+						SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
+					else
+						SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
+					SVGFile << "\" />" << std::endl;
+				}
 
 				// Top Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\"/>" << std::endl;
@@ -965,12 +999,11 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				// Directional Arrow
 				SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
-				if ((graph == GraphType::monthly) || (graph == GraphType::yearly))
+				if (MinMax)
 				{
-					// Temperature Values as a series of vertical bars
-					//for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
-					//	SVGFile << "\t<line style=\"fill:blue;stroke:blue;\" x1=\"" << index + GraphLeft << "\" y1=\"" << int(((TempMax - TheValues[index].GetTemperatureMin(Fahrenheit)) * TempVerticalFactor) + GraphTop) << "\" x2=\"" << index + GraphLeft << "\" y2=\"" << int(((TempMax - TheValues[index].GetTemperatureMin(Fahrenheit)) * TempVerticalFactor) + GraphTop) << "\" />" << std::endl;
-					SVGFile << "\t<polygon style=\"fill:cyan;fill-opacity:0.25;stroke:blue\" points=\"";
+					// Temperature Values as a filled polygon showing the minimum and maximum
+					SVGFile << "\t<!-- Temperature MinMax -->" << std::endl;
+					SVGFile << "\t<polygon style=\"fill:blue;fill-opacity:0.5;stroke:blue\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMax(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 					for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)
@@ -980,6 +1013,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				else
 				{
 					// Temperature Values as a continuous line
+					SVGFile << "\t<!-- Temperature -->" << std::endl;
 					SVGFile << "\t<polyline style=\"fill:none;stroke:blue\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
@@ -989,6 +1023,7 @@ void WriteMRTGSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFile
 				// Battery Values as a continuous line
 				if (DrawBattery)
 				{
+					SVGFile << "\t<!-- Battery -->" << std::endl;
 					double BatteryVerticalFactor = (GraphBottom - GraphTop) / 100.0;
 					SVGFile << "\t<polyline style=\"fill:none;stroke:OrangeRed\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
@@ -1042,85 +1077,60 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
 	while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
 	{
-		// For every time difference between FakeMRTGFile[1 + DAY_COUNT] and FakeMRTGFile[2 + DAY_COUNT] that's greater than WEEK_SAMPLE we shift that data towards the back.
-		while (difftime(DaySampleLast->Time, WeekSampleFirst->Time) > WEEK_SAMPLE)
-		{
-			// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] that's greater than MONTH_SAMPLE we shift that data towards the back.
-			while (difftime(WeekSampleLast->Time, MonthSampleFirst->Time) > MONTH_SAMPLE)
-			{
-				// For every time difference between FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] and FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] that's greater than YEAR_SAMPLE we shift that data towards the back.
-				while (difftime(MonthSampleLast->Time, YearSampleFirst->Time) > YEAR_SAMPLE)
-				{
-					if (ConsoleVerbosity > 1)
-						std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time) << std::endl;
-					// shuffle all the year samples toward the end
-					std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
-
-					// Start at oldest of month data. 
-					// If (GetTimeGranularity() == Govee_Temp::granularity::year) do the following, because we are about to get rid of that datapoint when we shuffle.
-					// Scan towards beginning to find a midnight value (GetTimeGranularity() == Govee_Temp::granularity::year)
-					// Scan towards the beginning one position. 
-					// Call that position LAST
-					// Scan towards the beginning to find the next midnight value. (GetTimeGranularity() == Govee_Temp::granularity::year)
-					// Call that position FIRST.
-					// Average all values between FIRST and LAST into FIRST, inclusive.
-					auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-					//while ((Last != FakeMRTGFile.begin()) &&
-					//	(Last->GetTimeGranularity() != Govee_Temp::granularity::year))
-					//	Last--;
-					if (Last->GetTimeGranularity() == Govee_Temp::granularity::year)
-					{
-						auto First = Last - 1;
-						while ((First != FakeMRTGFile.begin()) &&
-							(First->GetTimeGranularity() != Govee_Temp::granularity::year))
-							First--;
-						First++;
-						*Last = Average(First, Last);
-					}
-					// Average routine ends here
-
-					// move the last midnight sample from the month samples into the first of the year sample position.
-					FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT] = *Last;
-					// The next line should now be redundant, but I'm leaving it here.
-					//FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].NormalizeTime(Govee_Temp::granularity::year);
-				}
-				if (ConsoleVerbosity > 1)
-					std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(FakeMRTGFile[1 + DAY_COUNT + WEEK_COUNT].Time) << " > " << timeToExcelLocal(FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].Time) << std::endl;
-				// shuffle all the month samples toward the end
-				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
-
-				// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
-				auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-				if (Last->GetTimeGranularity() == Govee_Temp::granularity::month)
-				{
-					auto First = Last - 1;
-					while ((First != FakeMRTGFile.begin()) &&
-						(First->GetTimeGranularity() != Govee_Temp::granularity::month))
-						First--;
-					First++;
-					*Last = Average(First, Last);
-				}
-				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT] = *Last;
-				FakeMRTGFile[2 + DAY_COUNT + WEEK_COUNT].NormalizeTime(Govee_Temp::granularity::month);
-			}
-			// Average Last two hours worth of values into the last value, since that is the value that will be moved into the first month value.
-			auto Last = FakeMRTGFile.begin() + 1 + DAY_COUNT;
-			auto First = Last - 1;
-			while (difftime((First->Time / WEEK_SAMPLE) * WEEK_SAMPLE, Last->Time) < WEEK_SAMPLE)
-				First--;
-			First++;
-			//*Last = Average(First, Last);
-			// Average routine ends here
-			// shuffle all the week samples toward the end
-			std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
-			FakeMRTGFile[2 + DAY_COUNT].NormalizeTime(Govee_Temp::granularity::week);
-		}
 		// shuffle all the day samples toward the end
 		std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
 		*DaySampleFirst = FakeMRTGFile[1];
 		DaySampleFirst->NormalizeTime(Govee_Temp::granularity::day);
 		if (difftime(DaySampleFirst->Time, (DaySampleFirst+1)->Time) > DAY_SAMPLE)
 			DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
+		if (DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year)
+		{
+			if (ConsoleVerbosity > 1)
+				std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
+			// shuffle all the year samples toward the end
+			std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
+			*YearSampleFirst = *DaySampleFirst;
+
+			auto iter = DaySampleFirst;
+			while (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))) // One Day of day samples
+			{
+				YearSampleFirst->SetMinMax(*iter);
+				iter++;
+			}
+		}
+		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
+			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
+		{
+			if (ConsoleVerbosity > 1)
+				std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
+			// shuffle all the month samples toward the end
+			std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
+			*MonthSampleFirst = *DaySampleFirst;
+
+			auto iter = DaySampleFirst;
+			while (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))) // two hours of day samples
+			{
+				MonthSampleFirst->SetMinMax(*iter);
+				iter++;
+			}
+		}
+		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
+			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
+			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::week))
+		{
+			if (ConsoleVerbosity > 1)
+				std::cout << "[" << getTimeISO8601() << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
+			// shuffle all the month samples toward the end
+			std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
+			*WeekSampleFirst = *DaySampleFirst;
+
+			auto iter = DaySampleFirst;
+			while (iter->IsValid() && ((iter - DaySampleFirst) < 6)) // Half an hour of day samples
+			{
+				YearSampleFirst->SetMinMax(*iter);
+				iter++;
+			}
+		}
 	}
 }
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
@@ -1244,28 +1254,28 @@ void WriteAllSVG()
 		OutputFilename << "-day.svg";
 		std::vector<Govee_Temp> TheValues;
 		ReadMRTGData(TheAddress, TheValues, GraphType::daily);
-		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01);
+		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
 		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-week.svg";
 		ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
-		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02);
+		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
 		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-month.svg";
 		ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
-		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04);
+		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
 		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-year.svg";
 		ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
-		WriteMRTGSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08);
+		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1496,10 +1506,11 @@ static void usage(int argc, char **argv)
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
+	std::cout << "    -x | --minmax        Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:a:s:b:d";
+static const char short_options[] = "hl:t:v:m:a:s:b:x:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -1509,6 +1520,7 @@ static const struct option long_options[] = {
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
 		{ "battery",	required_argument, NULL, 'b' },
+		{ "minmax",	required_argument, NULL, 'x' },
 		{ "download",no_argument,NULL, 'd' },
 		{ 0, 0, 0, 0 }
 };
@@ -1563,6 +1575,11 @@ int main(int argc, char **argv)
 			break;
 		case 'b':
 			try { SVGBattery = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
+			break;
+		case 'x':
+			try { SVGMinMax = std::stoi(optarg); }
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
