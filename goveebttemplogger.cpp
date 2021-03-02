@@ -753,6 +753,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				while (iter->IsValid() && (iter != TheValues.end()))
 					iter++;
 				TheValues.resize(iter - TheValues.begin());
+				*(TheValues.begin()) = *(it->second.begin()); //HACK: include the most recent time sample
 			}
 			else if (graph == GraphType::weekly)
 			{
