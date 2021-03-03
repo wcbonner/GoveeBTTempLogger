@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210302-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210303-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -829,10 +829,10 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				int GraphRight = SVGWidth - (GraphTop * 2) - 2;
 				int GraphLeft = GraphRight - GraphWidth;
 				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
-				double TempMin = 100;
-				double TempMax = -100;
-				double HumiMin = 100;
-				double HumiMax = -100;
+				double TempMin = DBL_MAX;
+				double TempMax = DBL_MIN;
+				double HumiMin = DBL_MAX;
+				double HumiMax = DBL_MIN;
 				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 				{
 					TempMin = std::min(TempMin, TheValues[index].GetTemperatureMin(Fahrenheit));
@@ -1507,7 +1507,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
-	std::cout << "    -x | --minmax        Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
+	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
