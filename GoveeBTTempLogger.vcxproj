@@ -87,6 +87,7 @@
     <None Include="GoveeBTTempLogger\DEBIAN\prerm" />
     <None Include="GoveeBTTempLogger\usr\local\lib\systemd\system\goveebttemplogger.service" />
     <None Include="gvh-E35ECC215C0F-day.svg" />
+    <None Include="gvh-E35ECC215C0F-year.svg" />
     <None Include="index.html" />
     <None Include="LICENSE" />
     <None Include="makefile" />
