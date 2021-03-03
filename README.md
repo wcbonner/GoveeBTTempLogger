@@ -18,9 +18,13 @@ Here is an example filename: gvh-E35ECC215C0F-day.svg
 
 The most recent temperature and humidity are displayed in the vertical scale on the left. The temperature scale is displayed on the left side of the graph, the humidity scale on the right. The most recent time data is displayed in the top right, with a title on the top left of the graph.
 
+Minimum and maximum temperature and humidity data, at the granularity of the graph, may be displayed. This is most useful in yearly graphs, where the granularity is one day. Here is the corresponding yearly graph for the previos daily graph: gvh-E35ECC215C0F-year.svg
+
+![Image](./gvh-E35ECC215C0F-year.svg)
+
 A simple text file mapping bluetooth addresses to title will be read from the filename gvh-titlemap.txt in the svg output directory.  If no title mapping exists, the bluetooth address is used for the graph title.
 
-If the --svg option is not added to the command line, the program shoudl continue to operate exactly the same as it did before.
+If the --svg option is not added to the command line, the program should continue to operate exactly the same as it did before.
 
 ## Verbosity has been significantly changed since the intial release.
 
