@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210304-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210305-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -863,20 +863,20 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
 				SVGFile << "\t\tline { stroke: black; }" << std::endl;
 				SVGFile << "\t\tpolygon { fill-opacity:0.5; }" << std::endl;
-				SVGFile << "\t@media screen and (prefers-color-scheme:dark) {" << std::endl;
-				SVGFile << "\t\ttext{ fill: grey; }" << std::endl;
+				SVGFile << "\t@media screen and (prefers-color-scheme: dark) {" << std::endl;
+				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
 				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
 				SVGFile << "\t}" << std::endl;
 				SVGFile << "\t</style>" << std::endl;
-				SVGFile << "\t<rect width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\" stroke=\"grey\" stroke-width=\"2\" fill-opacity=\"0\" />" << std::endl;
+				SVGFile << "\t<rect style=\"fill-opacity:0;stroke:grey;stroke-width:2\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\" />" << std::endl;
 
 				// Legend Text
 				SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
-				SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
-				SVGFile << "\t<text style=\"fill:green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"text-anchor:end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue;text-anchor:middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:green;text-anchor:middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
 				if (DrawBattery)
 					SVGFile << "\t<text style=\"fill:OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * 3 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 3 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
-				SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
 
 				if (MinMax)
 				{
@@ -904,6 +904,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				else
 				{
 					// Humidity Graphic as a Filled polygon
+					SVGFile << "\t<!-- Humidity -->" << std::endl;
 					SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
 					SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
@@ -917,12 +918,12 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 
 				// Top Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\"/>" << std::endl;
-				SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue;text-anchor:end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
 				SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
 
 				// Bottom Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
-				SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue;text-anchor:end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
 				SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
 
 				// Left Line
@@ -934,15 +935,17 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				// Vertical Division Dashed Lines
 				for (auto index = 1; index < 4; index++)
 				{
-					SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" stroke-dasharray=\"1,1\" />" << std::endl;
-					SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
+					SVGFile << "\t<line style=\"stroke-dasharray:1\" x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" />" << std::endl;
+					SVGFile << "\t<text style=\"fill:blue;text-anchor:end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
 					SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 				}
 
 				// Horizontal Line drawn at the freezing point
-				SVGFile << "\t<!-- FreezingLine = " << FreezingLine << " -->" << std::endl;
 				if ((GraphTop < FreezingLine) && (FreezingLine < GraphBottom))
-					SVGFile << "\t<line style=\"fill:red;stroke:red;stroke-dasharray:1;\" x1=\"" << GraphLeft - TickSize << "\" y1=\"" << FreezingLine << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << FreezingLine << "\" />" << std::endl;
+				{
+					SVGFile << "\t<!-- FreezingLine = " << FreezingLine << " -->" << std::endl;
+					SVGFile << "\t<line style=\"fill:red;stroke:red;stroke-dasharray:1\" x1=\"" << GraphLeft - TickSize << "\" y1=\"" << FreezingLine << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << FreezingLine << "\" />" << std::endl;
+				}
 
 				// Horizontal Division Dashed Lines
 				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
@@ -957,9 +960,9 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 								if (UTC.tm_hour == 0)
 									SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 								else
-									SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+									SVGFile << "\t<line style=\"stroke-dasharray:1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 								if (UTC.tm_hour % 2 == 0)
-									SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << UTC.tm_hour << "</text>" << std::endl;
+									SVGFile << "\t<text style=\"text-anchor:middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << UTC.tm_hour << "</text>" << std::endl;
 							}
 						}
 						else if (graph == GraphType::weekly)
@@ -970,19 +973,19 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 								if (UTC.tm_wday == 1)
 									SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 								else
-									SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+									SVGFile << "\t<line style=\"stroke-dasharray:1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							}
 							else if ((UTC.tm_hour == 12) && (UTC.tm_min == 0))
-								SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Weekday[UTC.tm_wday] << "</text>" << std::endl;
+								SVGFile << "\t<text style=\"text-anchor:middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Weekday[UTC.tm_wday] << "</text>" << std::endl;
 						}
 						else if (graph == GraphType::monthly)
 						{
 							if ((UTC.tm_mday == 1) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
 								SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							if ((UTC.tm_wday == 0) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
-								SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+								SVGFile << "\t<line style=\"stroke-dasharray:1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							else if ((UTC.tm_wday == 3) && (UTC.tm_hour == 12) && (UTC.tm_min == 0))
-								SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">Week " << UTC.tm_yday / 7 + 1 << "</text>" << std::endl;
+								SVGFile << "\t<text style=\"text-anchor:middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">Week " << UTC.tm_yday / 7 + 1 << "</text>" << std::endl;
 						}
 						else if (graph == GraphType::yearly)
 						{
@@ -990,9 +993,9 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 							if ((UTC.tm_yday == 0) && (UTC.tm_mday == 1) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
 								SVGFile << "\t<line style=\"stroke:red\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							else if ((UTC.tm_mday == 1) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
-								SVGFile << "\t<line stroke-dasharray=\"1,1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
+								SVGFile << "\t<line style=\"stroke-dasharray:1\" x1=\"" << GraphLeft + index << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft + index << "\" y2=\"" << GraphBottom + TickSize << "\" />" << std::endl;
 							else if ((UTC.tm_mday == 15) && (UTC.tm_hour == 0) && (UTC.tm_min == 0))
-								SVGFile << "\t<text text-anchor=\"middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Month[UTC.tm_mon] << "</text>" << std::endl;
+								SVGFile << "\t<text style=\"text-anchor:middle\" x=\"" << GraphLeft + index << "\" y=\"" << SVGHeight - 2 << "\">" << Month[UTC.tm_mon] << "</text>" << std::endl;
 						}
 					}
 				}
