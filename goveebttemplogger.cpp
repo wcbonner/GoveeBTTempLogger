@@ -860,28 +860,28 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				SVGFile << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
 				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
-				SVGFile << "\t\ttext {" << std::endl;
-				SVGFile << "\t\t\tfont-family: sans-serif;" << std::endl;
-				SVGFile << "\t\t\tfont-size: " << FontSize << "px;" << std::endl;
-				SVGFile << "\t\t}" << std::endl;
-				SVGFile << "\t\tline {" << std::endl;
-				SVGFile << "\t\t\tstroke: black;" << std::endl;
-				SVGFile << "\t\t}" << std::endl;
+				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
+				SVGFile << "\t\tline { stroke: black; }" << std::endl;
+				SVGFile << "\t\tpolygon { fill-opacity:0.5; }" << std::endl;
+				SVGFile << "\t@media screen and (prefers-color-scheme:dark) {" << std::endl;
+				SVGFile << "\t\ttext{ fill: grey; }" << std::endl;
+				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
+				SVGFile << "\t}" << std::endl;
 				SVGFile << "\t</style>" << std::endl;
 				SVGFile << "\t<rect width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\" stroke=\"grey\" stroke-width=\"2\" fill-opacity=\"0\" />" << std::endl;
 
 				// Legend Text
 				SVGFile << "\t<text x=\"" << GraphLeft << "\" y=\"" << GraphTop - 2 << "\">" << Title << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"middle\" x=\"" << FontSize << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendTemperature << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:green\" text-anchor=\"middle\" x=\"" << FontSize * 2 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 2 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendHumidity << "</text>" << std::endl;
 				if (DrawBattery)
-					SVGFile << "\t<text fill=\"OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * 3 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 3 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * 3 << "\" y=\"" << (GraphTop + GraphBottom) / 2 << "\" transform=\"rotate(270 " << FontSize * 3 << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
 				SVGFile << "\t<text text-anchor=\"end\" x=\"" << GraphRight << "\" y=\"" << GraphTop - 2 << "\">" << timeToExcelLocal(TheValues[0].Time) << "</text>" << std::endl;
 
 				if (MinMax)
 				{
 					SVGFile << "\t<!-- Humidity Max -->" << std::endl;
-					SVGFile << "\t<polygon style=\"fill:lime;fill-opacity:0.5;stroke:green\" points=\"";
+					SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
 					SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMax()) * HumiVerticalFactor) + GraphTop) << " ";
@@ -891,7 +891,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 						SVGFile << GraphRight - (GraphWidth - TheValues.size()) << "," << GraphBottom - 1;
 					SVGFile << "\" />" << std::endl;
 					SVGFile << "\t<!-- Humidity Min -->" << std::endl;
-					SVGFile << "\t<polygon style=\"fill:lime;fill-opacity:0.5;stroke:green\" points=\"";
+					SVGFile << "\t<polygon style=\"fill:lime;stroke:green\" points=\"";
 					SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
 					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMin()) * HumiVerticalFactor) + GraphTop) << " ";
@@ -917,13 +917,13 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 
 				// Top Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop << "\"/>" << std::endl;
-				SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 5 << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
 
 				// Bottom Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
-				SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
-				SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom + 5 << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
+				SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom + 4 << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
 
 				// Left Line
 				SVGFile << "\t<line x1=\"" << GraphLeft << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
@@ -935,8 +935,8 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				for (auto index = 1; index < 4; index++)
 				{
 					SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphTop + (GraphVerticalDivision * index) << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphTop + (GraphVerticalDivision * index) << "\" stroke-dasharray=\"1,1\" />" << std::endl;
-					SVGFile << "\t<text fill=\"blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
-					SVGFile << "\t<text fill=\"green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:blue\" text-anchor=\"end\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:green\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + 4 + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 				}
 
 				// Horizontal Line drawn at the freezing point
@@ -998,13 +998,13 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				}
 
 				// Directional Arrow
-				SVGFile << "\t<polygon stroke=\"red\" fill=\"red\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
+				SVGFile << "\t<polygon style=\"fill:red;stroke:red;fill-opacity:1;\" points=\"" << GraphLeft - 3 << "," << GraphBottom << " " << GraphLeft + 3 << "," << GraphBottom - 3 << " " << GraphLeft + 3 << "," << GraphBottom + 3 << "\" />" << std::endl;
 
 				if (MinMax)
 				{
 					// Temperature Values as a filled polygon showing the minimum and maximum
 					SVGFile << "\t<!-- Temperature MinMax -->" << std::endl;
-					SVGFile << "\t<polygon style=\"fill:blue;fill-opacity:0.5;stroke:blue\" points=\"";
+					SVGFile << "\t<polygon style=\"fill:blue;stroke:blue\" points=\"";
 					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMax(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 					for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)

@@ -19,6 +19,15 @@
         position: relative;
         zoom: 85%;
     }
+
+    /* Addition to support simple dark themes in SVG files */
+    @media screen and (prefers-color-scheme: dark) {
+        body {
+            background-color: black;
+            color: white;
+        }
+    }
+
     /* The next block overrides what I had above when the screen size is less than 980px, which seems to be the cutoff on my iphone */
     @media only screen and (max-width: 980px) {
         .image {
