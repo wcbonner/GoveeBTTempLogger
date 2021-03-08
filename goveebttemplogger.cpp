@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210307-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210308-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -236,12 +236,12 @@ public:
 		Averages = 1;
 	};
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
-	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMin * 9.0 / 5.0) + 32.0); return(TemperatureMin); };
-	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return((TemperatureMax * 9.0 / 5.0) + 32.0); return(TemperatureMax); };
+	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return(std::min(((Temperature * 9.0 / 5.0) + 32.0), ((TemperatureMin * 9.0 / 5.0) + 32.0))); return(std::min(Temperature, TemperatureMin)); };
+	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return(std::max(((Temperature * 9.0 / 5.0) + 32.0), ((TemperatureMax * 9.0 / 5.0) + 32.0))); return(std::max(Temperature, TemperatureMax)); };
 	void SetMinMax(const Govee_Temp & a);
 	double GetHumidity(void) const { return(Humidity); };
-	double GetHumidityMin(void) const { return(HumidityMin); };
-	double GetHumidityMax(void) const { return(HumidityMax); };
+	double GetHumidityMin(void) const { return(std::min(Humidity, HumidityMin)); };
+	double GetHumidityMax(void) const { return(std::max(Humidity, HumidityMax)); };
 	double GetBattery(void) const { return(Battery); };
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
