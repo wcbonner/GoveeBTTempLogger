@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210305-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210307-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -389,6 +389,10 @@ Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
 	rval.TemperatureMin = a.Temperature < a.TemperatureMin ? a.Temperature : a.TemperatureMin;
 	rval.TemperatureMax = a.Temperature > a.TemperatureMax ? a.Temperature : a.TemperatureMax;
 	rval.Humidity = ((a.Humidity * a.Averages) + (b.Humidity * b.Averages)) / rval.Averages;
+	rval.HumidityMin = a.HumidityMin < b.HumidityMin ? a.HumidityMin : b.HumidityMin;
+	rval.HumidityMax = a.HumidityMax > b.HumidityMax ? a.HumidityMax : b.HumidityMax;
+	rval.HumidityMin = a.Humidity < a.HumidityMin ? a.Humidity : a.HumidityMin;
+	rval.HumidityMax = a.Humidity > a.HumidityMax ? a.Humidity : a.HumidityMax;
 	rval = a; // HACK: Averaging still needs work, just use first value passed
 	return(rval);
 }
@@ -860,14 +864,19 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				SVGFile << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
 				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
-				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
-				SVGFile << "\t\tline { stroke: black; }" << std::endl;
-				SVGFile << "\t\tpolygon { fill-opacity:0.5; }" << std::endl;
-				SVGFile << "\t@media screen and (prefers-color-scheme: dark) {" << std::endl;
-				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
+				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: grey; }" << std::endl;
 				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
+				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
+				SVGFile << "\t@media screen and (prefers-color-scheme: light) {" << std::endl;
+				SVGFile << "\t\ttext { fill: black; }" << std::endl;
+				SVGFile << "\t\tline { stroke: black; }" << std::endl;
 				SVGFile << "\t}" << std::endl;
 				SVGFile << "\t</style>" << std::endl;
+#ifdef DEBUG
+				SVGFile << "<!-- HumiMax: " << HumiMax << " -->" << std::endl;
+				SVGFile << "<!-- HumiMin: " << HumiMin << " -->" << std::endl;
+				SVGFile << "<!-- HumiVerticalFactor: " << HumiVerticalFactor << " -->" << std::endl;
+#endif // DEBUG
 				SVGFile << "\t<rect style=\"fill-opacity:0;stroke:grey;stroke-width:2\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\" />" << std::endl;
 
 				// Legend Text
