@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210308-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210314-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1188,14 +1188,18 @@ void ReadLoggedData(void)
 						char buffer[256];
 						if (TheLine.size() < sizeof(buffer))
 						{
-							TheLine.copy(buffer, TheLine.size());
-							buffer[TheLine.size()] = '\0';
-							std::string theDate(strtok(buffer, "\t"));
-							std::string theTemp(strtok(NULL, "\t"));
-							std::string theHumidity(strtok(NULL, "\t"));
-							std::string theBattery(strtok(NULL, "\t"));
-							Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
-							UpdateMRTGData(TheBlueToothAddress, TheValue);
+							// minor garbage check looking for corrupt data with no tab characters
+							if (TheLine.find('\t') != std::string::npos)
+							{
+								TheLine.copy(buffer, TheLine.size());
+								buffer[TheLine.size()] = '\0';
+								std::string theDate(strtok(buffer, "\t"));
+								std::string theTemp(strtok(NULL, "\t"));
+								std::string theHumidity(strtok(NULL, "\t"));
+								std::string theBattery(strtok(NULL, "\t"));
+								Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
+								UpdateMRTGData(TheBlueToothAddress, TheValue);
+							}
 						}
 					}
 					TheFile.close();
