@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210314-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210325-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -864,12 +864,12 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				SVGFile << "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"" << SVGWidth << "\" height=\"" << SVGHeight << "\">" << std::endl;
 				SVGFile << "\t<!-- Created by: " << ProgramVersionString << " -->" << std::endl;
 				SVGFile << "\t<style>" << std::endl;
-				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: grey; }" << std::endl;
-				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
-				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
-				SVGFile << "\t@media screen and (prefers-color-scheme: light) {" << std::endl;
-				SVGFile << "\t\ttext { fill: black; }" << std::endl;
+				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
 				SVGFile << "\t\tline { stroke: black; }" << std::endl;
+				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
+				SVGFile << "\t@media screen and (prefers-color-scheme: dark) {" << std::endl;
+				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
+				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
 				SVGFile << "\t}" << std::endl;
 				SVGFile << "\t</style>" << std::endl;
 #ifdef DEBUG
