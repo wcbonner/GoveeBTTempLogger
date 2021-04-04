@@ -867,7 +867,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
 				SVGFile << "\t\tline { stroke: black; }" << std::endl;
 				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
-				SVGFile << "\t@media screen and (prefers-color-scheme: dark) {" << std::endl;
+				SVGFile << "\t@media only screen and (prefers-color-scheme: dark) {" << std::endl;
 				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
 				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
 				SVGFile << "\t}" << std::endl;
