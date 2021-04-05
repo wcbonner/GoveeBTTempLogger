@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210405-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210405-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1211,6 +1211,19 @@ void ReadLoggedData(void)
 		}
 	}
 }
+void MonitorLoggedData(void)
+{
+	for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+	{
+		std::string filename(GenerateLogFileName(it->first));
+		struct stat64 FileStat;
+		FileStat.st_mtim.tv_sec = 0;
+		if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
+			if (!it->second.empty())
+				if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (5 * 60)))	// only read the file if it's at least five minutes more recent than existing data
+					ReadLoggedData(filename);
+	}
+}
 void ReadTitleMap(void)
 {
 	std::ostringstream TitleMapFilename;
@@ -1927,6 +1940,7 @@ int main(int argc, char **argv)
 										}
 										TimeStart = TimeNow;
 										GenerateLogFile(GoveeTemperatures);
+										MonitorLoggedData();
 									}
 								}
 								setsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
