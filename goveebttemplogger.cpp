@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210325-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210405-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1146,6 +1146,44 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 		}
 	}
 }
+void ReadLoggedData(const std::string & filename)
+{
+	if (ConsoleVerbosity > 0)
+		std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
+	else
+		std::cerr << "Reading: " << filename << std::endl;
+	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
+	std::string ssBTAddress(filename.substr(LogDirectory.length() + 8, 12));
+	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
+		ssBTAddress.insert(index, ":");
+	bdaddr_t TheBlueToothAddress;
+	str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
+	std::ifstream TheFile(filename);
+	if (TheFile.is_open())
+	{
+		std::string TheLine;
+		while (std::getline(TheFile, TheLine))
+		{
+			char buffer[256];
+			if (TheLine.size() < sizeof(buffer))
+			{
+				// minor garbage check looking for corrupt data with no tab characters
+				if (TheLine.find('\t') != std::string::npos)
+				{
+					TheLine.copy(buffer, TheLine.size());
+					buffer[TheLine.size()] = '\0';
+					std::string theDate(strtok(buffer, "\t"));
+					std::string theTemp(strtok(NULL, "\t"));
+					std::string theHumidity(strtok(NULL, "\t"));
+					std::string theBattery(strtok(NULL, "\t"));
+					Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
+					UpdateMRTGData(TheBlueToothAddress, TheValue);
+				}
+			}
+		}
+		TheFile.close();
+	}
+}
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
@@ -1167,43 +1205,8 @@ void ReadLoggedData(void)
 			sort(files.begin(), files.end());
 			while (!files.empty())
 			{
-				std::string filename(files.begin()->c_str());
+				ReadLoggedData(*files.begin());
 				files.pop_front();
-				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
-				else
-					std::cerr << "Reading: " << filename << std::endl;
-				// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
-				std::string ssBTAddress(filename.substr(LogDirectory.length() + 8, 12));
-				for (auto index = ssBTAddress.length() - 2; index > 0;index -= 2)
-					ssBTAddress.insert(index, ":");
-				bdaddr_t TheBlueToothAddress;
-				str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
-				std::ifstream TheFile(filename);
-				if (TheFile.is_open())
-				{
-					std::string TheLine;
-					while (std::getline(TheFile, TheLine))
-					{
-						char buffer[256];
-						if (TheLine.size() < sizeof(buffer))
-						{
-							// minor garbage check looking for corrupt data with no tab characters
-							if (TheLine.find('\t') != std::string::npos)
-							{
-								TheLine.copy(buffer, TheLine.size());
-								buffer[TheLine.size()] = '\0';
-								std::string theDate(strtok(buffer, "\t"));
-								std::string theTemp(strtok(NULL, "\t"));
-								std::string theHumidity(strtok(NULL, "\t"));
-								std::string theBattery(strtok(NULL, "\t"));
-								Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
-								UpdateMRTGData(TheBlueToothAddress, TheValue);
-							}
-						}
-					}
-					TheFile.close();
-				}
 			}
 		}
 	}
