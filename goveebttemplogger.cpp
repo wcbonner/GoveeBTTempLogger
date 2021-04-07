@@ -84,7 +84,7 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210405-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210407-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1659,7 +1659,15 @@ int main(int argc, char **argv)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
-			int on = 1;
+			int on = 1; // Nonblocking on = 1, off = 0;
+			struct timeval tv;
+			tv.tv_sec = 0;
+			tv.tv_usec = 500000; // half a second
+			if (setsockopt(device_handle, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv))
+			{
+				std::cerr << "[                   ] Error: Could set socket timeout: " << strerror(errno) << std::endl;
+				on = 0;	// If we were able to set the timeout, I'm going to put the socket in blocking mode
+			}
 			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
 			else
