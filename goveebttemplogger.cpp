@@ -51,6 +51,7 @@
 //
 
 #include <cstdio>
+#include <cstring> 
 #include <ctime>
 #include <csignal>
 #include <cmath>
@@ -83,7 +84,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210414-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210415-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -234,6 +235,7 @@ public:
 		Battery = bat;
 		Averages = 1;
 	};
+	Govee_Temp(const std::string & data);
 	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
 	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return(std::min(((Temperature * 9.0 / 5.0) + 32.0), ((TemperatureMin * 9.0 / 5.0) + 32.0))); return(std::min(Temperature, TemperatureMin)); };
 	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return(std::max(((Temperature * 9.0 / 5.0) + 32.0), ((TemperatureMax * 9.0 / 5.0) + 32.0))); return(std::max(Temperature, TemperatureMax)); };
@@ -258,6 +260,32 @@ protected:
 	int Battery;
 	int Averages;
 };
+Govee_Temp::Govee_Temp(const std::string & data)
+{
+	std::string TheLine(data);
+	// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
+	for (auto pos = TheLine.find('\000'); pos != std::string::npos; pos = TheLine.find('\000'))
+		TheLine.erase(pos);
+	char buffer[256];
+	if (!TheLine.empty() && (TheLine.size() < sizeof(buffer)))
+	{
+		// minor garbage check looking for corrupt data with no tab characters
+		if (TheLine.find('\t') != std::string::npos)
+		{
+			TheLine.copy(buffer, TheLine.size());
+			buffer[TheLine.size()] = '\0';
+			std::string theDate(strtok(buffer, "\t"));
+			Time = ISO8601totime(theDate);
+			std::string theTemp(strtok(NULL, "\t"));
+			Temperature = TemperatureMin = TemperatureMax = std::atof(theTemp.c_str());
+			std::string theHumidity(strtok(NULL, "\t"));
+			Humidity = HumidityMin = HumidityMax = std::atof(theHumidity.c_str());
+			std::string theBattery(strtok(NULL, "\t"));
+			Battery = std::atol(theBattery.c_str());
+			Averages = 1;
+		}
+	}
+}
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
 	std::ostringstream ssValue;
@@ -1163,24 +1191,9 @@ void ReadLoggedData(const std::string & filename)
 		std::string TheLine;
 		while (std::getline(TheFile, TheLine))
 		{
-			char buffer[256];
-			if (!TheLine.empty() && (TheLine.size() < sizeof(buffer)))
-			{
-				for (auto pos = TheLine.find('\000');  pos != std::string::npos; pos = TheLine.find('\000'))
-					TheLine.erase(pos);
-				// minor garbage check looking for corrupt data with no tab characters
-				if (TheLine.find('\t') != std::string::npos)
-				{
-					TheLine.copy(buffer, TheLine.size());
-					buffer[TheLine.size()] = '\0';
-					std::string theDate(strtok(buffer, "\t"));
-					std::string theTemp(strtok(NULL, "\t"));
-					std::string theHumidity(strtok(NULL, "\t"));
-					std::string theBattery(strtok(NULL, "\t"));
-					Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
-					UpdateMRTGData(TheBlueToothAddress, TheValue);
-				}
-			}
+			Govee_Temp TheValue(TheLine);
+			if (TheValue.IsValid())
+				UpdateMRTGData(TheBlueToothAddress, TheValue);
 		}
 		TheFile.close();
 	}
