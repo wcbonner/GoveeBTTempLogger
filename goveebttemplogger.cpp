@@ -82,9 +82,8 @@
 #include <sys/stat.h>
 #include <utime.h>
 
-
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210407-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210414-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1165,8 +1164,10 @@ void ReadLoggedData(const std::string & filename)
 		while (std::getline(TheFile, TheLine))
 		{
 			char buffer[256];
-			if (TheLine.size() < sizeof(buffer))
+			if (!TheLine.empty() && (TheLine.size() < sizeof(buffer)))
 			{
+				for (auto pos = TheLine.find('\000');  pos != std::string::npos; pos = TheLine.find('\000'))
+					TheLine.erase(pos);
 				// minor garbage check looking for corrupt data with no tab characters
 				if (TheLine.find('\t') != std::string::npos)
 				{
