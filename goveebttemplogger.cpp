@@ -84,7 +84,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210421-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210422-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1082,7 +1082,8 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	else
 	{
 		FakeMRTGFile[0] = TheValue;	// current value
-		FakeMRTGFile[1] += TheValue;// averaged value up to DAY_SAMPLE size
+		if (TheValue.Time > FakeMRTGFile[1].Time)
+			FakeMRTGFile[1] += TheValue;// averaged value up to DAY_SAMPLE size
 	}
 	bool ZeroAccumulator = false;
 	auto DaySampleFirst = FakeMRTGFile.begin() + 2;
