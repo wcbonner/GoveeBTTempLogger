@@ -84,7 +84,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210415-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210421-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -248,8 +248,7 @@ public:
 	void NormalizeTime(granularity type);
 	granularity GetTimeGranularity(void) const;
 	bool IsValid(void) const { return(Averages > 0); };
-	friend Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b);
-	friend Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last);
+	Govee_Temp& operator +=(const Govee_Temp& b);
 protected:
 	double Temperature;
 	double TemperatureMin;
@@ -404,52 +403,20 @@ Govee_Temp::granularity Govee_Temp::GetTimeGranularity(void) const
 	}
 	return(rval);
 }
-Govee_Temp Average(const Govee_Temp &a, const Govee_Temp &b)
+Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 {
-	Govee_Temp rval(a);
-	rval.Time = a.Time < b.Time ? a.Time : b.Time; // Use the minimum time (oldest time)
-	rval.Battery = a.Battery < b.Battery ? a.Battery : b.Battery; // use the minimum battery
-	rval.Averages = a.Averages + b.Averages; // existing average + new average
-	rval.Temperature = ((a.Temperature * a.Averages) + (b.Temperature * b.Averages)) / rval.Averages;
-	rval.TemperatureMin = a.TemperatureMin < b.TemperatureMin ? a.TemperatureMin : b.TemperatureMin;
-	rval.TemperatureMax = a.TemperatureMax > b.TemperatureMax ? a.TemperatureMax : b.TemperatureMax;
-	rval.TemperatureMin = a.Temperature < a.TemperatureMin ? a.Temperature : a.TemperatureMin;
-	rval.TemperatureMax = a.Temperature > a.TemperatureMax ? a.Temperature : a.TemperatureMax;
-	rval.Humidity = ((a.Humidity * a.Averages) + (b.Humidity * b.Averages)) / rval.Averages;
-	rval.HumidityMin = a.HumidityMin < b.HumidityMin ? a.HumidityMin : b.HumidityMin;
-	rval.HumidityMax = a.HumidityMax > b.HumidityMax ? a.HumidityMax : b.HumidityMax;
-	rval.HumidityMin = a.Humidity < a.HumidityMin ? a.Humidity : a.HumidityMin;
-	rval.HumidityMax = a.Humidity > a.HumidityMax ? a.Humidity : a.HumidityMax;
-	rval = a; // HACK: Averaging still needs work, just use first value passed
-	return(rval);
+	Time = std::max(Time, b.Time); // Use the maximum time (newest time)
+	Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
+	TemperatureMin = std::min(std::min(Temperature, TemperatureMin), b.TemperatureMin);
+	TemperatureMax = std::max(std::max(Temperature, TemperatureMax), b.TemperatureMax);
+	Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / (Averages + b.Averages);
+	HumidityMin = std::min(std::min(Humidity, HumidityMin), b.HumidityMin);
+	HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
+	Battery = std::min(Battery, b.Battery);
+	Averages += b.Averages; // existing average + new average
+	return(*this);
 }
-Govee_Temp Average(std::vector<Govee_Temp>::iterator first, std::vector<Govee_Temp>::iterator last)
-{
-	Govee_Temp rval(*last);
-	rval.Temperature *= double(rval.Averages);
-	rval.TemperatureMin = rval.TemperatureMin < rval.Temperature ? rval.TemperatureMin : rval.Temperature;
-	rval.TemperatureMax = rval.TemperatureMax > rval.Temperature ? rval.TemperatureMax : rval.Temperature;
-	rval.Humidity *= double(rval.Averages);
-	rval.Battery *= rval.Averages;
-	while (first < last)
-	{
-		last--;
-		rval.Time = rval.Time < last->Time ? rval.Time : last->Time; // Use the minimum time (oldest time)
-		rval.Temperature += last->Temperature * double(last->Averages);
-		rval.TemperatureMin = rval.TemperatureMin < last->TemperatureMin ? rval.TemperatureMin : last->TemperatureMin;
-		rval.TemperatureMax = rval.TemperatureMax > last->TemperatureMax ? rval.TemperatureMax : last->TemperatureMax;
-		rval.Humidity += last->Humidity * double(last->Averages);
-		rval.Battery += last->Battery * last->Averages;
-		rval.Averages += last->Averages;
-	}
-	if (rval.Averages > 0)
-	{
-		rval.Temperature /= double(rval.Averages);
-		rval.Humidity /= double(rval.Averages);
-		rval.Battery /= rval.Averages;
-	}
-	return(rval);
-}
+
 /////////////////////////////////////////////////////////////////////////////
 std::string iBeacon(const uint8_t * const data)
 {
@@ -654,10 +621,11 @@ bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutV
 			}
 		} while (TheFile.tellg() > 0);	// If we are at the beginning of the file, there's nothing more to do
 		TheFile.close();
+		if (!LogValues.empty())
+			OutValue = Govee_Temp();
 		while (!LogValues.empty())
 		{
-			OutValue.Time = OutValue.Time > LogValues.front().Time ? OutValue.Time : LogValues.front().Time;
-			OutValue = Average(LogValues.front(), OutValue);
+			OutValue += LogValues.front();
 			LogValues.pop();
 			rval = true;	// I'm doing this multiple times, but it was easier than having an extra check
 		}
@@ -784,7 +752,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 				while (iter->IsValid() && (iter != TheValues.end()))
 					iter++;
 				TheValues.resize(iter - TheValues.begin());
-				*(TheValues.begin()) = *(it->second.begin()); //HACK: include the most recent time sample
+				TheValues.begin()->Time = it->second.begin()->Time; //HACK: include the most recent time sample
 			}
 			else if (graph == GraphType::weekly)
 			{
@@ -864,13 +832,23 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				double TempMax = DBL_MIN;
 				double HumiMin = DBL_MAX;
 				double HumiMax = DBL_MIN;
-				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
-				{
-					TempMin = std::min(TempMin, TheValues[index].GetTemperatureMin(Fahrenheit));
-					TempMax = std::max(TempMax, TheValues[index].GetTemperatureMax(Fahrenheit));
-					HumiMin = std::min(HumiMin, TheValues[index].GetHumidityMin());
-					HumiMax = std::max(HumiMax, TheValues[index].GetHumidityMax());
-				}
+				if (MinMax)
+					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					{
+						TempMin = std::min(TempMin, TheValues[index].GetTemperatureMin(Fahrenheit));
+						TempMax = std::max(TempMax, TheValues[index].GetTemperatureMax(Fahrenheit));
+						HumiMin = std::min(HumiMin, TheValues[index].GetHumidityMin());
+						HumiMax = std::max(HumiMax, TheValues[index].GetHumidityMax());
+					}
+				else
+					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					{
+						TempMin = std::min(TempMin, TheValues[index].GetTemperature(Fahrenheit));
+						TempMax = std::max(TempMax, TheValues[index].GetTemperature(Fahrenheit));
+						HumiMin = std::min(HumiMin, TheValues[index].GetHumidity());
+						HumiMax = std::max(HumiMax, TheValues[index].GetHumidity());
+					}
+
 				double TempVerticalDivision = (TempMax - TempMin) / 4;
 				double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
 				double HumiVerticalDivision = (HumiMax - HumiMin) / 4;
@@ -1104,8 +1082,9 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	else
 	{
 		FakeMRTGFile[0] = TheValue;	// current value
-		FakeMRTGFile[1] = Average(FakeMRTGFile[0], FakeMRTGFile[1]); // averaged value up to DAY_SAMPLE size
+		FakeMRTGFile[1] += TheValue;// averaged value up to DAY_SAMPLE size
 	}
+	bool ZeroAccumulator = false;
 	auto DaySampleFirst = FakeMRTGFile.begin() + 2;
 	auto DaySampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT;
 	auto WeekSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT;
@@ -1117,6 +1096,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
 	while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
 	{
+		ZeroAccumulator = true;
 		// shuffle all the day samples toward the end
 		std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
 		*DaySampleFirst = FakeMRTGFile[1];
@@ -1129,14 +1109,9 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 				std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
 			// shuffle all the year samples toward the end
 			std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
-			*YearSampleFirst = *DaySampleFirst;
-
-			auto iter = DaySampleFirst;
-			while (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))) // One Day of day samples
-			{
-				YearSampleFirst->SetMinMax(*iter);
-				iter++;
-			}
+			*YearSampleFirst = Govee_Temp();
+			for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
+				*YearSampleFirst += *iter;
 		}
 		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
 			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
@@ -1145,14 +1120,9 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 				std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 			// shuffle all the month samples toward the end
 			std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
-			*MonthSampleFirst = *DaySampleFirst;
-
-			auto iter = DaySampleFirst;
-			while (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))) // two hours of day samples
-			{
-				MonthSampleFirst->SetMinMax(*iter);
-				iter++;
-			}
+			*MonthSampleFirst = Govee_Temp();
+			for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
+				*MonthSampleFirst += *iter;
 		}
 		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
 			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
@@ -1162,16 +1132,13 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 				std::cout << "[" << getTimeISO8601() << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 			// shuffle all the month samples toward the end
 			std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
-			*WeekSampleFirst = *DaySampleFirst;
-
-			auto iter = DaySampleFirst;
-			while (iter->IsValid() && ((iter - DaySampleFirst) < 6)) // Half an hour of day samples
-			{
-				YearSampleFirst->SetMinMax(*iter);
-				iter++;
-			}
+			*WeekSampleFirst = Govee_Temp();
+			for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
+				*WeekSampleFirst += *iter;
 		}
 	}
+	if (ZeroAccumulator)
+		FakeMRTGFile[1] = Govee_Temp();
 }
 void ReadLoggedData(const std::string & filename)
 {
