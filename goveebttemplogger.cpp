@@ -50,42 +50,42 @@
 // https://reelyactive.github.io/diy/best-practices-ble-identifiers/
 //
 
-#include <cstdio>
-#include <cstring> 
-#include <ctime>
-#include <csignal>
-#include <cmath>
-#include <climits>
+#include <algorithm>
+#include <arpa/inet.h>
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
+#include <bluetooth/l2cap.h>
 #include <cfloat>
+#include <climits>
+#include <cmath>
+#include <csignal>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <dirent.h>
+#include <fstream>
+#include <getopt.h>
+#include <iomanip>
 #include <iostream>
 #include <locale>
-#include <queue>
-#include <map>
-#include <vector>
-#include <algorithm>
 #include <locale>
-#include <iomanip>
-#include <fstream>
+#include <map>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <queue>
 #include <sstream>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <unistd.h> // For close()
-#include <netdb.h>
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/hci_lib.h>
-#include <bluetooth/l2cap.h>
-#include <getopt.h>
-#include <dirent.h>
 #include <utime.h>
+#include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210422-3 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210423-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1700,16 +1700,14 @@ int main(int argc, char **argv)
 
 									// This select() call coming up will sit and wait until until the socket read would return something that's not EAGAIN/EWOULDBLOCK
 									// But first we need to set a timeout -- we need to do this every time before we call select()
-									struct timeval select_timeout;
-									select_timeout.tv_sec = 60;
-									select_timeout.tv_usec = 0;
+									struct timeval select_timeout = { 60, 0 };	// 60 second timeout, 0 microseconds
 									// and reset the value of check_set, since that's what will tell us what descriptors were ready
 									// Set up the file descriptor set that select() will use
 									fd_set check_set;
 									FD_ZERO(&check_set);
 									FD_SET(device_handle, &check_set);
 									// This will block until either a read is ready (i.e. won’t return EWOULDBLOCK) -1 on error, 0 on timeout, otherwise number of FDs changed
-									if (0 < select(device_handle + 1, &check_set, NULL, NULL, &select_timeout))
+									if (0 < select(device_handle + 1, &check_set, NULL, NULL, &select_timeout))	// returns number of handles ready to read. 0 or negative indicate other than good data to read.
 									{
 										// We got data ready to read, check and make sure it's the right descriptor, just as a sanity check (it shouldn't be possible ot get anything else)
 										if (!FD_ISSET(device_handle, &check_set))
