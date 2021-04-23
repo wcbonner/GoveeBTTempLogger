@@ -85,7 +85,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210422-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210422-3 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1701,7 +1701,7 @@ int main(int argc, char **argv)
 									// This select() call coming up will sit and wait until until the socket read would return something that's not EAGAIN/EWOULDBLOCK
 									// But first we need to set a timeout -- we need to do this every time before we call select()
 									struct timeval select_timeout;
-									select_timeout.tv_sec = 1;
+									select_timeout.tv_sec = 60;
 									select_timeout.tv_usec = 0;
 									// and reset the value of check_set, since that's what will tell us what descriptors were ready
 									// Set up the file descriptor set that select() will use
