@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210423-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210423-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1710,212 +1710,211 @@ int main(int argc, char **argv)
 									if (0 < select(device_handle + 1, &check_set, NULL, NULL, &select_timeout))	// returns number of handles ready to read. 0 or negative indicate other than good data to read.
 									{
 										// We got data ready to read, check and make sure it's the right descriptor, just as a sanity check (it shouldn't be possible ot get anything else)
-										if (!FD_ISSET(device_handle, &check_set))
+										if (FD_ISSET(device_handle, &check_set))
 										{
-											std::cerr << "select was ready, but our descriptor isn't?!";
-											continue;
-										}
-										// okay, if we made it this far, we can read our descriptor, and shouldn't get EAGAIN. Ideally, the right way to process this is 'read in a loop
-										// until you get EAGAIN and then go back to select()', but worst case is that you don't read everything availableand select() immediately returns, so not
-										// a *huge* deal just doing one read and then back to select, here.
-										ssize_t bufDataLen = read(device_handle, buf, sizeof(buf));
-										if (bufDataLen > HCI_MAX_EVENT_SIZE)
-											std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
-										if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
-										{
-											if (ConsoleVerbosity > 3)
-												std::cout << "[" << getTimeISO8601() << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
-											std::ostringstream ConsoleOutLine;
-											ConsoleOutLine << "[" << getTimeISO8601() << "]" << std::setw(3) << bufDataLen;
-
-											// At this point I should have an HCI Event in buf (hci_event_hdr)
-											evt_le_meta_event* meta = (evt_le_meta_event*)(buf + (HCI_EVENT_HDR_SIZE + 1));
-											if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
+											// okay, if we made it this far, we can read our descriptor, and shouldn't get EAGAIN. Ideally, the right way to process this is 'read in a loop
+											// until you get EAGAIN and then go back to select()', but worst case is that you don't read everything availableand select() immediately returns, so not
+											// a *huge* deal just doing one read and then back to select, here.
+											ssize_t bufDataLen = read(device_handle, buf, sizeof(buf));
+											if (bufDataLen > HCI_MAX_EVENT_SIZE)
+												std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
+											if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
 											{
-												const le_advertising_info* const info = (le_advertising_info*)(meta->data + 1);
-												bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
-												char addr[19] = { 0 };
-												ba2str(&info->bdaddr, addr);
-												ConsoleOutLine << " [" << addr << "]";
-												if (ConsoleVerbosity > 2)
+												if (ConsoleVerbosity > 3)
+													std::cout << "[" << getTimeISO8601() << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
+												std::ostringstream ConsoleOutLine;
+												ConsoleOutLine << "[" << getTimeISO8601() << "]" << std::setw(3) << bufDataLen;
+
+												// At this point I should have an HCI Event in buf (hci_event_hdr)
+												evt_le_meta_event* meta = (evt_le_meta_event*)(buf + (HCI_EVENT_HDR_SIZE + 1));
+												if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
 												{
-													ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
-													ConsoleOutLine << " (evt_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->evt_type);
-												}
-												if (ConsoleVerbosity > 8)
-												{
-													std::cout << "[                   ]";
-													for (auto index = 0; index < bufDataLen; index++)
-														std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
-													std::cout << std::endl;
-													std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length (bytes following)" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
-													std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
-													std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
-													std::cout << "[                   ] |  |  ^------------------------------------> ?? length (bytes following)" << std::endl;
-													std::cout << "[                   ] |  ^---------------------------------------> hci_event_hdr.plen = EVT_LE_META_EVENT = 3E" << std::endl;
-													std::cout << "[                   ] ^------------------------------------------> hci_event_hdr.evt = HCI_EVENT_PKT = 04" << std::endl;
-												}
-												if (info->length > 0)
-												{
-													int current_offset = 0;
-													bool data_error = false;
-													while (!data_error && current_offset < info->length)
+													const le_advertising_info* const info = (le_advertising_info*)(meta->data + 1);
+													bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+													char addr[19] = { 0 };
+													ba2str(&info->bdaddr, addr);
+													ConsoleOutLine << " [" << addr << "]";
+													if (ConsoleVerbosity > 2)
 													{
-														size_t data_len = info->data[current_offset];
-														if (data_len + 1 > info->length)
+														ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
+														ConsoleOutLine << " (evt_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->evt_type);
+													}
+													if (ConsoleVerbosity > 8)
+													{
+														std::cout << "[                   ]";
+														for (auto index = 0; index < bufDataLen; index++)
+															std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
+														std::cout << std::endl;
+														std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length (bytes following)" << std::endl;
+														std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr" << std::endl;
+														std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
+														std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
+														std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
+														std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
+														std::cout << "[                   ] |  |  ^------------------------------------> ?? length (bytes following)" << std::endl;
+														std::cout << "[                   ] |  ^---------------------------------------> hci_event_hdr.plen = EVT_LE_META_EVENT = 3E" << std::endl;
+														std::cout << "[                   ] ^------------------------------------------> hci_event_hdr.evt = HCI_EVENT_PKT = 04" << std::endl;
+													}
+													if (info->length > 0)
+													{
+														int current_offset = 0;
+														bool data_error = false;
+														while (!data_error && current_offset < info->length)
 														{
-															if (ConsoleVerbosity > 0)
-																std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
-															data_error = true;
-														}
-														else
-														{
-															switch (*(info->data + current_offset + 1))
+															size_t data_len = info->data[current_offset];
+															if (data_len + 1 > info->length)
 															{
-															case 0x01:	// Flags
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																if (ConsoleVerbosity > 0)
+																	std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
+																data_error = true;
+															}
+															else
+															{
+																switch (*(info->data + current_offset + 1))
 																{
-																	ConsoleOutLine << " (Flags) ";
-																	//for (uint8_t index = 0x80; index > 0; index >> 1)
-																	//	ConsoleOutLine << (index & *(info->data + current_offset + 2));
-																	//ConsoleOutLine << ((index & *(info->data + current_offset + 2)) ? "1" : "0");
-																	if (ConsoleVerbosity > 3)
+																case 0x01:	// Flags
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																	{
-																		if (*(info->data + current_offset + 2) & 0x01)
-																			ConsoleOutLine << "[LE Limited Discoverable Mode]";
-																		if (*(info->data + current_offset + 2) & 0x02)
-																			ConsoleOutLine << "[LE General Discoverable Mode]";
-																		if (*(info->data + current_offset + 2) & 0x04)
-																			ConsoleOutLine << "[LE General Discoverable Mode]";
-																		if (*(info->data + current_offset + 2) & 0x08)
-																			ConsoleOutLine << "[Simultaneous LE and BR/EDR (Controller)]";
-																		if (*(info->data + current_offset + 2) & 0x10)
-																			ConsoleOutLine << "[Simultaneous LE and BR/EDR (Host)]";
-																		if (*(info->data + current_offset + 2) & 0x20)
-																			ConsoleOutLine << "[??]";
-																		if (*(info->data + current_offset + 2) & 0x40)
-																			ConsoleOutLine << "[??]";
-																		if (*(info->data + current_offset + 2) & 0x80)
-																			ConsoleOutLine << "[??]";
+																		ConsoleOutLine << " (Flags) ";
+																		//for (uint8_t index = 0x80; index > 0; index >> 1)
+																		//	ConsoleOutLine << (index & *(info->data + current_offset + 2));
+																		//ConsoleOutLine << ((index & *(info->data + current_offset + 2)) ? "1" : "0");
+																		if (ConsoleVerbosity > 3)
+																		{
+																			if (*(info->data + current_offset + 2) & 0x01)
+																				ConsoleOutLine << "[LE Limited Discoverable Mode]";
+																			if (*(info->data + current_offset + 2) & 0x02)
+																				ConsoleOutLine << "[LE General Discoverable Mode]";
+																			if (*(info->data + current_offset + 2) & 0x04)
+																				ConsoleOutLine << "[LE General Discoverable Mode]";
+																			if (*(info->data + current_offset + 2) & 0x08)
+																				ConsoleOutLine << "[Simultaneous LE and BR/EDR (Controller)]";
+																			if (*(info->data + current_offset + 2) & 0x10)
+																				ConsoleOutLine << "[Simultaneous LE and BR/EDR (Host)]";
+																			if (*(info->data + current_offset + 2) & 0x20)
+																				ConsoleOutLine << "[??]";
+																			if (*(info->data + current_offset + 2) & 0x40)
+																				ConsoleOutLine << "[??]";
+																			if (*(info->data + current_offset + 2) & 0x80)
+																				ConsoleOutLine << "[??]";
+																		}
+																		else
+																			for (auto index = 1; index < *(info->data + current_offset); index++)
+																				ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
 																	}
-																	else
+																	break;
+																case 0x02:	// Incomplete List of 16-bit Service Class UUID
+																case 0x03:	// Complete List of 16-bit Service Class UUIDs
+																case 0x04:	// Incomplete List of 32-bit Service Class UUIDs
+																case 0x05:	// Complete List of 32-bit Service Class UUID
+																case 0x06:	// Incomplete List of 128-bit Service Class UUIDs
+																case 0x07:	// Complete List of 128-bit Service Class UUID
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (UUID) ";
 																		for (auto index = 1; index < *(info->data + current_offset); index++)
 																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x02:	// Incomplete List of 16-bit Service Class UUID
-															case 0x03:	// Complete List of 16-bit Service Class UUIDs
-															case 0x04:	// Incomplete List of 32-bit Service Class UUIDs
-															case 0x05:	// Complete List of 32-bit Service Class UUID
-															case 0x06:	// Incomplete List of 128-bit Service Class UUIDs
-															case 0x07:	// Complete List of 128-bit Service Class UUID
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (UUID) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x08:	// Shortened Local Name
-															case 0x09:	// Complete Local Name
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Name) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << char((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x0A:	// Tx Power Level
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Tx Power) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x16:	// Service Data or Service Data - 16-bit UUID
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Service Data) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x19:	// Appearance
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Appearance) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0xFF:	// Manufacturer Specific Data
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Manu) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																{
-																	Govee_Temp localTemp;
-																	if (localTemp.ReadMSG((info->data + current_offset)))
-																	{
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
-																		ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
-																		ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
-																		ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
-																		std::queue<Govee_Temp> foo;
-																		auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
-																		ret.first->second.push(localTemp);
-																		AddressInGoveeSet = true;
-																		GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
-																		UpdateMRTGData(info->bdaddr, localTemp);
 																	}
-																	else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																		ConsoleOutLine << iBeacon(info->data + current_offset);
+																	break;
+																case 0x08:	// Shortened Local Name
+																case 0x09:	// Complete Local Name
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Name) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << char((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x0A:	// Tx Power Level
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Tx Power) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x16:	// Service Data or Service Data - 16-bit UUID
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Service Data) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x19:	// Appearance
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Appearance) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0xFF:	// Manufacturer Specific Data
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Manu) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	{
+																		Govee_Temp localTemp;
+																		if (localTemp.ReadMSG((info->data + current_offset)))
+																		{
+																			//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
+																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																			//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
+																			//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
+																			ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
+																			ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
+																			std::queue<Govee_Temp> foo;
+																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
+																			ret.first->second.push(localTemp);
+																			AddressInGoveeSet = true;
+																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
+																			UpdateMRTGData(info->bdaddr, localTemp);
+																		}
+																		else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																			ConsoleOutLine << iBeacon(info->data + current_offset);
+																	}
+																	break;
+																default:
+																	if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
 																}
-																break;
-															default:
-																if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
+																current_offset += data_len + 1;
 															}
-															current_offset += data_len + 1;
 														}
 													}
+													if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
+														std::cout << ConsoleOutLine.str() << std::endl;
 												}
-												if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
-													std::cout << ConsoleOutLine.str() << std::endl;
-											}
-											else
-											{
-												if (ConsoleVerbosity > 2)
+												else
 												{
-													std::cout << "[-------------------]";
-													for (auto index = 0; index < bufDataLen; index++)
-														std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
-													std::cout << std::endl;
+													if (ConsoleVerbosity > 2)
+													{
+														std::cout << "[-------------------]";
+														for (auto index = 0; index < bufDataLen; index++)
+															std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
+														std::cout << std::endl;
+													}
 												}
 											}
-										}
-										else if (bRun && (errno == EAGAIN))
-										{
-											// EAGAIN : Resource temporarily unavailable (may be the same value as EWOULDBLOCK) (POSIX.1-2001).
-											usleep(100);
-										}
-										else if (errno == EINTR)
-										{
-											std::cerr << "[                   ] Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
-											// EINTR : Interrupted function call (POSIX.1-2001); see signal(7).
-											bRun = false;
+											else if (bRun && (errno == EAGAIN))
+											{
+												// EAGAIN : Resource temporarily unavailable (may be the same value as EWOULDBLOCK) (POSIX.1-2001).
+												std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
+												usleep(100);
+											}
+											else if (errno == EINTR)
+											{
+												// EINTR : Interrupted function call (POSIX.1-2001); see signal(7).
+												std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
+												bRun = false;
+											}
 										}
 									}
 									if (DownloadData)
