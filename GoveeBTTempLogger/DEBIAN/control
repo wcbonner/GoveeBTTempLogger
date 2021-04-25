@@ -8,3 +8,4 @@ Installed-Size: 95
 Maintainer: wcbonner@users.noreply.github.com
 Description: Listen and log Govee Thermometer Bluetooth Low Energy Advertisments
 Depends: libbluetooth3
+Homepage: https://github.com/wcbonner/GoveeBTTempLogger
