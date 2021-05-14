@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210423-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210514-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -406,15 +406,18 @@ Govee_Temp::granularity Govee_Temp::GetTimeGranularity(void) const
 }
 Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 {
-	Time = std::max(Time, b.Time); // Use the maximum time (newest time)
-	Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
-	TemperatureMin = std::min(std::min(Temperature, TemperatureMin), b.TemperatureMin);
-	TemperatureMax = std::max(std::max(Temperature, TemperatureMax), b.TemperatureMax);
-	Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / (Averages + b.Averages);
-	HumidityMin = std::min(std::min(Humidity, HumidityMin), b.HumidityMin);
-	HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
-	Battery = std::min(Battery, b.Battery);
-	Averages += b.Averages; // existing average + new average
+	if (b.IsValid())
+	{
+		Time = std::max(Time, b.Time); // Use the maximum time (newest time)
+		Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
+		TemperatureMin = std::min(std::min(Temperature, TemperatureMin), b.TemperatureMin);
+		TemperatureMax = std::max(std::max(Temperature, TemperatureMax), b.TemperatureMax);
+		Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / (Averages + b.Averages);
+		HumidityMin = std::min(std::min(Humidity, HumidityMin), b.HumidityMin);
+		HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
+		Battery = std::min(Battery, b.Battery);
+		Averages += b.Averages; // existing average + new average
+	}
 	return(*this);
 }
 
