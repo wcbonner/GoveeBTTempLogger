@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210514-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210517-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1206,7 +1206,7 @@ void MonitorLoggedData(void)
 		FileStat.st_mtim.tv_sec = 0;
 		if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 			if (!it->second.empty())
-				if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (5 * 60)))	// only read the file if it's at least five minutes more recent than existing data
+				if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (35 * 60)))	// only read the file if it's at least thirty five minutes more recent than existing data
 					ReadLoggedData(filename);
 	}
 }
