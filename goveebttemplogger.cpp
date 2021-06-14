@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210520-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210614-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1526,12 +1526,13 @@ static void usage(int argc, char **argv)
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
+	std::cout << "    -c | --celsius       SVG output using degrees C" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:a:s:b:x:d";
+static const char short_options[] = "hl:t:v:m:a:s:cb:x:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -1540,6 +1541,7 @@ static const struct option long_options[] = {
 		{ "mrtg",   required_argument, NULL, 'm' },
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
+		{ "celsius",no_argument,       NULL, 'c' },
 		{ "battery",	required_argument, NULL, 'b' },
 		{ "minmax",	required_argument, NULL, 'x' },
 		{ "download",no_argument,NULL, 'd' },
@@ -1593,6 +1595,9 @@ int main(int argc, char **argv)
 			SVGDirectory = std::string(optarg);
 			if (!ValidateDirectory(SVGDirectory))
 				SVGDirectory.clear();
+			break;
+		case 'c':
+			SVGFahrenheit = false;
 			break;
 		case 'b':
 			try { SVGBattery = std::stoi(optarg); }
