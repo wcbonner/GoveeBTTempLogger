@@ -10,7 +10,13 @@ StartLimitIntervalSec=33
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/usr/local/bin/goveebttemplogger -v 0 -l /var/log/goveebttemplogger/ --svg /var/www/html/goveebttemplogger/ --battery 8 --minmax 8
+Environment="VERBOSITY=0"
+Environment="LOGDIR=/var/log/goveebttemplogger"
+Environment="TIME=60"
+Environment="SVGARGS=--svg /var/www/html/goveebttemplogger/ --battery 8 --minmax 8"
+Environment="EXTRAARGS="
+ExecStartPre=/bin/mkdir -p ${LOGDIR}
+ExecStart=/usr/local/bin/goveebttemplogger -v ${VERBOSITY} -l ${LOGDIR} -t ${TIME} $SVGARGS $EXTRAARGS
 KillSignal=SIGINT
 
 [Install]
