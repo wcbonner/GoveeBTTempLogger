@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20210614-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211127-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -833,9 +833,9 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				int GraphLeft = GraphRight - GraphWidth;
 				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 				double TempMin = DBL_MAX;
-				double TempMax = DBL_MIN;
+				double TempMax = -DBL_MAX;
 				double HumiMin = DBL_MAX;
-				double HumiMax = DBL_MIN;
+				double HumiMax = -DBL_MAX;
 				if (MinMax)
 					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 					{
