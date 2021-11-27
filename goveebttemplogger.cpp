@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211127-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211127-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -223,7 +223,7 @@ public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature(0), TemperatureMin(DBL_MAX), TemperatureMax(DBL_MIN), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(DBL_MIN), Battery(INT_MAX), Averages(0) { };
+	Govee_Temp() : Time(0), Temperature(0), TemperatureMin(DBL_MAX), TemperatureMax(-DBL_MAX), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
