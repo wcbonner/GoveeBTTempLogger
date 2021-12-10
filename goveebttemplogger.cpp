@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211210-3 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211210-4 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -837,7 +837,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 	const int SVGHeight = 135;
 	const int FontSize = 12;
 	const int TickSize = 2;
-	int GraphWidth = SVGWidth - (FontSize * 5);
+	int GraphWidth = SVGWidth - (FontSize * 6);
 	const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 	if (DrawHumidity)
 		GraphWidth -= FontSize;
