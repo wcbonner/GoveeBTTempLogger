@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211209-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211209-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -352,7 +352,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
 			rval = true;
 		}
-		else if ((data_len == 17) && (data[2] == 0x5D) && (data[3] == 0xA1)) // GVH5183 (UUID) 5183 B5183011
+		else if (data_len == 17) // GVH5183 (UUID) 5183 B5183011
 		{
 			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
 			// https://www.amazon.com/gp/product/B092ZTD96V
@@ -361,6 +361,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// 2  3  4  5  6  7  8  9  0  1  2 3  4  5  6  7
 			// (Manu) 5DA1B401000101E40080 0064 13240000 (Temp) 1°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C8) 
 			// (Manu) 5DA1B401000101E40080 0A28 13240000 (Temp) 26°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C0) 
+			// (Manu) 0ED27501000101E40080 0708 15180000
 			short iTemp = short(data[12]) << 8 | short(data[13]);
 			Temperature = float(iTemp) / 100.0;
 			iTemp = short(data[14]) << 8 | short(data[15]);
