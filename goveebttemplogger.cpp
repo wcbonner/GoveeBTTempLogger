@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211207-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211209-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -316,6 +316,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Battery = int(data[8]);
 			Averages = 1;
 			time(&Time);
+			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
 			rval = true;
 		}
 		else if ((data_len == 10) && (data[2] == 0x88) && (data[3] == 0xEC))// Govee_H5074_xxxx
@@ -330,6 +331,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Battery = int(data[9]);
 			Averages = 1;
 			time(&Time);
+			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
 			rval = true;
 		}
 		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx
@@ -347,10 +349,29 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Battery = int(data[9]);
 			Averages = 1;
 			time(&Time);
+			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
 			rval = true;
 		}
-		if (rval)
-			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
+		else if ((data_len == 17) && (data[2] == 0x5D) && (data[3] == 0xA1)) // GVH5183 (UUID) 5183 B5183011
+		{
+			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
+			// https://www.amazon.com/gp/product/B092ZTD96V
+			// The probe measuring range is 0° to 300°C /32° to 572°F.
+			// 5D A1 B4 01 00 01 01 E4 01 80 0708 13 24 00 00
+			// 2  3  4  5  6  7  8  9  0  1  2 3  4  5  6  7
+			// (Manu) 5DA1B401000101E40080 0064 13240000 (Temp) 1°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C8) 
+			// (Manu) 5DA1B401000101E40080 0A28 13240000 (Temp) 26°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C0) 
+			short iTemp = short(data[12]) << 8 | short(data[13]);
+			Temperature = float(iTemp) / 100.0;
+			iTemp = short(data[14]) << 8 | short(data[15]);
+			TemperatureMax = float(iTemp) / 100.0; // This appears to be the alarm temperature.
+			Humidity = 0;
+			Battery = 0;
+			Averages = 1;
+			time(&Time);
+			TemperatureMin = Temperature;
+			rval = true;
+		}
 	}
 	return(rval);
 }
