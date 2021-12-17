@@ -1,7 +1,7 @@
 # GoveeBTTempLogger
-Govee H5074, H5075, and H5177 Bluetooth Low Energy Temperature and Humidity Logger
+Govee H5074, H5075, and H5177 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5183 Smart Meat Thermometer
 
-Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5177 thermometers. 
+Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5177, H5183 thermometers. 
 
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
@@ -21,6 +21,8 @@ The most recent temperature and humidity are displayed in the vertical scale on 
 Minimum and maximum temperature and humidity data, at the granularity of the graph, may be displayed. This is most useful in yearly graphs, where the granularity is one day. Here is the corresponding yearly graph for the previos daily graph: gvh-E35ECC215C0F-year.svg
 
 ![Image](./gvh-E35ECC215C0F-year.svg)
+
+Humidity, and the humidity scale on the right, are automatically omitted if the current data reports a humidity of zero. The meat thermometer reports its current temperature and its alarm set temperature but no humidity measurement.
 
 A simple text file mapping bluetooth addresses to title will be read from the filename gvh-titlemap.txt in the svg output directory.  If no title mapping exists, the bluetooth address is used for the graph title.
 
@@ -78,9 +80,14 @@ Then use `sudo systemctl restart goveebttemplogger` to restart GoveeBTTempLogger
  * -t (--time) Sets the frequency data is written to the logs
  * -v (--verbose) Sets output verbosity.
  * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
+ * -o (--only) Takes a bluetooth address as parameter and only reports on that address.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
  * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
  * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
+ * -c (--celsius) SVG output using degrees C
+ * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
+ * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
+
 
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
