@@ -73,6 +73,15 @@ Environment="SVGARGS="
 
 Then use `sudo systemctl restart goveebttemplogger` to restart GoveeBTTempLogger.
 
+#### Windows Subsystem for Linux (WSL) Cross Compile requirements (Debian)
+
+The first two commands below set up the required environment for Visual Studio 2022 to build the project. The third command added the required libraries to build bluetooth projects.
+
+```sh
+sudo apt-get update
+sudo apt install g++ gdb make ninja-build rsync zip -y
+sudo apt install bluetooth bluez libbluetooth-dev -y
+```
 
 ## Command Line Options
  * -h (--help) Prints supported options and exits.
