@@ -374,6 +374,37 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			TemperatureMin = Temperature;
 			rval = true;
 		}
+		else if (data_len == 20) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
+		{
+			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
+			// https://www.amazon.com/gp/product/B094N2FX9P
+			// 30132701000101640180 05DC 1324 86 06A4 FFFF
+			// 2 3 4 5 6 7 8 9 0 1  2 3  4 5  6  7 8  9 0
+			// (Manu) 3013270100010164018005DC13248606A4FFFF (Temp) 15°C (Humidity) 0% (Battery) 0%
+			// If the probe is not connected to the device, the temperature data is set to FFFF.
+			// If the alarm is not set for the probe, the data is set to FFFF.
+			// Probe 1 Temperature
+			short iTemp = short(data[12]) << 8 | short(data[13]);
+			Temperature = float(iTemp) / 100.0;
+			// Probe 1 Alarm Temperature
+			iTemp = short(data[14]) << 8 | short(data[15]);
+			TemperatureMax = float(iTemp) / 100.0; // This appears to be the alarm temperature.
+
+			// Probe 2 Temperature
+			iTemp = short(data[17]) << 8 | short(data[18]);
+			Temperature = float(iTemp) / 100.0;
+			// Probe 2 Alarm Temperature
+			iTemp = short(data[19]) << 8 | short(data[20]);
+			TemperatureMax = float(iTemp) / 100.0; // This appears to be the alarm temperature.
+
+			Humidity = 0;
+			Battery = 0;
+			Averages = 1;
+			time(&Time);
+			TemperatureMin = Temperature;
+			rval = true;
+
+		}
 	}
 	return(rval);
 }
