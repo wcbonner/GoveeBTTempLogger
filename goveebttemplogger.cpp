@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220110-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220111-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -294,11 +294,10 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			std::string theBattery(strtok(NULL, "\t"));
 			Battery = std::atol(theBattery.c_str());
 			Averages = 1;
-			char* moreColumns = strtok(NULL, "\t");
-			if (moreColumns != NULL)
+			char* theModel = strtok(NULL, "\t");
+			if (theModel != NULL)
 			{
-				std::string theModel(moreColumns);
-				switch (std::atoi(theModel.c_str()))
+				switch (std::atoi(theModel))
 				{
 				case 5182:
 					Model = ThermometerType::H5182;
@@ -524,7 +523,6 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	}
 	return(*this);
 }
-
 /////////////////////////////////////////////////////////////////////////////
 std::string iBeacon(const uint8_t * const data)
 {
@@ -2041,7 +2039,8 @@ int main(int argc, char **argv)
 																				}
 																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
 																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
-																				ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
+																				if (localTemp.GetHumidity() != 0)
+																					ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
 																				ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
 																				std::queue<Govee_Temp> foo;
 																				auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));

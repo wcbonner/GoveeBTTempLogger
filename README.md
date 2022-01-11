@@ -97,12 +97,26 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
 
-
  ## Log File Format
 
  The log file format has been stabe for a long time as a simple tab seperated text file with a set number of columns: Date, Temperature, Humidity, Battery.
 
  With the addition of support for the meat thermometers multiple temperature readings, I've changed the format slightly in a way that should be backwards compatible with most programs reading existing logs. After the existing columns of Date, Temperature, Humidity, Battery I've added optional columns of Model, Temperature, Temperature, Temperature
+
+ ## Bluetooth UUID details
+  * (UUID) 88EC (Name) Govee_H5074_C7A1
+  * (Name) GVH5075_AE36 (UUID) 88EC
+  * (Name) GVH5177_3B10 (UUID) 88EC
+  * (UUID) 5182
+  * (UUID) 5183
+
+The 5074, 5075, and 5177 units all broadcast a UUID of 88EC. Unfortunately, the 5074 does not include the UUID in the same advertisment as the temperatures. 
+
+The 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in each of their broadcast messages including the temperatures.
+```
+(Flags) 06 (UUID) 5182 (Manu) 3013270100010164018007D0FFFF860708FFFF (Temp) 20°C (Temp) -0.01°C (Temp) 18°C (Temp) -0.01°C (Battery) 0%
+(UUID) 5183 (Flags) 05 (Manu) 5DA1B401000101E40186076C2F660000 (Temp) 19°C (Temp) 121.34°C (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: CB)
+```
 
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
