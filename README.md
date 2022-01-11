@@ -98,6 +98,12 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
 
 
+ ## Log File Format
+
+ The log file format has been stabe for a long time as a simple tab seperated text file with a set number of columns: Date, Temperature, Humidity, Battery.
+
+ With the addition of support for the meat thermometers multiple temperature readings, I've changed the format slightly in a way that should be backwards compatible with most programs reading existing logs. After the existing columns of Date, Temperature, Humidity, Battery I've added optional columns of Model, Temperature, Temperature, Temperature
+
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
  

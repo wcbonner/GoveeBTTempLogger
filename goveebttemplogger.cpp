@@ -220,6 +220,7 @@ const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
 // Class I'm using for storing raw data from the Govee thermometers
 enum class ThermometerType 
 { 
+	Unknown = 0,
 	H5074 = 5074, 
 	H5075 = 5075, 
 	H5177 = 5177, 
@@ -231,7 +232,7 @@ public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature({ 0, 0, 0, 0 }), TemperatureMin({ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }), TemperatureMax({ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0) { };
+	Govee_Temp() : Time(0), Temperature({ 0, 0, 0, 0 }), TemperatureMin({ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }), TemperatureMax({ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0), Model(ThermometerType::Unknown) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
@@ -253,6 +254,7 @@ public:
 	double GetHumidityMin(void) const { return(std::min(Humidity, HumidityMin)); };
 	double GetHumidityMax(void) const { return(std::max(Humidity, HumidityMax)); };
 	double GetBattery(void) const { return(Battery); };
+	ThermometerType GetModel(void) const { return(Model); };
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
 	granularity GetTimeGranularity(void) const;
@@ -267,6 +269,7 @@ protected:
 	double HumidityMax;
 	int Battery;
 	int Averages;
+	ThermometerType Model;
 };
 Govee_Temp::Govee_Temp(const std::string & data)
 {
@@ -291,6 +294,28 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			std::string theBattery(strtok(NULL, "\t"));
 			Battery = std::atol(theBattery.c_str());
 			Averages = 1;
+			std::string theModel(strtok(NULL, "\t"));
+			if (!theModel.empty())
+			{
+				switch (std::atoi(theModel.c_str()))
+				{
+				case 5182:
+					Model = ThermometerType::H5182;
+					break;
+				case 5183:
+					Model = ThermometerType::H5183;
+					break;
+				default:
+					Model = ThermometerType::Unknown;
+				}
+				auto index = 1;
+				char* nextTemp = strtok(NULL, "\t");
+				while (nextTemp != NULL)
+				{
+					TemperatureMax[index] = TemperatureMin[index] = Temperature[index] = std::atof(nextTemp);
+					index++;
+				}
+			}
 		}
 	}
 }
@@ -301,6 +326,18 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 	ssValue << seperator << Temperature[0];
 	ssValue << seperator << Humidity;
 	ssValue << seperator << Battery;
+	if (Model == ThermometerType::H5182)
+	{
+		ssValue << seperator << 5182;
+		ssValue << seperator << Temperature[1];
+		ssValue << seperator << Temperature[2];
+		ssValue << seperator << Temperature[3];
+	}
+	if (Model == ThermometerType::H5183)
+	{
+		ssValue << seperator << 5183;
+		ssValue << seperator << Temperature[1];
+	}
 	return(ssValue.str());
 }
 bool Govee_Temp::ReadMSG(const uint8_t * const data)
@@ -311,6 +348,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	{
 		if ((data_len == 9) && (data[2] == 0x88) && (data[3] == 0xEC)) // GVH5075_xxxx
 		{
+			Model = ThermometerType::H5075;
 			// This data came from https://github.com/Thrilleratplay/GoveeWatcher
 			// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
 			// 2 3 4  5 6 7  8
@@ -329,6 +367,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if ((data_len == 10) && (data[2] == 0x88) && (data[3] == 0xEC))// Govee_H5074_xxxx
 		{
+			Model = ThermometerType::H5074;
 			// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
 			// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
 			// 2 3 4  5 6  7 8  9
@@ -344,6 +383,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx
 		{
+			Model = ThermometerType::H5177;
 			// This is a guess based on the H5075 3 byte encoding
 			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
 			// 2 3 4 5  6 7 8  9
@@ -362,6 +402,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if (data_len == 17) // GVH5183 (UUID) 5183 B5183011
 		{
+			Model = ThermometerType::H5183;
 			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
 			// https://www.amazon.com/gp/product/B092ZTD96V
 			// The probe measuring range is 0° to 300°C /32° to 572°F.
@@ -384,6 +425,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if (data_len == 20) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
 		{
+			Model = ThermometerType::H5182;
 			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
 			// https://www.amazon.com/gp/product/B094N2FX9P
 			// 30132701000101640180 05DC 1324 86 06A4 FFFF
@@ -1988,6 +2030,14 @@ int main(int argc, char **argv)
 																			{
 																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
 																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																				if (localTemp.GetModel() == ThermometerType::H5183)
+																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																				if (localTemp.GetModel() == ThermometerType::H5182)
+																				{
+																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 2) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 3) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																				}
 																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
 																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
 																				ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
