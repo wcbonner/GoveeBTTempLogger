@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220110-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220110-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -294,9 +294,10 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			std::string theBattery(strtok(NULL, "\t"));
 			Battery = std::atol(theBattery.c_str());
 			Averages = 1;
-			std::string theModel(strtok(NULL, "\t"));
-			if (!theModel.empty())
+			char* moreColumns = strtok(NULL, "\t");
+			if (moreColumns != NULL)
 			{
+				std::string theModel(moreColumns);
 				switch (std::atoi(theModel.c_str()))
 				{
 				case 5182:
