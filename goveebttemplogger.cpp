@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20211217-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220110-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -218,19 +218,26 @@ const size_t MONTH_SAMPLE = 2 * 60 * 60;/* Sample every 2 hours */
 const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
 /////////////////////////////////////////////////////////////////////////////
 // Class I'm using for storing raw data from the Govee thermometers
-enum class ThermometerType { H5074, H5075, H5177, H5183 };
+enum class ThermometerType 
+{ 
+	H5074 = 5074, 
+	H5075 = 5075, 
+	H5177 = 5177, 
+	H5183 = 5183, 
+	H5182 = 5182
+};
 class  Govee_Temp {
 public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	bool ReadMSG(const uint8_t * const data);
-	Govee_Temp() : Time(0), Temperature(0), TemperatureMin(DBL_MAX), TemperatureMax(-DBL_MAX), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0) { };
+	Govee_Temp() : Time(0), Temperature({ 0, 0, 0, 0 }), TemperatureMin({ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }), TemperatureMax({ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }), Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
 		Time = tim;
-		Temperature = tem;
-		TemperatureMin = tem;
-		TemperatureMax = tem;
+		Temperature[0] = tem;
+		TemperatureMin[0] = tem;
+		TemperatureMax[0] = tem;
 		Humidity = hum;
 		HumidityMin = hum;
 		HumidityMax = hum;
@@ -238,9 +245,9 @@ public:
 		Averages = 1;
 	};
 	Govee_Temp(const std::string & data);
-	double GetTemperature(const bool Fahrenheit = false) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
-	double GetTemperatureMin(const bool Fahrenheit = false) const { if (Fahrenheit) return(std::min(((Temperature * 9.0 / 5.0) + 32.0), ((TemperatureMin * 9.0 / 5.0) + 32.0))); return(std::min(Temperature, TemperatureMin)); };
-	double GetTemperatureMax(const bool Fahrenheit = false) const { if (Fahrenheit) return(std::max(((Temperature * 9.0 / 5.0) + 32.0), ((TemperatureMax * 9.0 / 5.0) + 32.0))); return(std::max(Temperature, TemperatureMax)); };
+	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature[index] * 9.0 / 5.0) + 32.0); return(Temperature[index]); };
+	double GetTemperatureMin(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::min(((Temperature[index] * 9.0 / 5.0) + 32.0), ((TemperatureMin[index] * 9.0 / 5.0) + 32.0))); return(std::min(Temperature[index], TemperatureMin[index])); };
+	double GetTemperatureMax(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::max(((Temperature[index] * 9.0 / 5.0) + 32.0), ((TemperatureMax[index] * 9.0 / 5.0) + 32.0))); return(std::max(Temperature[index], TemperatureMax[index])); };
 	void SetMinMax(const Govee_Temp & a);
 	double GetHumidity(void) const { return(Humidity); };
 	double GetHumidityMin(void) const { return(std::min(Humidity, HumidityMin)); };
@@ -252,9 +259,9 @@ public:
 	bool IsValid(void) const { return(Averages > 0); };
 	Govee_Temp& operator +=(const Govee_Temp& b);
 protected:
-	double Temperature;
-	double TemperatureMin;
-	double TemperatureMax;
+	double Temperature[4];
+	double TemperatureMin[4];
+	double TemperatureMax[4];
 	double Humidity;
 	double HumidityMin;
 	double HumidityMax;
@@ -278,7 +285,7 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			std::string theDate(strtok(buffer, "\t"));
 			Time = ISO8601totime(theDate);
 			std::string theTemp(strtok(NULL, "\t"));
-			Temperature = TemperatureMin = TemperatureMax = std::atof(theTemp.c_str());
+			TemperatureMax[0] = TemperatureMin[0] = Temperature[0] = std::atof(theTemp.c_str());
 			std::string theHumidity(strtok(NULL, "\t"));
 			Humidity = HumidityMin = HumidityMax = std::atof(theHumidity.c_str());
 			std::string theBattery(strtok(NULL, "\t"));
@@ -291,7 +298,7 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 {
 	std::ostringstream ssValue;
 	ssValue << timeToExcelDate(Time);
-	ssValue << seperator << Temperature;
+	ssValue << seperator << Temperature[0];
 	ssValue << seperator << Humidity;
 	ssValue << seperator << Battery;
 	return(ssValue.str());
@@ -310,14 +317,14 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
 			bool bNegative = iTemp & 0x800000;	// check sign bit
 			iTemp = iTemp & 0x7ffff;			// mask off sign bit
-			Temperature = float(iTemp) / 10000.0;
+			Temperature[0] = float(iTemp) / 10000.0;
 			if (bNegative)						// apply sign bit
-				Temperature = -1.0 * Temperature;
+				Temperature[0] = -1.0 * Temperature[0];
 			Humidity = float(iTemp % 1000) / 10.0;
 			Battery = int(data[8]);
 			Averages = 1;
 			time(&Time);
-			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
+			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 			rval = true;
 		}
 		else if ((data_len == 10) && (data[2] == 0x88) && (data[3] == 0xEC))// Govee_H5074_xxxx
@@ -327,12 +334,12 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// 2 3 4  5 6  7 8  9
 			short iTemp = short(data[6]) << 8 | short(data[5]);
 			int iHumidity = int(data[8]) << 8 | int(data[7]);
-			Temperature = float(iTemp) / 100.0;
+			Temperature[0] = float(iTemp) / 100.0;
 			Humidity = float(iHumidity) / 100.0;
 			Battery = int(data[9]);
 			Averages = 1;
 			time(&Time);
-			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
+			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 			rval = true;
 		}
 		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx
@@ -343,14 +350,14 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			int iTemp = int(data[6]) << 16 | int(data[7]) << 8 | int(data[8]);
 			bool bNegative = iTemp & 0x800000;	// check sign bit
 			iTemp = iTemp & 0x7ffff;			// mask off sign bit
-			Temperature = float(iTemp) / 10000.0;
+			Temperature[0] = float(iTemp) / 10000.0;
 			Humidity = float(iTemp % 1000) / 10.0;
 			if (bNegative)						// apply sign bit
-				Temperature = -1.0 * Temperature;
+				Temperature[0] = -1.0 * Temperature[0];
 			Battery = int(data[9]);
 			Averages = 1;
 			time(&Time);
-			TemperatureMin = TemperatureMax = Temperature;	//HACK: make sure that these values are set
+			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 			rval = true;
 		}
 		else if (data_len == 17) // GVH5183 (UUID) 5183 B5183011
@@ -364,14 +371,15 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// (Manu) 5DA1B401000101E40080 0A28 1324 0000 (Temp) 26°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C0) 
 			// (Manu) 0ED27501000101E40080 0708 1518 0000
 			short iTemp = short(data[12]) << 8 | short(data[13]);
-			Temperature = float(iTemp) / 100.0;
+			Temperature[0] = float(iTemp) / 100.0;
 			iTemp = short(data[14]) << 8 | short(data[15]);
-			TemperatureMax = float(iTemp) / 100.0; // This appears to be the alarm temperature.
+			Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
 			Humidity = 0;
 			Battery = 0;
 			Averages = 1;
 			time(&Time);
-			TemperatureMin = Temperature;
+			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 			rval = true;
 		}
 		else if (data_len == 20) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
@@ -383,39 +391,35 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// (Manu) 3013270100010164018005DC13248606A4FFFF (Temp) 15°C (Humidity) 0% (Battery) 0%
 			// If the probe is not connected to the device, the temperature data is set to FFFF.
 			// If the alarm is not set for the probe, the data is set to FFFF.
-			// Probe 1 Temperature
-			short iTemp = short(data[12]) << 8 | short(data[13]);
-			Temperature = float(iTemp) / 100.0;
-			// Probe 1 Alarm Temperature
-			iTemp = short(data[14]) << 8 | short(data[15]);
-			TemperatureMax = float(iTemp) / 100.0; // This appears to be the alarm temperature.
-
-			// Probe 2 Temperature
-			iTemp = short(data[17]) << 8 | short(data[18]);
-			Temperature = float(iTemp) / 100.0;
-			// Probe 2 Alarm Temperature
-			iTemp = short(data[19]) << 8 | short(data[20]);
-			TemperatureMax = float(iTemp) / 100.0; // This appears to be the alarm temperature.
-
+			short iTemp = short(data[12]) << 8 | short(data[13]);	// Probe 1 Temperature
+			Temperature[0] = float(iTemp) / 100.0;
+			iTemp = short(data[14]) << 8 | short(data[15]);			// Probe 1 Alarm Temperature
+			Temperature[1] = float(iTemp) / 100.0;
+			iTemp = short(data[17]) << 8 | short(data[18]);			// Probe 2 Temperature
+			Temperature[2] = float(iTemp) / 100.0;
+			iTemp = short(data[19]) << 8 | short(data[20]);			// Probe 2 Alarm Temperature
+			Temperature[3] = float(iTemp) / 100.0;
 			Humidity = 0;
 			Battery = 0;
 			Averages = 1;
 			time(&Time);
-			TemperatureMin = Temperature;
+			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 			rval = true;
-
 		}
 	}
 	return(rval);
 }
 void Govee_Temp::SetMinMax(const Govee_Temp& a)
 {
-	TemperatureMin = TemperatureMin < Temperature ? TemperatureMin : Temperature;
-	TemperatureMax = TemperatureMax > Temperature ? TemperatureMax : Temperature;
+	for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+	{
+		TemperatureMin[index] = TemperatureMin[index] < Temperature[index] ? TemperatureMin[index] : Temperature[index];
+		TemperatureMax[index] = TemperatureMax[index] > Temperature[index] ? TemperatureMax[index] : Temperature[index];
 
-	TemperatureMin = TemperatureMin < a.TemperatureMin ? TemperatureMin : a.TemperatureMin;
-	TemperatureMax = TemperatureMax > a.TemperatureMax ? TemperatureMax : a.TemperatureMax;
-
+		TemperatureMin[index] = TemperatureMin[index] < a.TemperatureMin[index] ? TemperatureMin[index] : a.TemperatureMin[index];
+		TemperatureMax[index] = TemperatureMax[index] > a.TemperatureMax[index] ? TemperatureMax[index] : a.TemperatureMax[index];
+	}
 	HumidityMin = HumidityMin < Humidity ? HumidityMin : Humidity;
 	HumidityMax = HumidityMax > Humidity ? HumidityMax : Humidity;
 
@@ -463,9 +467,12 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	if (b.IsValid())
 	{
 		Time = std::max(Time, b.Time); // Use the maximum time (newest time)
-		Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
-		TemperatureMin = std::min(std::min(Temperature, TemperatureMin), b.TemperatureMin);
-		TemperatureMax = std::max(std::max(Temperature, TemperatureMax), b.TemperatureMax);
+		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+		{
+			Temperature[index] = ((Temperature[index] * Averages) + (b.Temperature[index] * b.Averages)) / (Averages + b.Averages);
+			TemperatureMin[index] = std::min(std::min(Temperature[index], TemperatureMin[index]), b.TemperatureMin[index]);
+			TemperatureMax[index] = std::max(std::max(Temperature[index], TemperatureMax[index]), b.TemperatureMax[index]);
+		}
 		Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / (Averages + b.Averages);
 		HumidityMin = std::min(std::min(Humidity, HumidityMin), b.HumidityMin);
 		HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
