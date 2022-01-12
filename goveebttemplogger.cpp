@@ -310,9 +310,10 @@ Govee_Temp::Govee_Temp(const std::string & data)
 				}
 				auto index = 1;
 				char* nextTemp = strtok(NULL, "\t");
-				while (nextTemp != NULL)
+				while ((nextTemp != NULL) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
 				{
 					TemperatureMax[index] = TemperatureMin[index] = Temperature[index] = std::atof(nextTemp);
+					nextTemp = strtok(NULL, "\t");
 					index++;
 				}
 			}
