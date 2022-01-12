@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220111-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220112-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -401,37 +401,37 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 			rval = true;
 		}
-		else if (data_len == 17) // GVH5183 (UUID) 5183 B5183011
+		else if (data_len == 17 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5183 (UUID) 5183 B5183011
 		{
 			Model = ThermometerType::H5183;
 			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
 			// https://www.amazon.com/gp/product/B092ZTD96V
 			// The probe measuring range is 0° to 300°C /32° to 572°F.
-			// 5D A1 B4 01 00 01 01 E4 01 80 0708 13 24 00 00
-			// 2  3  4  5  6  7  8  9  0  1  2 3  4  5  6  7
-			// (Manu) 5DA1B401000101E40080 0064 1324 0000 (Temp) 1°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C8) 
-			// (Manu) 5DA1B401000101E40080 0A28 1324 0000 (Temp) 26°C (Humidity) 0% (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: C0) 
-			// (Manu) 0ED27501000101E40080 0708 1518 0000
+			// 5DA1B4 01000101 E4 01 80 0708 13 24 00 00
+			// 2 3 4  5 6 7 8  9  0  1  2 3  4  5  6  7
+			// (Manu) 5DA1B4 01000101 81 0180 07D0 1324 0000 (Temp) 20°C (Temp) 49°C (Battery) 1% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: BF) 
+			// the first three bytes are the last three bytes of the bluetooth address.
+			// then next four bytes appear to be a signature for the device type.
 			short iTemp = short(data[12]) << 8 | short(data[13]);
 			Temperature[0] = float(iTemp) / 100.0;
 			iTemp = short(data[14]) << 8 | short(data[15]);
 			Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
 			Humidity = 0;
-			Battery = 0;
+			Battery = int(data[9] & 0x7F);
 			Averages = 1;
 			time(&Time);
 			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 			rval = true;
 		}
-		else if (data_len == 20) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
+		else if (data_len == 20 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
 		{
 			Model = ThermometerType::H5182;
 			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
 			// https://www.amazon.com/gp/product/B094N2FX9P
-			// 30132701000101640180 05DC 1324 86 06A4 FFFF
-			// 2 3 4 5 6 7 8 9 0 1  2 3  4 5  6  7 8  9 0
-			// (Manu) 3013270100010164018005DC13248606A4FFFF (Temp) 15°C (Humidity) 0% (Battery) 0%
+			// 301327 01000101 64 01 80 05DC 1324 86 06A4 FFFF
+			// 2 3 4  5 6 7 8  9  0  1  2 3  4 5  6  7 8  9 0
+			// (Manu) 301327 01000101 3A 01 86 076C FFFF 86 076C FFFF (Temp) 19°C (Temp) -0.01°C (Temp) 19°C (Temp) -0.01°C (Battery) 58%
 			// If the probe is not connected to the device, the temperature data is set to FFFF.
 			// If the alarm is not set for the probe, the data is set to FFFF.
 			short iTemp = short(data[12]) << 8 | short(data[13]);	// Probe 1 Temperature
@@ -443,7 +443,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			iTemp = short(data[19]) << 8 | short(data[20]);			// Probe 2 Alarm Temperature
 			Temperature[3] = float(iTemp) / 100.0;
 			Humidity = 0;
-			Battery = 0;
+			Battery = int(data[9]);
 			Averages = 1;
 			time(&Time);
 			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
