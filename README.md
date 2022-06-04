@@ -7,7 +7,7 @@ Each of these devices currently cost less than $15 on Amazon and use BLE for com
 
 GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, targeting ARM processor running on Linux. I'm using a Raspberry Pi 4 as my linux host. I've verified the same code works on a Raspbery Pi ZeroW and a Raspberry Pi 3b.
 
-GoveeBTTempLogger creates a log file for each of the devices it receives broadcasted data from using a simple tab seperated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date, Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
+GoveeBTTempLogger creates a log file for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date, Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
@@ -18,13 +18,13 @@ Here is an example filename: gvh-E35ECC215C0F-day.svg
 
 The most recent temperature and humidity are displayed in the vertical scale on the left. The temperature scale is displayed on the left side of the graph, the humidity scale on the right. The most recent time data is displayed in the top right, with a title on the top left of the graph.
 
-Minimum and maximum temperature and humidity data, at the granularity of the graph, may be displayed. This is most useful in yearly graphs, where the granularity is one day. Here is the corresponding yearly graph for the previos daily graph: gvh-E35ECC215C0F-year.svg
+Minimum and maximum temperature and humidity data, at the granularity of the graph, may be displayed. This is most useful in yearly graphs, where the granularity is one day. Here is the corresponding yearly graph for the previous daily graph: gvh-E35ECC215C0F-year.svg
 
 ![Image](./gvh-E35ECC215C0F-year.svg)
 
 Humidity, and the humidity scale on the right, are automatically omitted if the current data reports a humidity of zero. The meat thermometer reports its current temperature and its alarm set temperature but no humidity measurement.
 
-A simple text file mapping bluetooth addresses to title will be read from the filename gvh-titlemap.txt in the svg output directory.  If no title mapping exists, the bluetooth address is used for the graph title.
+A simple text file mapping Bluetooth addresses to titles will be read from the filename gvh-titlemap.txt in the svg output directory.  Each line in the file should consist of the bluetooth address (in hexadecimal format with (`:`) between octets), whitespace, and the title. See [gvh-titlemap.txt](./gvh-titlemap.txt) for an example. If no title mapping exists, the Bluetooth address is used for the graph title.
 
 If the --svg option is not added to the command line, the program should continue to operate exactly the same as it did before.
 
@@ -99,7 +99,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
 
  ## Log File Format
 
- The log file format has been stabe for a long time as a simple tab seperated text file with a set number of columns: Date, Temperature, Humidity, Battery.
+ The log file format has been stabe for a long time as a simple tab-separated text file with a set number of columns: Date, Temperature, Humidity, Battery.
 
  With the addition of support for the meat thermometers multiple temperature readings, I've changed the format slightly in a way that should be backwards compatible with most programs reading existing logs. After the existing columns of Date, Temperature, Humidity, Battery I've added optional columns of Model, Temperature, Temperature, Temperature
 

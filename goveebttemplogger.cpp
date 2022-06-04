@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220112-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220604-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1368,24 +1368,23 @@ void ReadTitleMap(void)
 			if (ConsoleVerbosity > 0)
 				std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename.str() << std::endl;
 			std::string TheLine;
+
+			static const std::string addressFormat("01:02:03:04:05:06");
 			while (std::getline(TheFile, TheLine))
 			{
-				// rudimentary line checking. It's at least as long as the BT Address and has a Tab character
-				if ((TheLine.size() > 18) &&
-					(TheLine.find("\t") != std::string::npos))
-				{
-					char buffer[256];
-					if (TheLine.size() < sizeof(buffer))
-					{
-						TheLine.copy(buffer, TheLine.size());
-						buffer[TheLine.size()] = '\0';
-						std::string theAddress(strtok(buffer, "\t"));
-						std::string theTitle(strtok(NULL, "\t"));
-						bdaddr_t TheBlueToothAddress;
-						str2ba(theAddress.c_str(), &TheBlueToothAddress);
-						GoveeBluetoothTitles.insert(std::pair<bdaddr_t, std::string>(TheBlueToothAddress, theTitle));
-					}
-				}
+				const std::string delimiters(" \t");
+				auto i = TheLine.find_first_of(delimiters);
+				if (i == std::string::npos || i != addressFormat.size())
+					// No delimited mapping or not the correct length for a Bluetooth address.
+					continue;
+
+				std::string theAddress = TheLine.substr(0, i);
+				i = TheLine.find_first_not_of(delimiters, i);
+				std::string theTitle = (i == std::string::npos) ? "" : TheLine.substr(i);
+
+				bdaddr_t TheBlueToothAddress;
+				str2ba(theAddress.c_str(), &TheBlueToothAddress);
+				GoveeBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
 			}
 			TheFile.close();
 		}
