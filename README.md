@@ -99,7 +99,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
 
  ## Log File Format
 
- The log file format has been stabe for a long time as a simple tab-separated text file with a set number of columns: Date, Temperature, Humidity, Battery.
+ The log file format has been stable for a long time as a simple tab-separated text file with a set number of columns: Date (UTC), Temperature (C), Humidity, Battery.
 
  With the addition of support for the meat thermometers multiple temperature readings, I've changed the format slightly in a way that should be backwards compatible with most programs reading existing logs. After the existing columns of Date, Temperature, Humidity, Battery I've added optional columns of Model, Temperature, Temperature, Temperature
 
