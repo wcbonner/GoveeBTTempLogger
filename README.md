@@ -47,7 +47,7 @@ If the --svg option is not added to the command line, the program should continu
 ```sh
 sudo apt-get install bluetooth bluez libbluetooth-dev
 make deb
-sudo apt-get install ./GoveeBTTempLogger.deb
+sudo make install-deb
 ```
 
 This will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
