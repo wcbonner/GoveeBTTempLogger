@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220604-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220609-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -207,6 +207,7 @@ std::string SVGDirectory;	// If this remains empty, SVG Files are not created. I
 int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
 int SVGMinMax = 0; // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
 bool SVGFahrenheit = true;
+std::string SVGTitleMapFilename;
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
@@ -223,7 +224,9 @@ enum class ThermometerType
 	Unknown = 0,
 	H5074 = 5074, 
 	H5075 = 5075, 
-	H5177 = 5177, 
+	H5174 = 5174,
+	H5177 = 5177,
+	H5179 = 5179,
 	H5183 = 5183, 
 	H5182 = 5182
 };
@@ -1350,49 +1353,51 @@ void MonitorLoggedData(void)
 					ReadLoggedData(filename);
 	}
 }
-void ReadTitleMap(void)
+bool ReadTitleMap(const std::string& TitleMapFilename)
 {
-	std::ostringstream TitleMapFilename;
-	TitleMapFilename << SVGDirectory;
-	TitleMapFilename << "gvh-titlemap.txt";
+	bool rval = false;
 	static time_t LastModified = 0;
 	struct stat64 TitleMapFileStat;
 	TitleMapFileStat.st_mtim.tv_sec = 0;
-	stat64(TitleMapFilename.str().c_str(), &TitleMapFileStat);
-	if (TitleMapFileStat.st_mtim.tv_sec > LastModified)	// only read the file if it's modified
+	if (stat64(TitleMapFilename.c_str(), &TitleMapFileStat))
 	{
-		std::ifstream TheFile(TitleMapFilename.str());
-		if (TheFile.is_open())
+		rval = true;
+		if (TitleMapFileStat.st_mtim.tv_sec > LastModified)	// only read the file if it's modified
 		{
-			LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
-			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename.str() << std::endl;
-			std::string TheLine;
-
-			static const std::string addressFormat("01:02:03:04:05:06");
-			while (std::getline(TheFile, TheLine))
+			std::ifstream TheFile(TitleMapFilename);
+			if (TheFile.is_open())
 			{
-				const std::string delimiters(" \t");
-				auto i = TheLine.find_first_of(delimiters);
-				if (i == std::string::npos || i != addressFormat.size())
-					// No delimited mapping or not the correct length for a Bluetooth address.
-					continue;
+				LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename << std::endl;
+				std::string TheLine;
 
-				std::string theAddress = TheLine.substr(0, i);
-				i = TheLine.find_first_not_of(delimiters, i);
-				std::string theTitle = (i == std::string::npos) ? "" : TheLine.substr(i);
+				static const std::string addressFormat("01:02:03:04:05:06");
+				while (std::getline(TheFile, TheLine))
+				{
+					const std::string delimiters(" \t");
+					auto i = TheLine.find_first_of(delimiters);
+					if (i == std::string::npos || i != addressFormat.size())
+						// No delimited mapping or not the correct length for a Bluetooth address.
+						continue;
 
-				bdaddr_t TheBlueToothAddress;
-				str2ba(theAddress.c_str(), &TheBlueToothAddress);
-				GoveeBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
+					std::string theAddress = TheLine.substr(0, i);
+					i = TheLine.find_first_not_of(delimiters, i);
+					std::string theTitle = (i == std::string::npos) ? "" : TheLine.substr(i);
+
+					bdaddr_t TheBlueToothAddress;
+					str2ba(theAddress.c_str(), &TheBlueToothAddress);
+					GoveeBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
+				}
+				TheFile.close();
 			}
-			TheFile.close();
 		}
 	}
+	return(rval);
 }
 void WriteAllSVG()
 {
-	ReadTitleMap();
+	ReadTitleMap(SVGTitleMapFilename);
 	for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 	{
 		const bdaddr_t TheAddress = it->first;
@@ -1664,22 +1669,24 @@ static void usage(int argc, char **argv)
 	std::cout << "    -o | --only XX:XX:XX:XX:XX:XX only report this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
+	std::cout << "    -T | --titlemap name SVG title fully qualified filename" << std::endl;
 	std::cout << "    -c | --celsius       SVG output using degrees C" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:a:s:cb:x:d";
+static const char short_options[] = "hl:t:v:m:o:a:s:T:cb:x:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
 		{ "time",   required_argument, NULL, 't' },
 		{ "verbose",required_argument, NULL, 'v' },
-		{ "mrtg",   required_argument, NULL, 'm' },
-		{ "only",   required_argument, NULL, 'o' },
+		{ "mrtg",	required_argument, NULL, 'm' },
+		{ "only",	required_argument, NULL, 'o' },
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
+		{ "titlemap",	required_argument, NULL, 'T' },
 		{ "celsius",no_argument,       NULL, 'c' },
 		{ "battery",	required_argument, NULL, 'b' },
 		{ "minmax",	required_argument, NULL, 'x' },
@@ -1741,6 +1748,11 @@ int main(int argc, char **argv)
 			if (!ValidateDirectory(SVGDirectory))
 				SVGDirectory.clear();
 			break;
+		case 'T':
+			SVGTitleMapFilename = std::string(optarg);
+			if (!ReadTitleMap(SVGTitleMapFilename))
+				SVGTitleMapFilename.clear();
+			break;
 		case 'c':
 			SVGFahrenheit = false;
 			break;
@@ -1777,7 +1789,14 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (!SVGDirectory.empty())
 	{
-		ReadTitleMap();
+		if (SVGTitleMapFilename.empty())
+		{
+			std::ostringstream TitleMapFilename;
+			TitleMapFilename << SVGDirectory;
+			TitleMapFilename << "gvh-titlemap.txt";
+			SVGTitleMapFilename = TitleMapFilename.str();
+		}
+		ReadTitleMap(SVGTitleMapFilename);
 		ReadLoggedData();
 		WriteAllSVG();
 	}

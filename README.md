@@ -86,13 +86,14 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
 ## Command Line Options
  * -h (--help) Prints supported options and exits.
  * -l (--log) Sets the log directory
- * -t (--time) Sets the frequency data is written to the logs
+ * -t (--time) Sets the frequency data is written to the logs. The time frequency of the data in the logs is based on bluetooth announcement time. This is how often the logfile is written.
  * -v (--verbose) Sets output verbosity.
  * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
  * -o (--only) Takes a bluetooth address as parameter and only reports on that address.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
  * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
  * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
+ * -T (--titlemap) SVG-title fully-qualified-filename. A mapfile with bluetooth addresses as the beginning of each line, and a replacement title to be used in the SVG graph.
  * -c (--celsius) SVG output using degrees C
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
