@@ -92,6 +92,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -v (--verbose) Sets output verbosity.
  * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
  * -o (--only) Takes a bluetooth address as parameter and only reports on that address.
+ * -C (--controller) Takes a bluetooth address as parameter to specify the controller to listen with.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
  * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
  * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
