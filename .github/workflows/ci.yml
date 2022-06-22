@@ -1,0 +1,55 @@
+---
+name: CI
+
+on:
+  - push
+
+jobs:
+  Build:
+    name: Build (ubuntu-${{ matrix.image_tag }}) (${{ matrix.compiler }})
+
+    runs-on: ubuntu-${{ matrix.image_tag }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image_tag:
+          - 18.04
+          - 20.04
+          - 22.04
+        compiler:
+          - GNU
+          - LLVM
+
+    env:
+      CXX: ${{ matrix.compiler == 'LLVM' && 'clang++' || 'g++' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install \
+            libbluetooth-dev \
+            make \
+            ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
+
+      - name: Build
+        run: |
+          make
+
+      - name: Make & Install `deb` file
+        run: |
+          make deb && sudo make install-deb
+
+      - name: Run `goveebttemplogger --help`
+        run: |
+          goveebttemplogger --help
+
+      - name: Upload `deb` file
+        uses: actions/upload-artifact@v3
+        with:
+          name: ubuntu-${{ matrix.image_tag }} ${{ matrix.compiler }}
+          path: GoveeBTTempLogger.deb
