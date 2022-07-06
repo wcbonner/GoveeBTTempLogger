@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220609-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220706-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -124,12 +124,12 @@ std::string getTimeISO8601(void)
 time_t ISO8601totime(const std::string & ISOTime)
 {
 	struct tm UTC;
-	UTC.tm_year = stol(ISOTime.substr(0, 4)) - 1900;
-	UTC.tm_mon = stol(ISOTime.substr(5, 2)) - 1;
-	UTC.tm_mday = stol(ISOTime.substr(8, 2));
-	UTC.tm_hour = stol(ISOTime.substr(11, 2));
-	UTC.tm_min = stol(ISOTime.substr(14, 2));
-	UTC.tm_sec = stol(ISOTime.substr(17, 2));
+	UTC.tm_year = stoi(ISOTime.substr(0, 4)) - 1900;
+	UTC.tm_mon = stoi(ISOTime.substr(5, 2)) - 1;
+	UTC.tm_mday = stoi(ISOTime.substr(8, 2));
+	UTC.tm_hour = stoi(ISOTime.substr(11, 2));
+	UTC.tm_min = stoi(ISOTime.substr(14, 2));
+	UTC.tm_sec = stoi(ISOTime.substr(17, 2));
 	UTC.tm_gmtoff = 0;
 	UTC.tm_isdst = -1;
 	UTC.tm_zone = 0;
@@ -202,7 +202,7 @@ std::string timeToExcelLocal(const time_t& TheTime)
 }
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity = 1;
-std::string LogDirectory("./");
+std::string LogDirectory;	// If this remains empty, log Files are not created.
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
 int SVGMinMax = 0; // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
@@ -295,7 +295,7 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			std::string theHumidity(strtok(NULL, "\t"));
 			Humidity = HumidityMin = HumidityMax = std::atof(theHumidity.c_str());
 			std::string theBattery(strtok(NULL, "\t"));
-			Battery = std::atol(theBattery.c_str());
+			Battery = std::atoi(theBattery.c_str());
 			Averages = 1;
 			char* theModel = strtok(NULL, "\t");
 			if (theModel != NULL)
@@ -635,9 +635,9 @@ bool ValidateDirectory(std::string& DirectoryName)
 std::string GenerateLogFileName(const bdaddr_t &a)
 {
 	std::ostringstream OutputFilename;
-	if (LogDirectory.back() != '/')
-		LogDirectory.push_back('/');
 	OutputFilename << LogDirectory;
+	if (LogDirectory.back() != '/')
+		OutputFilename << "/";
 	OutputFilename << "gvh507x_";
 	OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
 	OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
@@ -653,6 +653,8 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
 	OutputFilename.str("");
 	OutputFilename << LogDirectory;
+	if (LogDirectory.back() != '/')
+		OutputFilename << "/";
 	OutputFilename << "gvh507x_";
 	char addr[19] = { 0 };
 	ba2str(&a, addr);
@@ -681,20 +683,34 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap)
 {
 	bool rval = false;
-	for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
+	if (!LogDirectory.empty())
 	{
-		if (!it->second.empty()) // Only open the log file if there are entries to add
+		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
 		{
-			std::ofstream LogFile(GenerateLogFileName(it->first), std::ios_base::out | std::ios_base::app | std::ios_base::ate);
-			if (LogFile.is_open())
+			if (!it->second.empty()) // Only open the log file if there are entries to add
 			{
-				while (!it->second.empty())
+				std::ofstream LogFile(GenerateLogFileName(it->first), std::ios_base::out | std::ios_base::app | std::ios_base::ate);
+				if (LogFile.is_open())
 				{
-					LogFile << it->second.front().WriteTXT() << std::endl;
-					it->second.pop();
+					while (!it->second.empty())
+					{
+						LogFile << it->second.front().WriteTXT() << std::endl;
+						it->second.pop();
+					}
+					LogFile.close();
+					rval = true;
 				}
-				LogFile.close();
-				rval = true;
+			}
+		}
+	}
+	else
+	{
+		// clear the queued data if LogDirectory not specified 
+		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
+		{
+			while (!it->second.empty())
+			{
+				it->second.pop();
 			}
 		}
 	}
@@ -738,7 +754,7 @@ bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutV
 				std::string theTemp(strtok(NULL, "\t"));
 				std::string theHumidity(strtok(NULL, "\t"));
 				std::string theBattery(strtok(NULL, "\t"));
-				Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atol(theBattery.c_str()));
+				Govee_Temp TheValue(ISO8601totime(theDate), atof(theTemp.c_str()), atof(theHumidity.c_str()), atoi(theBattery.c_str()));
 				if ((Minutes == 0) && LogValues.empty()) // HACK: Special Case to always accept the last logged value
 					LogValues.push(TheValue);
 				if ((Minutes * 60.0) < difftime(now, TheValue.Time))	// If this entry is more than Minutes parameter from current time, it's time to stop reading log file.
@@ -1316,41 +1332,47 @@ void ReadLoggedData(const std::string & filename)
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
-	DIR* dp;
-	if ((dp = opendir(LogDirectory.c_str())) != NULL)
+	if (!LogDirectory.empty())
 	{
-		std::deque<std::string> files;
-		struct dirent* dirp;
-		while ((dirp = readdir(dp)) != NULL)
-			if (DT_REG == dirp->d_type)
-			{
-				std::string filename = LogDirectory + std::string(dirp->d_name);
-				if ((filename.substr(LogDirectory.size(), 3) == "gvh") && (filename.substr(filename.size()-4, 4) == ".txt"))
-					files.push_back(filename);
-			}
-		closedir(dp);
-		if (!files.empty())
+		DIR* dp;
+		if ((dp = opendir(LogDirectory.c_str())) != NULL)
 		{
-			sort(files.begin(), files.end());
-			while (!files.empty())
+			std::deque<std::string> files;
+			struct dirent* dirp;
+			while ((dirp = readdir(dp)) != NULL)
+				if (DT_REG == dirp->d_type)
+				{
+					std::string filename = LogDirectory + std::string(dirp->d_name);
+					if ((filename.substr(LogDirectory.size(), 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
+						files.push_back(filename);
+				}
+			closedir(dp);
+			if (!files.empty())
 			{
-				ReadLoggedData(*files.begin());
-				files.pop_front();
+				sort(files.begin(), files.end());
+				while (!files.empty())
+				{
+					ReadLoggedData(*files.begin());
+					files.pop_front();
+				}
 			}
 		}
 	}
 }
 void MonitorLoggedData(void)
 {
-	for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+	if (!LogDirectory.empty())
 	{
-		std::string filename(GenerateLogFileName(it->first));
-		struct stat64 FileStat;
-		FileStat.st_mtim.tv_sec = 0;
-		if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
-			if (!it->second.empty())
-				if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (35 * 60)))	// only read the file if it's at least thirty five minutes more recent than existing data
-					ReadLoggedData(filename);
+		for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+		{
+			std::string filename(GenerateLogFileName(it->first));
+			struct stat64 FileStat;
+			FileStat.st_mtim.tv_sec = 0;
+			if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
+				if (!it->second.empty())
+					if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (35 * 60)))	// only read the file if it's at least thirty five minutes more recent than existing data
+						ReadLoggedData(filename);
+		}
 	}
 }
 bool ReadTitleMap(const std::string& TitleMapFilename)
