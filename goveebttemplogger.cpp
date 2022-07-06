@@ -1689,6 +1689,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -v | --verbose level stdout verbosity level [" << ConsoleVerbosity << "]" << std::endl;
 	std::cout << "    -m | --mrtg XX:XX:XX:XX:XX:XX Get last value for this address" << std::endl;
 	std::cout << "    -o | --only XX:XX:XX:XX:XX:XX only report this address" << std::endl;
+	std::cout << "    -C | --controller XX:XX:XX:XX:XX:XX use the controller with this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
 	std::cout << "    -T | --titlemap name SVG title fully qualified filename" << std::endl;
@@ -1698,7 +1699,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:a:s:T:cb:x:d";
+static const char short_options[] = "hl:t:v:m:o:C:a:s:T:cb:x:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -1706,6 +1707,7 @@ static const struct option long_options[] = {
 		{ "verbose",required_argument, NULL, 'v' },
 		{ "mrtg",	required_argument, NULL, 'm' },
 		{ "only",	required_argument, NULL, 'o' },
+		{ "controller", required_argument, NULL, 'C' },
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
 		{ "titlemap",	required_argument, NULL, 'T' },
@@ -1719,6 +1721,7 @@ static const struct option long_options[] = {
 int main(int argc, char **argv)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////////
+	std::string ControllerAddress;
 	std::string MRTGAddress;
 	bdaddr_t OnlyFilterAddress = { 0 };
 	const bdaddr_t NoFilterAddress = { 0 };
@@ -1756,6 +1759,9 @@ int main(int argc, char **argv)
 			break;
 		case 'o':
 			str2ba(optarg, &OnlyFilterAddress);
+			break;
+		case 'C':
+			ControllerAddress = std::string(optarg);
 			break;
 		case 'a':
 			try { MinutesAverage = std::stoi(optarg); }
@@ -1823,7 +1829,11 @@ int main(int argc, char **argv)
 		WriteAllSVG();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	int device_id = hci_get_route(NULL);
+	int device_id;
+	if (ControllerAddress.empty())
+		device_id = hci_get_route(NULL);
+	else
+		device_id = hci_devid(ControllerAddress.c_str());
 	if (device_id < 0)
 		std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
 	else
@@ -1848,6 +1858,8 @@ int main(int argc, char **argv)
 				char LocalName[0xff] = { 0 };
 				hci_read_local_name(device_handle, sizeof(LocalName), LocalName, 1000);
 				if (ConsoleVerbosity > 0)
+					if (!ControllerAddress.empty())
+						std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
 					std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
 				if (ConsoleVerbosity > 0)
 				{

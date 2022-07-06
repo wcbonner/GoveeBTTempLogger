@@ -44,6 +44,8 @@ If the --svg option is not added to the command line, the program should continu
 
 #### Ubuntu/Debian/Raspbian
 
+Note: be sure to clone this repository before running below commands: git clone https://github.com/wcbonner/GoveeBTTempLogger.git
+
 ```sh
 sudo apt-get install bluetooth bluez libbluetooth-dev
 make deb
@@ -90,6 +92,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -v (--verbose) Sets output verbosity.
  * -m (--mrtg) Takes a bluetooth address as parameter, returns data for that particular address in the format MRTG can interpret.
  * -o (--only) Takes a bluetooth address as parameter and only reports on that address.
+ * -C (--controller) Takes a bluetooth address as parameter to specify the controller to listen with.
  * -a (--average) Affects MRTG output. The parameter is a number of minutes. 0 simply returns the last value in the log file. Any number more than zero will average the entries over that number of minutes. If no entries were logged in that time period, no results are returned. MRTG graphing is then determined by the setting of the unknaszero option in the MRTG.conf file.
  * -d (--download) download the 20 days historical data from each device. This is still very much a work in progress.
  * -s (--svg) SVG output directory. Writes four SVG files per device to this directory every 5 minutes that can be used in standard web page. 
@@ -115,8 +118,8 @@ The 5074, 5075, and 5177 units all broadcast a UUID of 88EC. Unfortunately, the 
 
 The 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in each of their broadcast messages including the temperatures.
 ```
-(Flags) 06 (UUID) 5182 (Manu) 3013270100010164018007D0FFFF860708FFFF (Temp) 20캜 (Temp) -0.01캜 (Temp) 18캜 (Temp) -0.01캜 (Battery) 0%
-(UUID) 5183 (Flags) 05 (Manu) 5DA1B401000101E40186076C2F660000 (Temp) 19캜 (Temp) 121.34캜 (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: CB)
+(Flags) 06 (UUID) 5182 (Manu) 3013270100010164018007D0FFFF860708FFFF (Temp) 20째C (Temp) -0.01째C (Temp) 18째C (Temp) -0.01째C (Battery) 0%
+(UUID) 5183 (Flags) 05 (Manu) 5DA1B401000101E40186076C2F660000 (Temp) 19째C (Temp) 121.34째C (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: CB)
 ```
 
 ## BTData directory contains a Data Dump

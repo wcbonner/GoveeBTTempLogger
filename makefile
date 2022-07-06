@@ -1,7 +1,8 @@
+CXX ?= g++
 
 GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp
-	mkdir -p GoveeBTTempLogger/usr/local/bin
-	g++ -Wno-psabi -O3 -std=c++11 goveebttemplogger.cpp -o GoveeBTTempLogger/usr/local/bin/goveebttemplogger -lbluetooth
+	mkdir -p $(shell dirname $@)
+	$(CXX) -Wno-psabi -O3 -std=c++11 $? -o$@ -lbluetooth
 
 deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/DEBIAN/control GoveeBTTempLogger/usr/local/lib/systemd/system/goveebttemplogger.service
 	# Set architecture for the resulting .deb to the actually built architecture
