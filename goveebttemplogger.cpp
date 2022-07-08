@@ -624,12 +624,61 @@ void SignalHandlerSIGHUP(int signal)
 /////////////////////////////////////////////////////////////////////////////
 bool ValidateDirectory(std::string& DirectoryName)
 {
-	//TODO: I want to make sure the dorectory name ends with a "/"
-	if (DirectoryName.back() != '/')
-		DirectoryName += '/';
-	//TODO: I want to make sure the dorectory exists
-	//TODO: I want to make sure the dorectory is writable by the current user
-	return(true);
+	bool rval = false;
+	// I want to make sure the directory name does not end with a "/"
+	while ((!DirectoryName.empty()) && (DirectoryName.back() == '/'))
+		DirectoryName.erase(DirectoryName.back());
+	// https://linux.die.net/man/2/stat
+	struct stat StatBuffer;
+	if (0 == stat(DirectoryName.c_str(), &StatBuffer))
+		if (S_ISDIR(StatBuffer.st_mode))
+		{
+			// https://linux.die.net/man/2/access
+			if (0 == access(DirectoryName.c_str(), R_OK | W_OK))
+				rval = true;
+			else
+			{
+				switch (errno)
+				{
+				case EACCES:
+					std::cerr << DirectoryName << " (" << errno << ") The requested access would be denied to the file, or search permission is denied for one of the directories in the path prefix of pathname." << std::endl;
+					break;
+				case ELOOP:
+					std::cerr << DirectoryName << " (" << errno << ") Too many symbolic links were encountered in resolving pathname." << std::endl;
+					break;
+				case ENAMETOOLONG:
+					std::cerr << DirectoryName << " (" << errno << ") pathname is too long." << std::endl;
+					break;
+				case ENOENT:
+					std::cerr << DirectoryName << " (" << errno << ") A component of pathname does not exist or is a dangling symbolic link." << std::endl;
+					break;
+				case ENOTDIR:
+					std::cerr << DirectoryName << " (" << errno << ") A component used as a directory in pathname is not, in fact, a directory." << std::endl;
+					break;
+				case EROFS:
+					std::cerr << DirectoryName << " (" << errno << ") Write permission was requested for a file on a read-only file system." << std::endl;
+					break;
+				case EFAULT:
+					std::cerr << DirectoryName << " (" << errno << ") pathname points outside your accessible address space." << std::endl;
+					break;
+				case EINVAL:
+					std::cerr << DirectoryName << " (" << errno << ") mode was incorrectly specified." << std::endl;
+					break;
+				case EIO:
+					std::cerr << DirectoryName << " (" << errno << ") An I/O error occurred." << std::endl;
+					break;
+				case ENOMEM:
+					std::cerr << DirectoryName << " (" << errno << ") Insufficient kernel memory was available." << std::endl;
+					break;
+				case ETXTBSY:
+					std::cerr << DirectoryName << " (" << errno << ") Write access was requested to an executable which is being executed." << std::endl;
+					break;
+				default:
+					std::cerr << DirectoryName << " (" << errno << ") An unknown error." << std::endl;
+				}
+			}
+		}
+	return(rval);
 }
 // Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
 std::string GenerateLogFileName(const bdaddr_t &a)
