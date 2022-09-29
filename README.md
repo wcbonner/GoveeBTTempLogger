@@ -1,7 +1,7 @@
 # GoveeBTTempLogger
-Govee H5074, H5075, and H5177 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5182 and H5183 Smart Meat Thermometers
+Govee H5074, H5075, H5174, and H5177 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5182 and H5183 Smart Meat Thermometers
 
-Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5177, H5182, H5183 thermometers.
+Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5174, H5177, H5182, H5183 thermometers.
 
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
@@ -31,7 +31,7 @@ If the --svg option is not added to the command line, the program should continu
 ## Verbosity has been significantly changed since the intial release.
 
  * -v 0 no output to stdout. Errors still sent to stderr.
- * -v 1 prints all advertisments that have been decoded from Govee H5075, H5074, and H5177 thermometers to stdout.
+ * -v 1 prints all advertisments that have been decoded from Govee H5075, H5074, H5174, and H5177 thermometers to stdout.
  * -v 2 prints all advertisments recieved and categorized
  * -v levels higher than 2 print way too much debugging information, but can be interesting to look at.
 
@@ -110,11 +110,12 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  ## Bluetooth UUID details
   * (UUID) 88EC (Name) Govee_H5074_C7A1
   * (Name) GVH5075_AE36 (UUID) 88EC
+  * (Name) GVH5174_CC3D (UUID) 88EC
   * (Name) GVH5177_3B10 (UUID) 88EC
   * (UUID) 5182
   * (UUID) 5183
 
-The 5074, 5075, and 5177 units all broadcast a UUID of 88EC. Unfortunately, the 5074 does not include the UUID in the same advertisment as the temperatures. 
+The 5074, 5075, 5174, and 5177 units all broadcast a UUID of 88EC. Unfortunately, the 5074 does not include the UUID in the same advertisment as the temperatures. 
 
 The 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in each of their broadcast messages including the temperatures.
 ```
