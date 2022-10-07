@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20220928-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -632,7 +632,7 @@ bool ValidateDirectory(std::string& DirectoryName)
 	bool rval = false;
 	// I want to make sure the directory name does not end with a "/"
 	while ((!DirectoryName.empty()) && (DirectoryName.back() == '/'))
-		DirectoryName.erase(DirectoryName.back());
+		DirectoryName.pop_back();
 	// https://linux.die.net/man/2/stat
 	struct stat StatBuffer;
 	if (0 == stat(DirectoryName.c_str(), &StatBuffer))
@@ -1488,7 +1488,7 @@ void WriteAllSVG()
 		std::ostringstream OutputFilename;
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
-		OutputFilename << "gvh-";
+		OutputFilename << "/gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-day.svg";
 		std::vector<Govee_Temp> TheValues;
@@ -1496,21 +1496,21 @@ void WriteAllSVG()
 		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
-		OutputFilename << "gvh-";
+		OutputFilename << "/gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-week.svg";
 		ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
 		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
-		OutputFilename << "gvh-";
+		OutputFilename << "/gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-month.svg";
 		ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
 		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
 		OutputFilename.str("");
 		OutputFilename << SVGDirectory;
-		OutputFilename << "gvh-";
+		OutputFilename << "/gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-year.svg";
 		ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
@@ -1782,6 +1782,7 @@ int main(int argc, char **argv)
 
 	for (;;)
 	{
+		std::string TempString;
 		int idx;
 		int c = getopt_long(argc, argv, short_options, long_options, &idx);
 		if (-1 == c)
@@ -1794,9 +1795,9 @@ int main(int argc, char **argv)
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
 		case 'l':
-			LogDirectory = std::string(optarg);
-			if (!ValidateDirectory(LogDirectory))
-				LogDirectory = "./";
+			TempString = std::string(optarg);
+			if (ValidateDirectory(TempString))
+				LogDirectory = TempString;
 			break;
 		case 't':
 			try { LogFileTime = std::stoi(optarg); }
@@ -1826,14 +1827,14 @@ int main(int argc, char **argv)
 			DownloadData = true;
 			break;
 		case 's':
-			SVGDirectory = std::string(optarg);
-			if (!ValidateDirectory(SVGDirectory))
-				SVGDirectory.clear();
+			TempString = std::string(optarg);
+			if (ValidateDirectory(TempString))
+				SVGDirectory = TempString;
 			break;
 		case 'T':
-			SVGTitleMapFilename = std::string(optarg);
-			if (!ReadTitleMap(SVGTitleMapFilename))
-				SVGTitleMapFilename.clear();
+			TempString = std::string(optarg);
+			if (ReadTitleMap(TempString))
+				SVGTitleMapFilename = TempString;
 			break;
 		case 'c':
 			SVGFahrenheit = false;
@@ -1863,6 +1864,18 @@ int main(int argc, char **argv)
 	if (ConsoleVerbosity > 0)
 	{
 		std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << std::endl;
+		if (ConsoleVerbosity > 2)
+		{
+			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
+			std::cout << "[                   ]      svg: " << SVGDirectory << std::endl;
+			std::cout << "[                   ]  battery: " << SVGBattery << std::endl;
+			std::cout << "[                   ]   minmax: " << SVGMinMax << std::endl;
+			std::cout << "[                   ]  celsius: " << std::boolalpha << !SVGFahrenheit << std::endl;
+			std::cout << "[                   ] titlemap: " << SVGTitleMapFilename << std::endl;
+			std::cout << "[                   ]     time: " << LogFileTime << std::endl;
+			std::cout << "[                   ]  average: " << MinutesAverage << std::endl;
+			std::cout << "[                   ] download: " << std::boolalpha << DownloadData << std::endl;
+		}
 	}
 	else
 		std::cerr << ProgramVersionString << " (starting)" << std::endl;
@@ -1871,11 +1884,11 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (!SVGDirectory.empty())
 	{
-		if (SVGTitleMapFilename.empty())
+		if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
 		{
 			std::ostringstream TitleMapFilename;
 			TitleMapFilename << SVGDirectory;
-			TitleMapFilename << "gvh-titlemap.txt";
+			TitleMapFilename << "/gvh-titlemap.txt";
 			SVGTitleMapFilename = TitleMapFilename.str();
 		}
 		ReadTitleMap(SVGTitleMapFilename);
