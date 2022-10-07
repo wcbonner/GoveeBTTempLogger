@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1396,7 +1396,7 @@ void ReadLoggedData(void)
 			while ((dirp = readdir(dp)) != NULL)
 				if (DT_REG == dirp->d_type)
 				{
-					std::string filename = LogDirectory + std::string(dirp->d_name);
+					std::string filename = LogDirectory + "/" + std::string(dirp->d_name);
 					if ((filename.substr(LogDirectory.size(), 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
 						files.push_back(filename);
 				}
