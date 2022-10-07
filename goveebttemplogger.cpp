@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-3 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-4 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1365,7 +1365,7 @@ void ReadLoggedData(const std::string & filename)
 	else
 		std::cerr << "Reading: " << filename << std::endl;
 	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
-	std::string ssBTAddress(filename.substr(LogDirectory.length() + 8, 12));
+	std::string ssBTAddress(filename.substr(LogDirectory.length() + 9, 12));
 	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
 		ssBTAddress.insert(index, ":");
 	bdaddr_t TheBlueToothAddress;
