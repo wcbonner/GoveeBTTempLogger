@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-4 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-5 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1435,7 +1435,7 @@ bool ReadTitleMap(const std::string& TitleMapFilename)
 	static time_t LastModified = 0;
 	struct stat64 TitleMapFileStat;
 	TitleMapFileStat.st_mtim.tv_sec = 0;
-	if (stat64(TitleMapFilename.c_str(), &TitleMapFileStat))
+	if (0 == stat64(TitleMapFilename.c_str(), &TitleMapFileStat))
 	{
 		rval = true;
 		if (TitleMapFileStat.st_mtim.tv_sec > LastModified)	// only read the file if it's modified
@@ -1446,6 +1446,8 @@ bool ReadTitleMap(const std::string& TitleMapFilename)
 				LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename << std::endl;
+				else
+					std::cerr << "Reading: " << TitleMapFilename << std::endl;
 				std::string TheLine;
 
 				static const std::string addressFormat("01:02:03:04:05:06");
