@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221007-5 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221029-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -227,13 +227,14 @@ enum class ThermometerType
 	H5177 = 5177,
 	H5179 = 5179,
 	H5183 = 5183, 
-	H5182 = 5182
+	H5182 = 5182,
+	H5181 = 5181
 };
 class  Govee_Temp {
 public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
-	bool ReadMSG(const uint8_t * const data, const std::string &LocaName);
+	bool ReadMSG(const uint8_t * const data);
 	Govee_Temp() : Time(0), Temperature{ 0, 0, 0, 0 }, TemperatureMin{ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }, TemperatureMax{ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }, Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0), Model(ThermometerType::Unknown) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
@@ -257,6 +258,8 @@ public:
 	double GetHumidityMax(void) const { return(std::max(Humidity, HumidityMax)); };
 	double GetBattery(void) const { return(Battery); };
 	ThermometerType GetModel(void) const { return(Model); };
+	ThermometerType SetModel(const std::string& Name);
+	ThermometerType SetModel(const unsigned short* UUID);
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
 	granularity GetTimeGranularity(void) const;
@@ -301,6 +304,9 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			{
 				switch (std::atoi(theModel))
 				{
+				case 5181:
+					Model = ThermometerType::H5181;
+					break;
 				case 5182:
 					Model = ThermometerType::H5182;
 					break;
@@ -329,6 +335,10 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 	ssValue << seperator << Temperature[0];
 	ssValue << seperator << Humidity;
 	ssValue << seperator << Battery;
+	if (Model == ThermometerType::H5181)
+	{
+		ssValue << seperator << 5181;
+	}
 	if (Model == ThermometerType::H5182)
 	{
 		ssValue << seperator << 5182;
@@ -343,7 +353,32 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 	}
 	return(ssValue.str());
 }
-bool Govee_Temp::ReadMSG(const uint8_t * const data, const std::string& LocaName)
+ThermometerType Govee_Temp::SetModel(const std::string& Name)
+{
+	ThermometerType rval = Model;
+	if (0 == Name.substr(0, 8).compare("GVH5177_"))
+		Model = ThermometerType::H5177;
+	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
+		Model = ThermometerType::H5174;
+	else if (0 == Name.substr(0, 8).compare("GVH5075_"))
+		Model = ThermometerType::H5075;
+	else if (0 == Name.substr(0, 12).compare("Govee_H5074_"))
+		Model = ThermometerType::H5074;
+	return(rval);
+}
+ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
+{
+	ThermometerType rval = Model;
+	// 88EC could be either GVH5075_ or GVH5174_
+	if (0x5181 == *UUID)
+		Model = ThermometerType::H5181;
+	else if (0x5182 == *UUID)
+		Model = ThermometerType::H5182;
+	else if (0x5183 == *UUID)
+		Model = ThermometerType::H5183;
+	return(rval);
+}
+bool Govee_Temp::ReadMSG(const uint8_t * const data)
 {
 	bool rval = false;
 	const size_t data_len = data[0];
@@ -386,12 +421,6 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data, const std::string& LocaName
 		}
 		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx or GVH5174_xxxx
 		{
-			if (0 == LocaName.substr(0,8).compare("GVH5177_"))
-				Model = ThermometerType::H5177;
-			else if (0 == LocaName.substr(0, 8).compare("GVH5174_"))
-				Model = ThermometerType::H5174;
-			else
-				Model = ThermometerType::Unknown;
 			// This is a guess based on the H5075 3 byte encoding
 			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
 			// 2 3 4 5  6 7 8  9
@@ -2023,7 +2052,8 @@ int main(int argc, char **argv)
 														char addr[19] = { 0 };
 														ba2str(&info->bdaddr, addr);
 														ConsoleOutLine << " [" << addr << "]";
-														std::string LocalName;
+														Govee_Temp localTemp;
+														std::string localName;
 														if (ConsoleVerbosity > 2)
 														{
 															ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
@@ -2095,6 +2125,7 @@ int main(int argc, char **argv)
 																		break;
 																	case 0x02:	// Incomplete List of 16-bit Service Class UUID
 																	case 0x03:	// Complete List of 16-bit Service Class UUIDs
+																		localTemp.SetModel((unsigned short*)(&((info->data + current_offset + 1)[1])));
 																	case 0x04:	// Incomplete List of 32-bit Service Class UUIDs
 																	case 0x05:	// Complete List of 32-bit Service Class UUID
 																	case 0x06:	// Incomplete List of 128-bit Service Class UUIDs
@@ -2108,11 +2139,13 @@ int main(int argc, char **argv)
 																		break;
 																	case 0x08:	// Shortened Local Name
 																	case 0x09:	// Complete Local Name
+																		localName.clear(); 
 																		for (auto index = 1; index < *(info->data + current_offset); index++)
-																			LocalName.push_back(char((info->data + current_offset + 1)[index]));
+																			localName.push_back(char((info->data + current_offset + 1)[index]));
+																		localTemp.SetModel(localName);
 																		if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																		{
-																			ConsoleOutLine << " (Name) " << LocalName;
+																			ConsoleOutLine << " (Name) " << localName;
 																		}
 																		break;
 																	case 0x0A:	// Tx Power Level
@@ -2147,8 +2180,7 @@ int main(int argc, char **argv)
 																				ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
 																		}
 																		{
-																			Govee_Temp localTemp;
-																			if (localTemp.ReadMSG((info->data + current_offset), LocalName))
+																			if (localTemp.ReadMSG((info->data + current_offset)))
 																			{
 																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
 																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
@@ -2187,6 +2219,9 @@ int main(int argc, char **argv)
 																					break;
 																				case ThermometerType::H5182:
 																					ConsoleOutLine << " (GVH5182)";
+																					break;
+																				case ThermometerType::H5181:
+																					ConsoleOutLine << " (GVH5181)";
 																					break;
 																				}
 																				std::queue<Govee_Temp> foo;

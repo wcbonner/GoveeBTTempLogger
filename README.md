@@ -1,7 +1,7 @@
 # GoveeBTTempLogger
-Govee H5074, H5075, H5174, and H5177 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5182 and H5183 Smart Meat Thermometers
+Govee H5074, H5075, H5174, and H5177 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
 
-Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5174, H5177, H5182, H5183 thermometers.
+Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee H5074, H5075, H5174, H5177, H5181, H5182, H5183 thermometers.
 
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
@@ -117,7 +117,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
 
 The 5074, 5075, 5174, and 5177 units all broadcast a UUID of 88EC. Unfortunately, the 5074 does not include the UUID in the same advertisment as the temperatures. 
 
-The 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in each of their broadcast messages including the temperatures.
+The H5181, 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in each of their broadcast messages including the temperatures.
 ```
 (Flags) 06 (UUID) 5182 (Manu) 3013270100010164018007D0FFFF860708FFFF (Temp) 20°C (Temp) -0.01°C (Temp) 18°C (Temp) -0.01°C (Battery) 0%
 (UUID) 5183 (Flags) 05 (Manu) 5DA1B401000101E40186076C2F660000 (Temp) 19°C (Temp) 121.34°C (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: CB)
