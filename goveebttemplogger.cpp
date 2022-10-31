@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221029-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221030-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -338,6 +338,7 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 	if (Model == ThermometerType::H5181)
 	{
 		ssValue << seperator << 5181;
+		ssValue << seperator << Temperature[1];
 	}
 	if (Model == ThermometerType::H5182)
 	{
@@ -386,7 +387,8 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 	{
 		if ((data_len == 9) && (data[2] == 0x88) && (data[3] == 0xEC)) // GVH5075_xxxx
 		{
-			Model = ThermometerType::H5075;
+			if (Model == ThermometerType::Unknown)
+				Model = ThermometerType::H5075;
 			// This data came from https://github.com/Thrilleratplay/GoveeWatcher
 			// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
 			// 2 3 4  5 6 7  8
@@ -405,7 +407,8 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if ((data_len == 10) && (data[2] == 0x88) && (data[3] == 0xEC))// Govee_H5074_xxxx
 		{
-			Model = ThermometerType::H5074;
+			if (Model == ThermometerType::Unknown)
+				Model = ThermometerType::H5074;
 			// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
 			// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
 			// 2 3 4  5 6  7 8  9
@@ -440,7 +443,8 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if (data_len == 17 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5183 (UUID) 5183 B5183011
 		{
-			Model = ThermometerType::H5183;
+			if (Model == ThermometerType::Unknown)
+				Model = ThermometerType::H5183;
 			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
 			// https://www.amazon.com/gp/product/B092ZTD96V
 			// The probe measuring range is 0° to 300°C /32° to 572°F.
@@ -449,6 +453,9 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			// (Manu) 5DA1B4 01000101 81 0180 07D0 1324 0000 (Temp) 20°C (Temp) 49°C (Battery) 1% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: BF) 
 			// the first three bytes are the last three bytes of the bluetooth address.
 			// then next four bytes appear to be a signature for the device type.
+			// Model = ThermometerType::H5181;
+			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker Cooking BBQ Kitchen Oven
+			// https://www.amazon.com/dp/B092ZTJW37/
 			short iTemp = short(data[12]) << 8 | short(data[13]);
 			Temperature[0] = float(iTemp) / 100.0;
 			iTemp = short(data[14]) << 8 | short(data[15]);
@@ -463,7 +470,8 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 		}
 		else if (data_len == 20 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
 		{
-			Model = ThermometerType::H5182;
+			if (Model == ThermometerType::Unknown)
+				Model = ThermometerType::H5182;
 			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
 			// https://www.amazon.com/gp/product/B094N2FX9P
 			// 301327 01000101 64 01 80 05DC 1324 86 06A4 FFFF
