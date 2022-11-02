@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221030-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221101-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -371,11 +371,11 @@ ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
 {
 	ThermometerType rval = Model;
 	// 88EC could be either GVH5075_ or GVH5174_
-	if (0x5181 == *UUID)
+	if (0x8151 == *UUID)
 		Model = ThermometerType::H5181;
-	else if (0x5182 == *UUID)
+	else if (0x8251 == *UUID)
 		Model = ThermometerType::H5182;
-	else if (0x5183 == *UUID)
+	else if (0x8351 == *UUID)
 		Model = ThermometerType::H5183;
 	return(rval);
 }
@@ -2060,7 +2060,6 @@ int main(int argc, char **argv)
 														char addr[19] = { 0 };
 														ba2str(&info->bdaddr, addr);
 														ConsoleOutLine << " [" << addr << "]";
-														Govee_Temp localTemp;
 														std::string localName;
 														if (ConsoleVerbosity > 2)
 														{
@@ -2087,6 +2086,7 @@ int main(int argc, char **argv)
 														{
 															int current_offset = 0;
 															bool data_error = false;
+															Govee_Temp localTemp;
 															while (!data_error && current_offset < info->length)
 															{
 																size_t data_len = info->data[current_offset];
@@ -2190,11 +2190,10 @@ int main(int argc, char **argv)
 																		{
 																			if (localTemp.ReadMSG((info->data + current_offset)))
 																			{
-																				//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "°F";
 																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																				if (localTemp.GetModel() == ThermometerType::H5183)
+																				if ((localTemp.GetModel() == ThermometerType::H5181) || (localTemp.GetModel() == ThermometerType::H5183))
 																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																				if (localTemp.GetModel() == ThermometerType::H5182)
+																				else if (localTemp.GetModel() == ThermometerType::H5182)
 																				{
 																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
 																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 2) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
@@ -2231,6 +2230,8 @@ int main(int argc, char **argv)
 																				case ThermometerType::H5181:
 																					ConsoleOutLine << " (GVH5181)";
 																					break;
+																				default:
+																					ConsoleOutLine << " (ThermometerType::Unknown)";
 																				}
 																				std::queue<Govee_Temp> foo;
 																				auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
