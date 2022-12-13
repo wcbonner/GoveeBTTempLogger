@@ -84,7 +84,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221101-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221213-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1964,11 +1964,10 @@ int main(int argc, char **argv)
 				char LocalName[0xff] = { 0 };
 				hci_read_local_name(device_handle, sizeof(LocalName), LocalName, 1000);
 				if (ConsoleVerbosity > 0)
+				{
 					if (!ControllerAddress.empty())
 						std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
 					std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
-				if (ConsoleVerbosity > 0)
-				{
 					char addr[19] = { 0 };
 					ba2str(&OnlyFilterAddress, addr);
 
