@@ -73,6 +73,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <queue>
+#include <set>
 #include <sstream>
 #include <sys/ioctl.h>
 #include <sys/select.h>
@@ -84,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221213-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221217-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -207,6 +208,7 @@ int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery li
 int SVGMinMax = 0; // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
 bool SVGFahrenheit = true;
 std::string SVGTitleMapFilename;
+std::string SVGIndexFilename;
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
@@ -1556,6 +1558,78 @@ void WriteAllSVG()
 		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
 	}
 }
+void WriteSVGIndex(const std::string LogDirectory, const std::string SVGIndexFilename)
+{
+	if (!LogDirectory.empty())
+	{
+		DIR* dp;
+		if ((dp = opendir(LogDirectory.c_str())) != NULL)
+		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "] Reading: " << LogDirectory << std::endl;
+			std::set<std::string> files;
+			struct dirent* dirp;
+			while ((dirp = readdir(dp)) != NULL)
+				if (DT_REG == dirp->d_type)
+				{
+					std::string filename = std::string(dirp->d_name);
+					if ((filename.substr(0, 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
+					{
+						std::string ssBTAddress(filename.substr(8, 12));
+						files.insert(ssBTAddress);
+					}
+				}
+			closedir(dp);
+			if (!files.empty())
+			{
+				std::ofstream SVGIndexFile(SVGIndexFilename);
+				if (SVGIndexFile.is_open())
+				{
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGIndexFilename << std::endl;
+					SVGIndexFile << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << std::endl;
+					SVGIndexFile << "<html>" << std::endl;
+					SVGIndexFile << "<head>" << std::endl;
+					SVGIndexFile << "\t<title>" << ProgramVersionString << "</title>" << std::endl;
+					SVGIndexFile << "\t<meta http-equiv=\"content-type\" content=\"text/html; charset=iso-8859-15\">" << std::endl;
+					SVGIndexFile << "\t<meta http-equiv=\"Refresh\" CONTENT=\"300\">" << std::endl;
+					SVGIndexFile << "\t<meta http-equiv=\"Cache-Control\" content=\"no-cache\">" << std::endl;
+					SVGIndexFile << "\t<meta http-equiv=\"Pragma\" CONTENT=\"no-cache\">" << std::endl;
+					SVGIndexFile << "\t<style type=\"text/css\">" << std::endl;
+					SVGIndexFile << "\t\tbody { color: black; }" << std::endl;
+					SVGIndexFile << "\t\t.image { float: left; position: relative; zoom: 85%; }" << std::endl;
+					SVGIndexFile << "\t\t@media only screen and (max-width: 980px) {" << std::endl;
+					SVGIndexFile << "\t\t\t.image { float: left; position: relative; zoom: 190%; }" << std::endl;
+					SVGIndexFile << "\t\t}" << std::endl;
+					SVGIndexFile << "\t</style>" << std::endl;
+					SVGIndexFile << "</head>" << std::endl;
+					SVGIndexFile << "<body>" << std::endl;
+					SVGIndexFile << "\t<div>" << std::endl;
+					SVGIndexFile << std::endl;
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601() << "] Writing:";
+					for (auto ssBTAddress = files.begin(); ssBTAddress != files.end(); ssBTAddress++)
+					{
+						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+						SVGIndexFile << std::endl;
+						if (ConsoleVerbosity > 0)
+							std::cout << " " << *ssBTAddress;
+					}
+					if (ConsoleVerbosity > 0)
+						std::cout << std::endl;
+					SVGIndexFile << "\t</div>" << std::endl;
+					SVGIndexFile << "</body>" << std::endl;
+					SVGIndexFile << "</html>" << std::endl;
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601() << "] Done" << std::endl;
+				}
+			}
+		}
+	}
+}
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 void ConnectAndDownload(int device_handle)
@@ -1785,6 +1859,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -C | --controller XX:XX:XX:XX:XX:XX use the controller with this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
 	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
+	std::cout << "    -i | --index name    HTML index file for SVG files" << std::endl;
 	std::cout << "    -T | --titlemap name SVG title fully qualified filename" << std::endl;
 	std::cout << "    -c | --celsius       SVG output using degrees C" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
@@ -1792,7 +1867,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:s:T:cb:x:d";
+static const char short_options[] = "hl:t:v:m:o:C:a:s:i:T:cb:x:d";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -1803,9 +1878,10 @@ static const struct option long_options[] = {
 		{ "controller", required_argument, NULL, 'C' },
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
+		{ "index",	required_argument, NULL, 'i' },
 		{ "titlemap",	required_argument, NULL, 'T' },
 		{ "celsius",no_argument,       NULL, 'c' },
-		{ "battery",	required_argument, NULL, 'b' },
+		{ "battery",required_argument, NULL, 'b' },
 		{ "minmax",	required_argument, NULL, 'x' },
 		{ "download",no_argument,NULL, 'd' },
 		{ 0, 0, 0, 0 }
@@ -1870,6 +1946,10 @@ int main(int argc, char **argv)
 			if (ValidateDirectory(TempString))
 				SVGDirectory = TempString;
 			break;
+		case 'i':
+			TempString = std::string(optarg);
+			SVGIndexFilename = TempString;
+			break;
 		case 'T':
 			TempString = std::string(optarg);
 			if (ReadTitleMap(TempString))
@@ -1897,6 +1977,12 @@ int main(int argc, char **argv)
 	if (!MRTGAddress.empty())
 	{
 		GetMRTGOutput(MRTGAddress, MinutesAverage);
+		exit(EXIT_SUCCESS);
+	}
+	///////////////////////////////////////////////////////////////////////////////////////////////
+	if (!SVGIndexFilename.empty())
+	{
+		WriteSVGIndex(LogDirectory, SVGIndexFilename);
 		exit(EXIT_SUCCESS);
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
