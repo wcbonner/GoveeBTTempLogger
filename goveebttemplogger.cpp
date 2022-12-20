@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221217-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221220-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1113,10 +1113,12 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName
 				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: black; }" << std::endl;
 				SVGFile << "\t\tline { stroke: black; }" << std::endl;
 				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
+#ifdef _DARK_STYLE_
 				SVGFile << "\t@media only screen and (prefers-color-scheme: dark) {" << std::endl;
 				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
 				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
 				SVGFile << "\t}" << std::endl;
+#endif // _DARK_STYLE_
 				SVGFile << "\t</style>" << std::endl;
 #ifdef DEBUG
 				SVGFile << "<!-- HumiMax: " << HumiMax << " -->" << std::endl;
