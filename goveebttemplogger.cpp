@@ -1698,6 +1698,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 		int l2cap_socket = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
 		if (l2cap_socket > 0)
 		{
+			std::cout << "[" << getTimeISO8601() << "] l2cap_socket > 0. Connecting.." << std::endl;
 			// set the connection parameters (who to connect to)
 			struct sockaddr_l2 l2cap_address = { 0 };
 			l2cap_address.l2_family = AF_BLUETOOTH;
@@ -1710,6 +1711,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 
 			// send a message
 			if (status == 0) {
+				std::cout << "[" << getTimeISO8601() << "] Connected. writing hello!" << std::endl;
 				status = write(l2cap_socket, "hello!", 6);
 			}
 			close(l2cap_socket);
