@@ -129,6 +129,10 @@ The H5181, 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in ea
 
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
+
+```sh
+sudo apt install -y wireshark-qt
+```
  
 In frames 260, 261, 313, 320, 11126, 11402, and 11403 you can see advertisements from my H5074 device. (e3:5e:cc:21:5c:0f)
 
@@ -166,3 +170,6 @@ The last frame from [UUID: 494e54454c4c495f524f434b535f2013] (16687) has Value: 
 
 Off the top of my head each device is storing 0x7080 time/humidity values. That's 28,800. 20 days * 24 hours * 60 minutes = 28,800 entries.
 
+### Wireshark filter that limits to visible packets sent or recieved from a single H5075 device
+bluetooth.src || bluetooth.dst == a4:c1:38:37:bc:ae
+bluetooth.src == a4:c1:38:37:bc:ae || bluetooth.dst == a4:c1:38:37:bc:ae || bluetooth.src_str == "controller" || bluetooth.src_str == "host"

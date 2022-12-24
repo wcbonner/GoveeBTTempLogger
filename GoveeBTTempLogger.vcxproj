@@ -118,6 +118,9 @@
       </Command>
     </RemotePostBuildEvent>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
@@ -143,6 +146,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
@@ -155,6 +161,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
@@ -167,6 +176,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
     <Link>
