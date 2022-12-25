@@ -1724,6 +1724,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 		int RetryCount = 50;
 		while (bDownloadInProgress)
 		{
+			std::cout << "[" << getTimeISO8601() << "] reading from device. RetryCount = " << RetryCount << std::endl;
 			ssize_t bufDataLen = read(device_handle, buf, sizeof(buf));
 			if (bufDataLen > 1)
 			{
