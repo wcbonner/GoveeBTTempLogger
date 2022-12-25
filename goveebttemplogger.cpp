@@ -1714,6 +1714,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 				std::cout << "[" << getTimeISO8601() << "] Connected. writing hello!" << std::endl;
 				status = write(l2cap_socket, "hello!", 6);
 			}
+			std::cout << "[" << getTimeISO8601() << "] Closing l2cap_socket" << std::endl;
 			close(l2cap_socket);
 		}
 
