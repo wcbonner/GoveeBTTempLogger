@@ -18,3 +18,7 @@ I've found it hard to remember which device is which when referring to them by p
 
 ## H5183
 ![image](h5183-phone.jpg)
+
+## Meat Thermometers
+This image came from the replacement probe package for the meat thermometers. It's especially useful because it shows that the part numbers don't always report the number of probes.
+![image](meatthermometers.jpg) 
