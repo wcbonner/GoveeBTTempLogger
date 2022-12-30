@@ -1723,12 +1723,11 @@ const char* addr_type_name(const int dst_type)
 	}
 }
 #define ATT_CID 4
-static int l2cap_le_att_connect(const bdaddr_t* src, const bdaddr_t* dst, const uint8_t dst_type,	const int sec)
+static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type,	const int sec)
 {
 	if (ConsoleVerbosity > 0)
 	{
 		std::cerr << "Opening L2CAP LE connection on ATT channel:" << std::endl;
-		std::cerr << "\t src: " << ba2string(*src) << std::endl;
 		std::cerr << "\tdest: " << ba2string(*dst)  << " (" << addr_type_name(dst_type) << ")" << std::endl;
 	}
 	int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
@@ -1743,23 +1742,11 @@ static int l2cap_le_att_connect(const bdaddr_t* src, const bdaddr_t* dst, const 
 	memset(&srcaddr, 0, sizeof(srcaddr));
 	srcaddr.l2_family = AF_BLUETOOTH;
 	srcaddr.l2_cid = htobs(ATT_CID);
-	srcaddr.l2_bdaddr_type = BDADDR_BREDR;
-	bacpy(&srcaddr.l2_bdaddr, src);
+	srcaddr.l2_bdaddr_type = BDADDR_LE_RANDOM;
 	if (bind(sock, (struct sockaddr*)&srcaddr, sizeof(srcaddr)) < 0) 
 	{
 		if (ConsoleVerbosity > 0)
 			std::cerr << "Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
-		close(sock);
-		return -1;
-	}
-	/* Set the security level */
-	struct bt_security btsec;
-	memset(&btsec, 0, sizeof(btsec));
-	btsec.level = sec;
-	if (setsockopt(sock, SOL_BLUETOOTH, BT_SECURITY, &btsec, sizeof(btsec)) != 0) 
-	{
-		if (ConsoleVerbosity > 0)
-			std::cerr << "Failed to set L2CAP security level: " << strerror(errno) << " (" << errno << ")" << std::endl;
 		close(sock);
 		return -1;
 	}
@@ -1935,15 +1922,8 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 			std::cerr << "BLE scan failed: " << strerror(errno) << " (" << errno << ")" << std::endl;
 		return;
 	}
-	// get host Bluetooth address
-	bdaddr_t src_addr;
-	if (hci_devba(device_handle, &src_addr) < 0)
-	{
-		std::cerr << "Can't get hci" << device_handle << " info: " << strerror(errno) << " (" << errno << ")" << std::endl;
-		return;
-	}
 	// create L2CAP socket connected to device
-	int fd = l2cap_le_att_connect(&src_addr, &GoveeBTAddress, dst_bdaddr_type, BT_SECURITY_MEDIUM);
+	int fd = l2cap_le_att_connect(&GoveeBTAddress, dst_bdaddr_type, BT_SECURITY_MEDIUM);
 	if (fd < 0) 
 	{
 		if (errno != ENOTCONN || debug > 1)
