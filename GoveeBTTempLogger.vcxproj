@@ -114,8 +114,7 @@
       </Command>
     </RemotePreBuildEvent>
     <RemotePostBuildEvent>
-      <Command>
-      </Command>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
     </RemotePostBuildEvent>
     <ClCompile />
     <ClCompile>

@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221224-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221226-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -650,6 +650,8 @@ bool operator ==(const bdaddr_t& a, const bdaddr_t& b)
 	B = B << 8 | b.b[0];
 	return(A == B);
 }
+/////////////////////////////////////////////////////////////////////////////
+std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_str); std::string rVal(addr_str); return(rVal); }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
@@ -1633,11 +1635,391 @@ void WriteSVGIndex(const std::string LogDirectory, const std::string SVGIndexFil
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
+// 2022-12-26 I finally found an example of using BlueTooth Low Energy (BTLE) GATT via the older sockets interface https://github.com/dlenski/ttblue
+// I'll be heavily borrowing code from ttblue to see if I can't download historical data from the Govee Thermometers
+static int hci_gv_scan(int dd, const bdaddr_t* dst, uint8_t* dst_type)
+{
+	hci_le_set_scan_enable(dd, 0, 0, 10000); // disable in case already enabled
+	if (hci_le_set_scan_parameters(dd, /* passive */ 0x00, htobs(0x10), htobs(0x10), LE_PUBLIC_ADDRESS, 0x00, 10000) < 0) 
+	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "Failed to set BLE scan parameters: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		return -1;
+	}
+	if (hci_le_set_scan_enable(dd, 0x01, /* include dupes */ 0x00, 10000) < 0) 
+	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "Failed to enable BLE scan: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		return -1;
+	}
+
+	// save old HCI filter
+	struct hci_filter of;
+	socklen_t olen = sizeof(of);
+	if (getsockopt(dd, SOL_HCI, HCI_FILTER, &of, &olen) < 0)
+		return -1;
+
+	// set new HCI filter to capture all LE events
+	struct hci_filter nf;
+	hci_filter_clear(&nf);
+	hci_filter_set_ptype(HCI_EVENT_PKT, &nf);
+	hci_filter_set_event(EVT_LE_META_EVENT, &nf);
+
+	if (setsockopt(dd, SOL_HCI, HCI_FILTER, &nf, sizeof(nf)) < 0)
+		return -1;
+
+	int len;
+	for (;;)
+	{
+		unsigned char buf[HCI_MAX_EVENT_SIZE];
+		if ((len = read(dd, buf, sizeof(buf))) < 0)
+		{
+			if (errno == EAGAIN)
+				continue;
+			else
+				goto done;
+		}
+
+		evt_le_meta_event* meta = (evt_le_meta_event*)(buf + HCI_EVENT_HDR_SIZE + 1);
+		if (meta->subevent == EVT_LE_ADVERTISING_REPORT) 
+		{
+			le_advertising_info* info = (le_advertising_info*)(meta->data + 1);
+			if (info->bdaddr == *dst)
+			{
+				if (ConsoleVerbosity > 0)
+					std::cerr << "Device we are looking for advertised: " << ba2string(info->bdaddr) << std::endl;
+				// confusion alert: Bluez defines these constants as BDADDR_LE_RANDOM=0x02 and BDADDR_LE_PUBLIC=0x01, ... but in the le_advertising_info wire packets: 0 means _PUBLIC and non-0 means _RANDOM (see bluez/emulator/bthost.c
+				*dst_type = (info->bdaddr_type == 0 ? BDADDR_LE_PUBLIC : BDADDR_LE_RANDOM);
+				goto done;
+			}
+			else
+				if (ConsoleVerbosity > 0)
+					std::cerr << "Other Device advertised: " << ba2string(info->bdaddr) << "\r";
+		}
+		// 2022-12-26 Wim added the bRun goto out of the loop after removing the signal handling from this function
+		if (bRun == false)
+			goto done;
+	}
+
+done:
+	// retore old HCI filter
+	if (setsockopt(dd, SOL_HCI, HCI_FILTER, &of, sizeof(of)) < 0)
+		return -1;
+	if (hci_le_set_scan_enable(dd, 0x00, 1, 10000) < 0)
+		return -1;
+	if (len < 0)
+		return -1;
+
+	return 0;
+}
+const char* addr_type_name(const int dst_type) 
+{
+	switch (dst_type) 
+	{
+	case BDADDR_BREDR: return "BDADDR_BREDR";
+	case BDADDR_LE_PUBLIC: return "BDADDR_LE_PUBLIC";
+	case BDADDR_LE_RANDOM: return "BDADDR_LE_RANDOM";
+	default: return NULL;
+	}
+}
+#define ATT_CID 4
+static int l2cap_le_att_connect(const bdaddr_t* src, const bdaddr_t* dst, const uint8_t dst_type,	const int sec)
+{
+	if (ConsoleVerbosity > 0)
+	{
+		std::cerr << "Opening L2CAP LE connection on ATT channel:" << std::endl;
+		std::cerr << "\t src: " << ba2string(*src) << std::endl;
+		std::cerr << "\tdest: " << ba2string(*dst)  << " (" << addr_type_name(dst_type) << ")" << std::endl;
+	}
+	int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+	if (sock < 0) 
+	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		return -1;
+	}
+	/* Set up source address */
+	struct sockaddr_l2 srcaddr;
+	memset(&srcaddr, 0, sizeof(srcaddr));
+	srcaddr.l2_family = AF_BLUETOOTH;
+	srcaddr.l2_cid = htobs(ATT_CID);
+	srcaddr.l2_bdaddr_type = BDADDR_BREDR;
+	bacpy(&srcaddr.l2_bdaddr, src);
+	if (bind(sock, (struct sockaddr*)&srcaddr, sizeof(srcaddr)) < 0) 
+	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		close(sock);
+		return -1;
+	}
+	/* Set the security level */
+	struct bt_security btsec;
+	memset(&btsec, 0, sizeof(btsec));
+	btsec.level = sec;
+	if (setsockopt(sock, SOL_BLUETOOTH, BT_SECURITY, &btsec, sizeof(btsec)) != 0) 
+	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "Failed to set L2CAP security level: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		close(sock);
+		return -1;
+	}
+	/* Set up destination address */
+	struct sockaddr_l2 dstaddr;
+	memset(&dstaddr, 0, sizeof(dstaddr));
+	dstaddr.l2_family = AF_BLUETOOTH;
+	dstaddr.l2_cid = htobs(ATT_CID);
+	dstaddr.l2_bdaddr_type = dst_type;
+	bacpy(&dstaddr.l2_bdaddr, dst);
+	if (connect(sock, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0) 
+	{
+		close(sock);
+		return -2;
+	}
+	return sock;
+}
+#define BT_ATT_OP_READ_REQ			0x0a
+#define BT_ATT_DEFAULT_LE_MTU		23
+#define BT_ATT_OP_ERROR_RSP			0x01
+#define BT_ATT_OP_READ_RSP			0x0b
+#define BT_ATT_OP_WRITE_CMD			0x52
+/* Error codes for Error response PDU */
+#define ATT_ECODE_INVALID_HANDLE	0x01
+#define ATT_ECODE_READ_NOT_PERM		0x02
+#define ATT_ECODE_WRITE_NOT_PERM	0x03
+#define ATT_ECODE_INVALID_PDU		0x04
+#define ATT_ECODE_AUTHENTICATION	0x05
+#define ATT_ECODE_REQ_NOT_SUPP		0x06
+#define ATT_ECODE_INVALID_OFFSET	0x07
+#define ATT_ECODE_AUTHORIZATION		0x08
+#define ATT_ECODE_PREP_QUEUE_FULL	0x09
+#define ATT_ECODE_ATTR_NOT_FOUND	0x0A
+#define ATT_ECODE_ATTR_NOT_LONG		0x0B
+#define ATT_ECODE_INSUFF_ENCR_KEY_SIZE	0x0C
+#define ATT_ECODE_INVAL_ATTR_VALUE_LEN	0x0D
+#define ATT_ECODE_UNLIKELY			0x0E
+#define ATT_ECODE_INSUFF_ENC		0x0F
+#define ATT_ECODE_UNSUPP_GRP_TYPE	0x10
+#define ATT_ECODE_INSUFF_RESOURCES	0x11
+/* Application error */
+#define ATT_ECODE_IO				0x80
+#define ATT_ECODE_TIMEOUT			0x81
+#define ATT_ECODE_ABORTED			0x82
+struct bt_att_pdu_error_rsp {
+	uint8_t opcode;
+	uint16_t handle;
+	uint8_t ecode;
+} __packed;
+const char* att_ecode2str(uint8_t status)
+{
+	switch (status) {
+	case ATT_ECODE_INVALID_HANDLE:
+		return "Invalid handle";
+	case ATT_ECODE_READ_NOT_PERM:
+		return "Attribute can't be read";
+	case ATT_ECODE_WRITE_NOT_PERM:
+		return "Attribute can't be written";
+	case ATT_ECODE_INVALID_PDU:
+		return "Attribute PDU was invalid";
+	case ATT_ECODE_AUTHENTICATION:
+		return "Attribute requires authentication before read/write";
+	case ATT_ECODE_REQ_NOT_SUPP:
+		return "Server doesn't support the request received";
+	case ATT_ECODE_INVALID_OFFSET:
+		return "Offset past the end of the attribute";
+	case ATT_ECODE_AUTHORIZATION:
+		return "Attribute requires authorization before read/write";
+	case ATT_ECODE_PREP_QUEUE_FULL:
+		return "Too many prepare writes have been queued";
+	case ATT_ECODE_ATTR_NOT_FOUND:
+		return "No attribute found within the given range";
+	case ATT_ECODE_ATTR_NOT_LONG:
+		return "Attribute can't be read/written using Read Blob Req";
+	case ATT_ECODE_INSUFF_ENCR_KEY_SIZE:
+		return "Encryption Key Size is insufficient";
+	case ATT_ECODE_INVAL_ATTR_VALUE_LEN:
+		return "Attribute value length is invalid";
+	case ATT_ECODE_UNLIKELY:
+		return "Request attribute has encountered an unlikely error";
+	case ATT_ECODE_INSUFF_ENC:
+		return "Encryption required before read/write";
+	case ATT_ECODE_UNSUPP_GRP_TYPE:
+		return "Attribute type is not a supported grouping attribute";
+	case ATT_ECODE_INSUFF_RESOURCES:
+		return "Insufficient Resources to complete the request";
+	case ATT_ECODE_IO:
+		return "Internal application error: I/O";
+	case ATT_ECODE_TIMEOUT:
+		return "A timeout occured";
+	case ATT_ECODE_ABORTED:
+		return "The operation was aborted";
+	default:
+		return "Unexpected error code";
+	}
+}
+int att_read(int fd, const uint16_t handle, void* buf)
+{
+	struct 
+	{ 
+		uint8_t opcode; 
+		uint16_t handle; 
+	} __attribute__((packed)) pkt = { BT_ATT_OP_READ_REQ, htobs(handle) };
+	int result = send(fd, &pkt, sizeof(pkt), 0);
+	if (result < 0)
+		return result;
+
+	struct 
+	{ 
+		uint8_t opcode; 
+		uint8_t buf[BT_ATT_DEFAULT_LE_MTU]; 
+	} __attribute__((packed)) rpkt = { 0 };
+	result = recv(fd, &rpkt, sizeof(rpkt), 0);
+	if (result < 0)
+		return result;
+	else if (rpkt.opcode == BT_ATT_OP_ERROR_RSP && result == 1 + sizeof(struct bt_att_pdu_error_rsp)) 
+	{
+		struct bt_att_pdu_error_rsp* err = (struct bt_att_pdu_error_rsp*)rpkt.buf;
+		if (ConsoleVerbosity > 0)
+			std::cerr << "ATT error for opcode " << std::hex << std::showbase << err->opcode << ", handle " << btohs(err->handle) << ": " << att_ecode2str(err->ecode) << std::endl;
+		return -2;
+	}
+	else if (rpkt.opcode != BT_ATT_OP_READ_RSP) 
+	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "Expect ATT READ response opcode (" << std::hex << std::showbase << BT_ATT_OP_READ_RSP << ") but received " << rpkt.opcode << std::endl;
+		return -2;
+	}
+	else 
+	{
+		int length = result - 1;
+		memcpy(buf, rpkt.buf, length);
+		return length;
+	}
+}
+int att_write(int fd, const uint16_t handle, const void* buf, const int length)
+{
+	struct write_packet { uint8_t opcode; uint16_t handle; uint8_t buf[0]; } __attribute__((packed));// pkt;
+	if ((sizeof(write_packet) + length) > BT_ATT_DEFAULT_LE_MTU)
+		return(-1);
+	write_packet* pkt = (write_packet*) new uint8_t[sizeof(write_packet) + length];
+	pkt->opcode = BT_ATT_OP_WRITE_CMD;
+	pkt->handle = htobs(handle);
+	memcpy(pkt->buf, buf, length);
+	int result = send(fd, pkt, (sizeof(write_packet) + length), 0);
+	delete[] pkt;
+	if (result < 0)
+		return(result);
+	return(length);
+}
+
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t GoveeLastReadTime = 0)
 {
+	// 2022-12-26 
+	uint8_t dst_bdaddr_type = 0; /* suppress gcc 4.8.x warning; not actual a valid value */
+	int debug = 1;
+	if (hci_gv_scan(device_handle, &GoveeBTAddress, &dst_bdaddr_type) < 0)
+	{
+		if (errno == EPERM)
+		{
+			std::cerr << "**********************************************************" << std::endl;
+			std::cerr << "NOTE: This program lacks the permissions necessary for" << std::endl;
+			std::cerr << "  manipulating the raw Bluetooth HCI socket, which" << std::endl;
+			std::cerr << "  is required for scanning and for setting the minimum" << std::endl;
+			std::cerr << "  connection inverval to speed up data transfer.\n" << std::endl << std::endl;
+			std::cerr << "  To fix this, run it as root or, better yet, set the" << std::endl;
+			std::cerr << "  following capabilities on the GoveeBTTempLogger executable:\n" << std::endl << std::endl;
+			std::cerr << "    # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
+			std::cerr << "**********************************************************" << std::endl;
+		}
+		else
+			std::cerr << "BLE scan failed: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		return;
+	}
+	// get host Bluetooth address
+	bdaddr_t src_addr;
+	if (hci_devba(device_handle, &src_addr) < 0)
+	{
+		std::cerr << "Can't get hci" << device_handle << " info: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		return;
+	}
+	// create L2CAP socket connected to device
+	int fd = l2cap_le_att_connect(&src_addr, &GoveeBTAddress, dst_bdaddr_type, BT_SECURITY_MEDIUM);
+	if (fd < 0) 
+	{
+		if (errno != ENOTCONN || debug > 1)
+			std::cerr << "Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
+		return;
+	}
+	// we need the hci_handle too
+	struct l2cap_conninfo l2cci;
+	socklen_t sl = sizeof(l2cci);
+	int result = getsockopt(fd, SOL_L2CAP, L2CAP_CONNINFO, &l2cci, &sl);
+	if (result < 0) 
+	{
+		perror("getsockopt");
+		return;
+	}
 	time_t TimeNow;
 	time(&TimeNow);
+	std::cerr << "Connected to device at " << timeToExcelLocal(TimeNow) << std::endl;
+	do 
+	{
+		result = hci_le_conn_update(device_handle, 
+			htobs(l2cci.hci_handle),
+			0x0006 /* min_interval */,
+			0x0006 /* max_interval */,
+			0 /* latency */,
+			200 /* supervision_timeout */,
+			2000);
+	} while (errno == ETIMEDOUT);
+	if (result < 0) 
+	{
+		if (errno == EPERM) 
+		{
+			std::cerr << "**********************************************************" << std::endl;
+			std::cerr << "NOTE: This program lacks the permissions necessary for" << std::endl;
+			std::cerr << "  manipulating the raw Bluetooth HCI socket, which" << std::endl;
+			std::cerr << "  is required for scanning and for setting the minimum" << std::endl;
+			std::cerr << "  connection inverval to speed up data transfer.\n" << std::endl << std::endl;
+			std::cerr << "  To fix this, run it as root or, better yet, set the" << std::endl;
+			std::cerr << "  following capabilities on the GoveeBTTempLogger executable:\n" << std::endl << std::endl;
+			std::cerr << "    # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
+			std::cerr << "**********************************************************" << std::endl;
+		}
+		else 
+		{
+			perror("hci_le_conn_update");
+			close(fd);
+		}
+	}
+	else 
+	{
+		// we successfully decreased the connection interval, but the device can't
+		// actually handle packets being written to it this quickly, so we
+		// figure out the maximum safe speed at which we can send packets to the device from
+		// the Preferred Peripheral Connection Parameters
+		struct { uint16_t min_interval, max_interval, slave_latency, timeout_mult; } __attribute__((packed)) ppcp;
+		if (att_read(fd, 0x10, &ppcp) < 0) 
+		{
+			std::cerr << "Could not read device PPCP (handle " << std::hex << std::showbase << 0x10 << "): " << strerror(errno) << " (" << std::dec << std::noshowbase << errno << ")" << std::endl;
+			close(fd);
+			return;
+		}
+		else 
+		{
+			ppcp.min_interval = btohs(ppcp.min_interval);
+			ppcp.max_interval = btohs(ppcp.max_interval);
+			ppcp.slave_latency = btohs(ppcp.slave_latency);
+			ppcp.timeout_mult = btohs(ppcp.timeout_mult);
+			//write_delay = 1250 * ppcp.min_interval; // (microseconds)
+			if (debug > 1) 
+			{
+				//std::cerr << "Throttling file write to 1 packet every " << write_delay << " microseconds." << std::endl;
+				std::cerr << "min_interval=" << ppcp.max_interval << ", max_interval=" << ppcp.min_interval << ", slave_latency=" << ppcp.slave_latency << ", timeout_mult=" << ppcp.timeout_mult << std::endl;
+			}
+		}
+	}
+
 	char addr[19] = { 0 };
 	ba2str(&GoveeBTAddress, addr);
 #ifndef DEBUG
@@ -1704,7 +2086,6 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 			l2cap_address.l2_family = AF_BLUETOOTH;
 			l2cap_address.l2_psm = htobs(0x1001);
 			l2cap_address.l2_bdaddr = GoveeBTAddress;
-			//str2ba(dest, &l2cap_address.l2_bdaddr);
 
 			// connect to server
 			int status = connect(l2cap_socket, (struct sockaddr*)&l2cap_address, sizeof(l2cap_address));
@@ -2031,15 +2412,26 @@ int main(int argc, char **argv)
 		SignalHandlerPointer previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
 		SignalHandlerPointer previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 
+		// 2022-12-26: I came across information tha signal() is bad and I shoudl be using sigaction() instead
+		// example of signal() https://www.gnu.org/software/libc/manual/html_node/Basic-Signal-Handling.html#Basic-Signal-Handling
+		// example of sigaction() https://www.gnu.org/software/libc/manual/html_node/Sigaction-Function-Example.html
+		//struct sigaction new_action, old_action;
+		//new_action.sa_handler = SignalHandlerSIGINT;
+		//sigemptyset(&new_action.sa_mask);
+		//new_action.sa_flags = 0;
+		//sigaction(SIGINT, NULL, &old_action);
+
 		int device_handle = hci_open_dev(device_id);
 		if (device_handle < 0)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
 			if (DownloadData && !(OnlyFilterAddress == NoFilterAddress))
-				ConnectAndDownload(device_handle, OnlyFilterAddress, 0);
+				ConnectAndDownload(device_handle, OnlyFilterAddress);
+			else
+			{
 			int on = 1; // Nonblocking on = 1, off = 0;
-			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
+			if (ioctl(device_handle, FIONBIO, (char*)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
 			else
 			{
@@ -2230,7 +2622,7 @@ int main(int argc, char **argv)
 																		break;
 																	case 0x08:	// Shortened Local Name
 																	case 0x09:	// Complete Local Name
-																		localName.clear(); 
+																		localName.clear();
 																		for (auto index = 1; index < *(info->data + current_offset); index++)
 																			localName.push_back(char((info->data + current_offset + 1)[index]));
 																		localTemp.SetModel(localName);
@@ -2415,6 +2807,7 @@ int main(int argc, char **argv)
 						hci_le_set_scan_enable(device_handle, 0x00, 1, 1000);
 					}
 				}
+			}
 			}
 			hci_close_dev(device_handle);
 		}
