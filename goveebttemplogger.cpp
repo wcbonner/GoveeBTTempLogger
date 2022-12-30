@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221226-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221229-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1687,14 +1687,14 @@ static int hci_gv_scan(int dd, const bdaddr_t* dst, uint8_t* dst_type)
 			if (info->bdaddr == *dst)
 			{
 				if (ConsoleVerbosity > 0)
-					std::cerr << "Device we are looking for advertised: " << ba2string(info->bdaddr) << std::endl;
+					std::cerr << "[" << getTimeISO8601() << "] Device we are looking for advertised: " << ba2string(info->bdaddr) << std::endl;
 				// confusion alert: Bluez defines these constants as BDADDR_LE_RANDOM=0x02 and BDADDR_LE_PUBLIC=0x01, ... but in the le_advertising_info wire packets: 0 means _PUBLIC and non-0 means _RANDOM (see bluez/emulator/bthost.c
 				*dst_type = (info->bdaddr_type == 0 ? BDADDR_LE_PUBLIC : BDADDR_LE_RANDOM);
 				goto done;
 			}
 			else
 				if (ConsoleVerbosity > 0)
-					std::cerr << "Other Device advertised: " << ba2string(info->bdaddr) << "\r";
+					std::cerr << "[" << getTimeISO8601() << "] Other Device advertised: " << ba2string(info->bdaddr) << "\r";
 		}
 		// 2022-12-26 Wim added the bRun goto out of the loop after removing the signal handling from this function
 		if (bRun == false)
@@ -1723,18 +1723,18 @@ const char* addr_type_name(const int dst_type)
 	}
 }
 #define ATT_CID 4
-static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type,	const int sec)
+static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type)
 {
 	if (ConsoleVerbosity > 0)
 	{
-		std::cerr << "Opening L2CAP LE connection on ATT channel:" << std::endl;
-		std::cerr << "\tdest: " << ba2string(*dst)  << " (" << addr_type_name(dst_type) << ")" << std::endl;
+		std::cerr << "[" << getTimeISO8601() << "] Opening L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
+		std::cerr << "[" << getTimeISO8601() << "] \tdest: " << ba2string(*dst)  << " (" << addr_type_name(dst_type) << ")" << std::endl;
 	}
 	int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
 	if (sock < 0) 
 	{
 		if (ConsoleVerbosity > 0)
-			std::cerr << "Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+			std::cerr << "[" << getTimeISO8601() << "] Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
 		return -1;
 	}
 	/* Set up source address */
@@ -1746,7 +1746,7 @@ static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type,	con
 	if (bind(sock, (struct sockaddr*)&srcaddr, sizeof(srcaddr)) < 0) 
 	{
 		if (ConsoleVerbosity > 0)
-			std::cerr << "Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+			std::cerr << "[" << getTimeISO8601() << "] Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
 		close(sock);
 		return -1;
 	}
@@ -1759,9 +1759,13 @@ static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type,	con
 	bacpy(&dstaddr.l2_bdaddr, dst);
 	if (connect(sock, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0) 
 	{
+		if (ConsoleVerbosity > 0)
+			std::cerr << "[" << getTimeISO8601() << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
 		close(sock);
 		return -2;
 	}
+	if (ConsoleVerbosity > 0)
+		std::cerr << "[" << getTimeISO8601() << "] Connected to device : " << ba2string(*dst) << std::endl;
 	return sock;
 }
 #define BT_ATT_OP_READ_REQ			0x0a
@@ -1897,7 +1901,24 @@ int att_write(int fd, const uint16_t handle, const void* buf, const int length)
 		return(result);
 	return(length);
 }
+/*
 
+wim@WimPi4-Dev:~ $ /home/visualstudio/projects/GoveeBTTempLogger/bin/ARM/Debug/GoveeBTTempLogger.out --only A4:C1:38:DC:CC:3D --download
+[2022-12-30T06:33:24] GoveeBTTempLogger Version 2.20221229-1 Built on: Dec 29 2022 at 22:33:14
+[2022-12-30T06:33:28] Device we are looking for advertised: A4:C1:38:DC:CC:3D
+[2022-12-30T06:33:28] Opening L2CAP LE connection on ATT channel: 4
+[2022-12-30T06:33:28]   dest: A4:C1:38:DC:CC:3D (BDADDR_LE_PUBLIC)
+[2022-12-30T06:33:32] Connected to device : A4:C1:38:DC:CC:3D
+[-------------------] [A4:C1:38:DC:CC:3D] 00:00:00
+[2022-12-30T06:33:43] hci_le_create_conn [A4:C1:38:DC:CC:3D] Return(0) handle (0041)
+[2022-12-30T06:33:43] Features: TODO: Fix this so it works!
+[2022-12-30T06:33:43] Version: 4.2
+[-------------------] Subversion: 22BB
+[-------------------] Manufacture: Telink Semiconductor Co. Ltd
+[2022-12-30T06:33:43] l2cap_socket > 0. Connecting..
+[2022-12-30T06:33:48] Closing l2cap_socket
+[2022-12-30T06:33:48] reading from device. RetryCount = 32
+*/
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t GoveeLastReadTime = 0)
 {
@@ -1923,8 +1944,8 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 		return;
 	}
 	// create L2CAP socket connected to device
-	int fd = l2cap_le_att_connect(&GoveeBTAddress, dst_bdaddr_type, BT_SECURITY_MEDIUM);
-	if (fd < 0) 
+	int L2CAPSocket = l2cap_le_att_connect(&GoveeBTAddress, dst_bdaddr_type);
+	if (L2CAPSocket < 0) 
 	{
 		if (errno != ENOTCONN || debug > 1)
 			std::cerr << "Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
@@ -1933,7 +1954,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 	// we need the hci_handle too
 	struct l2cap_conninfo l2cci;
 	socklen_t sl = sizeof(l2cci);
-	int result = getsockopt(fd, SOL_L2CAP, L2CAP_CONNINFO, &l2cci, &sl);
+	int result = getsockopt(L2CAPSocket, SOL_L2CAP, L2CAP_CONNINFO, &l2cci, &sl);
 	if (result < 0) 
 	{
 		perror("getsockopt");
@@ -1941,7 +1962,6 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 	}
 	time_t TimeNow;
 	time(&TimeNow);
-	std::cerr << "Connected to device at " << timeToExcelLocal(TimeNow) << std::endl;
 	do 
 	{
 		result = hci_le_conn_update(device_handle, 
@@ -1969,7 +1989,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 		else 
 		{
 			perror("hci_le_conn_update");
-			close(fd);
+			close(L2CAPSocket);
 		}
 	}
 	else 
@@ -1979,10 +1999,10 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 		// figure out the maximum safe speed at which we can send packets to the device from
 		// the Preferred Peripheral Connection Parameters
 		struct { uint16_t min_interval, max_interval, slave_latency, timeout_mult; } __attribute__((packed)) ppcp;
-		if (att_read(fd, 0x10, &ppcp) < 0) 
+		if (att_read(L2CAPSocket, 0x10, &ppcp) < 0) 
 		{
 			std::cerr << "Could not read device PPCP (handle " << std::hex << std::showbase << 0x10 << "): " << strerror(errno) << " (" << std::dec << std::noshowbase << errno << ")" << std::endl;
-			close(fd);
+			close(L2CAPSocket);
 			return;
 		}
 		else 
