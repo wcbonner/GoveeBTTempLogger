@@ -261,3 +261,4 @@ __pycache__/
 *.pyc
 /BTData/h5174-1.pcapng
 /BTData/h5074-and-h5174.pcapng
+*.pcapng
