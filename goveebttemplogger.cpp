@@ -1637,7 +1637,7 @@ void WriteSVGIndex(const std::string LogDirectory, const std::string SVGIndexFil
 /////////////////////////////////////////////////////////////////////////////
 // 2022-12-26 I finally found an example of using BlueTooth Low Energy (BTLE) GATT via the older sockets interface https://github.com/dlenski/ttblue
 // I'll be heavily borrowing code from ttblue to see if I can't download historical data from the Govee Thermometers
-static int hci_gv_scan(int dd, const bdaddr_t* dst, uint8_t* dst_type)
+static int hci_gv_scan(int dd, const bdaddr_t* dst)
 {
 	hci_le_set_scan_enable(dd, 0, 0, 10000); // disable in case already enabled
 	if (hci_le_set_scan_parameters(dd, /* passive */ 0x00, htobs(0x10), htobs(0x10), LE_PUBLIC_ADDRESS, 0x00, 10000) < 0) 
@@ -1687,14 +1687,12 @@ static int hci_gv_scan(int dd, const bdaddr_t* dst, uint8_t* dst_type)
 			if (info->bdaddr == *dst)
 			{
 				if (ConsoleVerbosity > 0)
-					std::cerr << "[" << getTimeISO8601() << "] Device we are looking for advertised: " << ba2string(info->bdaddr) << std::endl;
-				// confusion alert: Bluez defines these constants as BDADDR_LE_RANDOM=0x02 and BDADDR_LE_PUBLIC=0x01, ... but in the le_advertising_info wire packets: 0 means _PUBLIC and non-0 means _RANDOM (see bluez/emulator/bthost.c
-				*dst_type = (info->bdaddr_type == 0 ? BDADDR_LE_PUBLIC : BDADDR_LE_RANDOM);
+					std::cerr << "[" << getTimeISO8601() << "] Device advertised: " << ba2string(info->bdaddr) << std::endl;
 				goto done;
 			}
 			else
 				if (ConsoleVerbosity > 0)
-					std::cerr << "[" << getTimeISO8601() << "] Other Device advertised: " << ba2string(info->bdaddr) << "\r";
+					std::cerr << "[" << getTimeISO8601() << "] Device advertised: " << ba2string(info->bdaddr) << "\r";
 		}
 		// 2022-12-26 Wim added the bRun goto out of the loop after removing the signal handling from this function
 		if (bRun == false)
@@ -1723,12 +1721,12 @@ const char* addr_type_name(const int dst_type)
 	}
 }
 #define ATT_CID 4
-static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type)
+static int l2cap_le_att_connect(const bdaddr_t* dst)
 {
 	if (ConsoleVerbosity > 0)
 	{
 		std::cerr << "[" << getTimeISO8601() << "] Opening L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
-		std::cerr << "[" << getTimeISO8601() << "] \tdest: " << ba2string(*dst)  << " (" << addr_type_name(dst_type) << ")" << std::endl;
+		std::cerr << "[" << getTimeISO8601() << "] \tdest: " << ba2string(*dst)  << std::endl;
 	}
 	int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
 	if (sock < 0) 
@@ -1755,9 +1753,9 @@ static int l2cap_le_att_connect(const bdaddr_t* dst, const uint8_t dst_type)
 	memset(&dstaddr, 0, sizeof(dstaddr));
 	dstaddr.l2_family = AF_BLUETOOTH;
 	dstaddr.l2_cid = htobs(ATT_CID);
-	dstaddr.l2_bdaddr_type = dst_type;
+	dstaddr.l2_bdaddr_type = BDADDR_LE_PUBLIC;
 	bacpy(&dstaddr.l2_bdaddr, dst);
-	if (connect(sock, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0) 
+	if (connect(sock, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
 	{
 		if (ConsoleVerbosity > 0)
 			std::cerr << "[" << getTimeISO8601() << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
@@ -1902,7 +1900,10 @@ int att_write(int fd, const uint16_t handle, const void* buf, const int length)
 	return(length);
 }
 /*
+Wireshark Filter for looking at Stored Data of connection to h5074 (Outside Device)
+bluetooth.src == e3:5e:cc:21:5c:0f || bluetooth.dst == e3:5e:cc:21:5c:0f || bluetooth.src_str == "controller" || bluetooth.src_str == "host"
 
+Actual Connection to h5174 (Three AA Battery Device)
 wim@WimPi4-Dev:~ $ /home/visualstudio/projects/GoveeBTTempLogger/bin/ARM/Debug/GoveeBTTempLogger.out --only A4:C1:38:DC:CC:3D --download
 [2022-12-30T06:33:24] GoveeBTTempLogger Version 2.20221229-1 Built on: Dec 29 2022 at 22:33:14
 [2022-12-30T06:33:28] Device we are looking for advertised: A4:C1:38:DC:CC:3D
@@ -1912,8 +1913,8 @@ wim@WimPi4-Dev:~ $ /home/visualstudio/projects/GoveeBTTempLogger/bin/ARM/Debug/G
 [-------------------] [A4:C1:38:DC:CC:3D] 00:00:00
 [2022-12-30T06:33:43] hci_le_create_conn [A4:C1:38:DC:CC:3D] Return(0) handle (0041)
 [2022-12-30T06:33:43] Features: TODO: Fix this so it works!
-[2022-12-30T06:33:43] Version: 4.2
-[-------------------] Subversion: 22BB
+[2022-12-30T06:33:43]      Version: 4.2
+[-------------------]   Subversion: 22BB
 [-------------------] Manufacture: Telink Semiconductor Co. Ltd
 [2022-12-30T06:33:43] l2cap_socket > 0. Connecting..
 [2022-12-30T06:33:48] Closing l2cap_socket
@@ -1924,33 +1925,28 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 {
 	// 2022-12-26 
 	uint8_t dst_bdaddr_type = 0; /* suppress gcc 4.8.x warning; not actual a valid value */
-	int debug = 1;
-	if (hci_gv_scan(device_handle, &GoveeBTAddress, &dst_bdaddr_type) < 0)
-	{
-		if (errno == EPERM)
-		{
-			std::cerr << "**********************************************************" << std::endl;
-			std::cerr << "NOTE: This program lacks the permissions necessary for" << std::endl;
-			std::cerr << "  manipulating the raw Bluetooth HCI socket, which" << std::endl;
-			std::cerr << "  is required for scanning and for setting the minimum" << std::endl;
-			std::cerr << "  connection inverval to speed up data transfer.\n" << std::endl << std::endl;
-			std::cerr << "  To fix this, run it as root or, better yet, set the" << std::endl;
-			std::cerr << "  following capabilities on the GoveeBTTempLogger executable:\n" << std::endl << std::endl;
-			std::cerr << "    # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
-			std::cerr << "**********************************************************" << std::endl;
-		}
-		else
-			std::cerr << "BLE scan failed: " << strerror(errno) << " (" << errno << ")" << std::endl;
-		return;
-	}
+	//if (hci_gv_scan(device_handle, &GoveeBTAddress, &dst_bdaddr_type) < 0)
+	//{
+	//	if (errno == EPERM)
+	//	{
+	//		std::cerr << "**********************************************************" << std::endl;
+	//		std::cerr << "NOTE: This program lacks the permissions necessary for" << std::endl;
+	//		std::cerr << "  manipulating the raw Bluetooth HCI socket, which" << std::endl;
+	//		std::cerr << "  is required for scanning and for setting the minimum" << std::endl;
+	//		std::cerr << "  connection inverval to speed up data transfer.\n" << std::endl << std::endl;
+	//		std::cerr << "  To fix this, run it as root or, better yet, set the" << std::endl;
+	//		std::cerr << "  following capabilities on the GoveeBTTempLogger executable:\n" << std::endl << std::endl;
+	//		std::cerr << "    # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
+	//		std::cerr << "**********************************************************" << std::endl;
+	//	}
+	//	else
+	//		std::cerr << "BLE scan failed: " << strerror(errno) << " (" << errno << ")" << std::endl;
+	//	return;
+	//}
 	// create L2CAP socket connected to device
-	int L2CAPSocket = l2cap_le_att_connect(&GoveeBTAddress, dst_bdaddr_type);
+	int L2CAPSocket = l2cap_le_att_connect(&GoveeBTAddress);
 	if (L2CAPSocket < 0) 
-	{
-		if (errno != ENOTCONN || debug > 1)
-			std::cerr << "Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
 		return;
-	}
 	// we need the hci_handle too
 	struct l2cap_conninfo l2cci;
 	socklen_t sl = sizeof(l2cci);
@@ -2012,7 +2008,7 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 			ppcp.slave_latency = btohs(ppcp.slave_latency);
 			ppcp.timeout_mult = btohs(ppcp.timeout_mult);
 			//write_delay = 1250 * ppcp.min_interval; // (microseconds)
-			if (debug > 1) 
+			if (ConsoleVerbosity > 1)
 			{
 				//std::cerr << "Throttling file write to 1 packet every " << write_delay << " microseconds." << std::endl;
 				std::cerr << "min_interval=" << ppcp.max_interval << ", max_interval=" << ppcp.min_interval << ", slave_latency=" << ppcp.slave_latency << ", timeout_mult=" << ppcp.timeout_mult << std::endl;
@@ -2053,14 +2049,14 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 		{
 			// Bluetooth HCI Command - LE Read Remote Features
 			uint8_t features[8];
-			//if (hci_read_remote_features(device_handle, handle, features, timeout) != -1)
 			if (hci_le_read_remote_features(device_handle, handle, features, 15000) != -1)
 			{
-				// TODO: I think the lmp fumction below may leak memory with a malloc
-				// Commented out till I figure this out.
-				//std::string ssFeatures(lmp_featurestostr(features, "", 50));
-				//std::cout << "[" << getTimeISO8601() << "] Features: " << ssFeatures << std::endl;
-				std::cout << "[" << getTimeISO8601() << "] Features: TODO: Fix this so it works!" << std::endl;
+				char* cp = lmp_featurestostr(features, "", 50);
+				if (cp != NULL)
+				{
+					std::cout << "[" << getTimeISO8601() << "]     Features: " << cp << std::endl;
+					bt_free(cp);
+				}
 			}
 		}
 
@@ -2070,35 +2066,40 @@ void ConnectAndDownload(int device_handle, bdaddr_t GoveeBTAddress, time_t Govee
 			struct hci_version ver;
 			if (hci_read_remote_version(device_handle, handle, &ver, 15000) != -1)
 			{
-				std::cout << "[" << getTimeISO8601() << "] Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
-				std::cout << "[-------------------] Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
-				std::cout << "[-------------------] Manufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
+				std::cout << "[" << getTimeISO8601() << "]      Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
+				std::cout << "[-------------------]   Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
+				std::cout << "[-------------------] Manufacturer: " << bt_compidtostr(ver.manufacturer) << std::endl;
 			}
 		}
 
-		// allocate a socket
-		int l2cap_socket = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-		if (l2cap_socket > 0)
+		if ((iRet == 0) && (handle != 0))
 		{
-			std::cout << "[" << getTimeISO8601() << "] l2cap_socket > 0. Connecting.." << std::endl;
-			// set the connection parameters (who to connect to)
-			struct sockaddr_l2 l2cap_address = { 0 };
-			l2cap_address.l2_family = AF_BLUETOOTH;
-			l2cap_address.l2_psm = htobs(0x1001);
-			l2cap_address.l2_bdaddr = GoveeBTAddress;
+			// allocate a socket
+			int l2cap_socket = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+			if (l2cap_socket > 0)
+			{
+				std::cout << "[" << getTimeISO8601() << "] l2cap_socket > 0. Connecting.." << std::endl;
+				// set the connection parameters (who to connect to)
+				struct sockaddr_l2 l2cap_address = { 0 };
+				l2cap_address.l2_family = AF_BLUETOOTH;
+				l2cap_address.l2_psm = htobs(0x1001);
+				l2cap_address.l2_bdaddr = GoveeBTAddress;
 
-			// connect to server
-			int status = connect(l2cap_socket, (struct sockaddr*)&l2cap_address, sizeof(l2cap_address));
+				// connect to server
+				int status = connect(l2cap_socket, (struct sockaddr*)&l2cap_address, sizeof(l2cap_address));
 
-			// send a message
-			if (status == 0) {
-				std::cout << "[" << getTimeISO8601() << "] Connected. writing hello!" << std::endl;
-				status = write(l2cap_socket, "hello!", 6);
+				unsigned char WimBuffer[HCI_MAX_EVENT_SIZE] = { 0 };
+				int WimBufferLength = att_read(l2cap_socket, 0x10, WimBuffer);
+				std::cout << "[" << getTimeISO8601() << "] Connected. Reading from handle 0x10 produced " << WimBufferLength << " Bytes" << std::endl;
+				// send a message
+				if (status == 0) {
+					std::cout << "[" << getTimeISO8601() << "] Connected. writing hello!" << std::endl;
+					status = write(l2cap_socket, "hello!", 6);
+				}
+				std::cout << "[" << getTimeISO8601() << "] Closing l2cap_socket" << std::endl;
+				close(l2cap_socket);
 			}
-			std::cout << "[" << getTimeISO8601() << "] Closing l2cap_socket" << std::endl;
-			close(l2cap_socket);
 		}
-
 		unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
 		// The following while loop attempts to read from the non-blocking socket. 
 		// As long as the read call simply times out, we sleep for 100 microseconds and try again.
@@ -2398,12 +2399,12 @@ int main(int argc, char **argv)
 		WriteAllSVG();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	int device_id;
+	int BlueToothDevice_ID;
 	if (ControllerAddress.empty())
-		device_id = hci_get_route(NULL);
+		BlueToothDevice_ID = hci_get_route(NULL);
 	else
-		device_id = hci_devid(ControllerAddress.c_str());
-	if (device_id < 0)
+		BlueToothDevice_ID = hci_devid(ControllerAddress.c_str());
+	if (BlueToothDevice_ID < 0)
 		std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
 	else
 	{
@@ -2421,67 +2422,74 @@ int main(int argc, char **argv)
 		//new_action.sa_flags = 0;
 		//sigaction(SIGINT, NULL, &old_action);
 
-		int device_handle = hci_open_dev(device_id);
-		if (device_handle < 0)
+		int BlueToothDevice_Handle = hci_open_dev(BlueToothDevice_ID);
+		if (BlueToothDevice_Handle < 0)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
-			if (DownloadData && !(OnlyFilterAddress == NoFilterAddress))
-				ConnectAndDownload(device_handle, OnlyFilterAddress);
-			else
-			{
 			int on = 1; // Nonblocking on = 1, off = 0;
-			if (ioctl(device_handle, FIONBIO, (char*)&on) < 0)
+			if (ioctl(BlueToothDevice_Handle, FIONBIO, (char*)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
 			else
 			{
 				// I came across the note: The Host shall not issue this command when scanning is enabled in the Controller; if it is the Command Disallowed error code shall be used. http://pureswift.github.io/Bluetooth/docs/Structs/HCILESetScanParameters.html
-				hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device before setting scan parameters!
-				char LocalName[0xff] = { 0 };
-				hci_read_local_name(device_handle, sizeof(LocalName), LocalName, 1000);
+				hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, 0x01, 1000); // Disable Scanning on the device before setting scan parameters!
+				char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
+				hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, 1000);
 				if (ConsoleVerbosity > 0)
 				{
 					if (!ControllerAddress.empty())
 						std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
 					std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
-					char addr[19] = { 0 };
-					ba2str(&OnlyFilterAddress, addr);
-
 					if (OnlyFilterAddress == NoFilterAddress)
-						std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter: [" << addr << "]" << std::endl;
+						std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter: [" << ba2string(OnlyFilterAddress) << "]" << std::endl;
 					else
-						std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter: [" << addr << "]" << std::endl;
+						std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter: [" << ba2string(OnlyFilterAddress) << "]" << std::endl;
 				}
 				// Scan Type: Active (0x01)
 				// Scan Interval: 18 (11.25 msec)
 				// Scan Window: 18 (11.25 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
-				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0012), htobs(0x0012), 0x01, 0x00, 1000) < 0)
+				if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
 					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
 				else
 				{
 					// Scan Interval : 8000 (5000 msec)
 					// Scan Window: 8000 (5000 msec)
-					if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), 0x01, 0x00, 1000) < 0)
+					if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
 						std::cerr << "[                   ] Error: Failed to set scan parameters(Scan Interval : 8000 (5000 msec)): " << strerror(errno) << std::endl;
 					// Scan Enable: true (0x01)
 					// Filter Duplicates: false (0x00)
-					if (hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000) < 0)
-						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << std::endl;
+					if (hci_le_set_scan_enable(BlueToothDevice_Handle, 0x01, 0x00, 1000) < 0)
+					{
+						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << " (" << errno << ")" << std::endl;
+						if (errno == EPERM)
+						{
+							std::cerr << "**********************************************************" << std::endl;
+							std::cerr << "NOTE: This program lacks the permissions necessary for" << std::endl;
+							std::cerr << "  manipulating the raw Bluetooth HCI socket, which" << std::endl;
+							std::cerr << "  is required for scanning and for setting the minimum" << std::endl;
+							std::cerr << "  connection inverval to speed up data transfer.\n" << std::endl << std::endl;
+							std::cerr << "  To fix this, run it as root or, better yet, set the" << std::endl;
+							std::cerr << "  following capabilities on the GoveeBTTempLogger executable:\n" << std::endl << std::endl;
+							std::cerr << "    # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
+							std::cerr << "**********************************************************" << std::endl;
+						}
+					}
 					else
 					{
 						// Save the current HCI filter (Host Controller Interface)
 						struct hci_filter original_filter;
 						socklen_t olen = sizeof(original_filter);
-						if (0 == getsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, &olen))
+						if (0 == getsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, &olen))
 						{
 							// Create and set the new filter
 							struct hci_filter new_filter;
 							hci_filter_clear(&new_filter);
 							hci_filter_set_ptype(HCI_EVENT_PKT, &new_filter);
 							hci_filter_set_event(EVT_LE_META_EVENT, &new_filter);
-							if (setsockopt(device_handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter)) < 0)
+							if (setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter)) < 0)
 								std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
 							else
 							{
@@ -2504,17 +2512,17 @@ int main(int argc, char **argv)
 									// Set up the file descriptor set that select() will use
 									fd_set check_set;
 									FD_ZERO(&check_set);
-									FD_SET(device_handle, &check_set);
+									FD_SET(BlueToothDevice_Handle, &check_set);
 									// This will block until either a read is ready (i.e. won’t return EWOULDBLOCK) -1 on error, 0 on timeout, otherwise number of FDs changed
-									if (0 < select(device_handle + 1, &check_set, NULL, NULL, &select_timeout))	// returns number of handles ready to read. 0 or negative indicate other than good data to read.
+									if (0 < select(BlueToothDevice_Handle + 1, &check_set, NULL, NULL, &select_timeout))	// returns number of handles ready to read. 0 or negative indicate other than good data to read.
 									{
 										// We got data ready to read, check and make sure it's the right descriptor, just as a sanity check (it shouldn't be possible ot get anything else)
-										if (FD_ISSET(device_handle, &check_set))
+										if (FD_ISSET(BlueToothDevice_Handle, &check_set))
 										{
 											// okay, if we made it this far, we can read our descriptor, and shouldn't get EAGAIN. Ideally, the right way to process this is 'read in a loop
 											// until you get EAGAIN and then go back to select()', but worst case is that you don't read everything availableand select() immediately returns, so not
 											// a *huge* deal just doing one read and then back to select, here.
-											ssize_t bufDataLen = read(device_handle, buf, sizeof(buf));
+											ssize_t bufDataLen = read(BlueToothDevice_Handle, buf, sizeof(buf));
 											if (bufDataLen > HCI_MAX_EVENT_SIZE)
 												std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
 											if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
@@ -2733,6 +2741,18 @@ int main(int argc, char **argv)
 														}
 														if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 															std::cout << ConsoleOutLine.str() << std::endl;
+														if (DownloadData && !(OnlyFilterAddress == NoFilterAddress))
+														{
+															// Bluetooth HCI Command - LE Set Scan Enable (false)
+															hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, 0x01, 1000); // Disable Scanning on the device
+															std::cout << "[" << getTimeISO8601() << "] Scanning Stopped" << std::endl;
+
+															ConnectAndDownload(BlueToothDevice_Handle, OnlyFilterAddress);
+
+															hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000);
+															hci_le_set_scan_enable(BlueToothDevice_Handle, 0x01, 0x00, 1000); // Enable Scanning on the device
+															std::cout << "[" << getTimeISO8601() << "] Scanning Started" << std::endl;
+														}
 													}
 												}
 												else
@@ -2760,21 +2780,6 @@ int main(int argc, char **argv)
 											}
 										}
 									}
-#ifndef _OLD_DOWNLOAD_
-									if (DownloadData)
-									{
-										// Bluetooth HCI Command - LE Set Scan Enable (false)
-										hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device
-										std::cout << "[" << getTimeISO8601() << "] Scanning Stopped" << std::endl;
-
-										for (auto iter = GoveeLastDownload.begin(); iter != GoveeLastDownload.end(); iter++)
-											ConnectAndDownload(device_handle, iter->first, iter->second);
-
-										hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), 0x01, 0x00, 1000);
-										hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000); // Enable Scanning on the device
-										std::cout << "[" << getTimeISO8601() << "] Scanning Started" << std::endl;
-									}
-#endif // _OLD_DOWNLOAD_
 									time_t TimeNow;
 									time(&TimeNow);
 									if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
@@ -2801,15 +2806,14 @@ int main(int argc, char **argv)
 										MonitorLoggedData();
 									}
 								}
-								setsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
+								setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
 							}
 						}
-						hci_le_set_scan_enable(device_handle, 0x00, 1, 1000);
+						hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, 1, 1000);
 					}
 				}
 			}
-			}
-			hci_close_dev(device_handle);
+			hci_close_dev(BlueToothDevice_Handle);
 		}
 		signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
 		signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler

@@ -172,10 +172,11 @@ Off the top of my head each device is storing 0x7080 time/humidity values. That'
 
 ### Wireshark filter that limits to visible packets sent or recieved from a single H5075 device
 bluetooth.src || bluetooth.dst == a4:c1:38:37:bc:ae
+
 bluetooth.src == a4:c1:38:37:bc:ae || bluetooth.dst == a4:c1:38:37:bc:ae || bluetooth.src_str == "controller" || bluetooth.src_str == "host"
 
 #### My H5074 (Outside)
-bluetooth.src == e3:5e:cc:21:5c:0f || bluetooth.dst == e3:5e:cc:21:5c:0f
+bluetooth.src == e3:5e:cc:21:5c:0f || bluetooth.dst == e3:5e:cc:21:5c:0f || bluetooth.src_str == "controller" || bluetooth.src_str == "host"
 
 #### My H5174 (3 AA Batteries)
 bluetooth.src == A4:C1:38:DC:CC:3D || bluetooth.dst == A4:C1:38:DC:CC:3D
