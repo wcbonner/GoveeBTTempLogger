@@ -180,3 +180,133 @@ bluetooth.src == e3:5e:cc:21:5c:0f || bluetooth.dst == e3:5e:cc:21:5c:0f || blue
 
 #### My H5174 (3 AA Batteries)
 bluetooth.src == A4:C1:38:DC:CC:3D || bluetooth.dst == A4:C1:38:DC:CC:3D
+
+# What I've learned from decoding H5074 2022-12-31
+ * open and connect lcap socket
+ * send struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_1 = {BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, 0x2800 };
+ * send: 218	31.238678	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
+ * recieve: 221	31.413696	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	29	Rcvd Read By Group Type Response, Attribute List Length: 3, Generic Access Profile, Generic Attribute Profile, Device Information
+ * because packet can't be bigger than 32 bytes, we only recived 3 handles, the biggest grout end handle is 0x0016, so we now need to modify our initial request to start at 0x0017
+ * send: 222	31.431977	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xffff
+ * recieve: 224	31.510590	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	17	Rcvd Read By Group Type Response, Attribute List Length: 1, Dialog Semiconductor GmbH
+ * the group end handle is 0x002a so we send another request starting at 0x002b
+ * send: 225	31.520508	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x002b..0xffff
+ * recieve: 227	31.657318	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	31	Rcvd Read By Group Type Response, Attribute List Length: 1, Unknown
+ * which has a group end handle of 0x003b
+ * send: 229	31.679199	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x003c..0xffff
+ * recieve: 231	31.720642	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0xffff (Unknown: Unknown)
+ * and that was our first error response. So now we are going to move on to reading by type
+ * send struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0005, 0x2802 };
+ * send: 232	31.730683	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0005
+ * I'm not sure why the maximum handle was only 0x0005 on that one, but we got an error, so will move on to the next query
+ * recieve: 234	31.750763	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0x0006 (Generic Attribute Profile)
+ * send struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0005, 0x2803 };
+ * send: 235	31.763550	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0005
+ * recieve: 237	31.782593	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	25	Rcvd Read By Type Response, Attribute List Length: 2, Device Name, Appearance
+ * once again, maximum handle returned was 0x0005 sp we'll try again starting with 0x005.
+ * send: 238	31.803650	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Characteristic Declaration, Handles: 0x0005..0x0005
+ * recieve: 240	31.825531	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0x0006 (Generic Attribute Profile)
+ * since I got an error I can move on to the next request. Though why we are requesting 2802 again after having moved on to 2803 I'm not sure.
+ * send: 241	31.839569	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Include Declaration, Handles: 0x0006..0x0009
+ * recieve: 243	31.870423	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0x000a (Device Information)
+ * UUID's are really important in the handshaking. [Service UUID: 494e54454c4c495f524f434b535f4857] and [UUID: 494e54454c4c495f524f434b535f2013] are associated with all of the data packets returned on Handle: 0x0031 that appear to be the historical data.
+
+The Following two frames are the response that gets the UUID
+```
+Frame 225: 16 bytes on wire (128 bits), 16 bytes captured (128 bits)
+Bluetooth
+    [Source: ASUSTekC_30:4e:ef (d8:50:e6:30:4e:ef)]
+    [Destination: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)]
+Bluetooth HCI H4
+Bluetooth HCI ACL Packet
+Bluetooth L2CAP Protocol
+    Length: 7
+    CID: Attribute Protocol (0x0004)
+Bluetooth Attribute Protocol
+    Opcode: Read By Group Type Request (0x10)
+        0... .... = Authentication Signature: False
+        .0.. .... = Command: False
+        ..01 0000 = Method: Read By Group Type Request (0x10)
+    Starting Handle: 0x002b
+    Ending Handle: 0xffff
+    UUID: GATT Primary Service Declaration (0x2800)
+    0000   02 02 00 0b 00 07 00 04 00 10 2b 00 ff ff 00 28   ..........+....(
+
+  Frame 227: 31 bytes on wire (248 bits), 31 bytes captured (248 bits)
+Bluetooth
+    [Source: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)]
+    [Destination: ASUSTekC_30:4e:ef (d8:50:e6:30:4e:ef)]
+Bluetooth HCI H4
+Bluetooth HCI ACL Packet
+Bluetooth L2CAP Protocol
+    Length: 22
+    CID: Attribute Protocol (0x0004)
+Bluetooth Attribute Protocol
+    Opcode: Read By Group Type Response (0x11)
+        0... .... = Authentication Signature: False
+        .0.. .... = Command: False
+        ..01 0001 = Method: Read By Group Type Response (0x11)
+    Length: 20
+    Attribute Data, Handle: 0x002b, Group End Handle: 0x003b, UUID128: Unknown
+        Handle: 0x002b (Unknown)
+            [UUID: 494e54454c4c495f524f434b535f4857]
+        Group End Handle: 0x003b
+        UUID: 57485f534b434f525f494c4c45544e49
+    [UUID: GATT Primary Service Declaration (0x2800)]
+    [Request in Frame: 225]
+0000   02 02 20 1a 00 16 00 04 00 11 14 2b 00 3b 00 57   .. ........+.;.W
+0010   48 5f 53 4b 43 4f 52 5f 49 4c 4c 45 54 4e 49      H_SKCOR_ILLETNI
+```
+
+Then a lot of frames later I find the other UUID 
+
+```
+Frame 307: 16 bytes on wire (128 bits), 16 bytes captured (128 bits)
+Bluetooth
+    [Source: ASUSTekC_30:4e:ef (d8:50:e6:30:4e:ef)]
+    [Destination: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)]
+Bluetooth HCI H4
+Bluetooth HCI ACL Packet
+Bluetooth L2CAP Protocol
+    Length: 7
+    CID: Attribute Protocol (0x0004)
+Bluetooth Attribute Protocol
+    Opcode: Read By Type Request (0x08)
+        0... .... = Authentication Signature: False
+        .0.. .... = Command: False
+        ..00 1000 = Method: Read By Type Request (0x08)
+    Starting Handle: 0x002d
+    Ending Handle: 0x003b
+    UUID: GATT Characteristic Declaration (0x2803)
+0000   02 02 00 0b 00 07 00 04 00 08 2d 00 3b 00 03 28   ..........-.;..(
+
+Frame 309: 32 bytes on wire (256 bits), 32 bytes captured (256 bits)
+Bluetooth
+    [Source: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)]
+    [Destination: ASUSTekC_30:4e:ef (d8:50:e6:30:4e:ef)]
+Bluetooth HCI H4
+Bluetooth HCI ACL Packet
+Bluetooth L2CAP Protocol
+    Length: 23
+    CID: Attribute Protocol (0x0004)
+Bluetooth Attribute Protocol
+    Opcode: Read By Type Response (0x09)
+        0... .... = Authentication Signature: False
+        .0.. .... = Command: False
+        ..00 1001 = Method: Read By Type Response (0x09)
+    Length: 21
+    Attribute Data, Handle: 0x0030, Characteristic Handle: 0x0031, UUID128: Unknown
+        Handle: 0x0030 (Unknown: Unknown: GATT Characteristic Declaration)
+            [Service UUID: 494e54454c4c495f524f434b535f4857]
+            [Characteristic UUID: 494e54454c4c495f524f434b535f2012]
+            [UUID: GATT Characteristic Declaration (0x2803)]
+        Characteristic Properties: 0x12, Notify, Read
+        Characteristic Value Handle: 0x0031 (Unknown: Unknown)
+            [Service UUID: 494e54454c4c495f524f434b535f4857]
+            [UUID: 494e54454c4c495f524f434b535f2013]
+        UUID: 13205f534b434f525f494c4c45544e49
+    [UUID: GATT Characteristic Declaration (0x2803)]
+    [Request in Frame: 307]
+0000   02 02 20 1b 00 17 00 04 00 09 15 30 00 12 31 00   .. ........0..1.
+0010   13 20 5f 53 4b 43 4f 52 5f 49 4c 4c 45 54 4e 49   . _SKCOR_ILLETNI
+```

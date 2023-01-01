@@ -83,6 +83,7 @@
 #include <unistd.h> // For close()
 #include <utime.h>
 #include <vector>
+#include "att-types.h"
 
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221230-1 Built on: " __DATE__ " at " __TIME__);
@@ -1637,6 +1638,9 @@ void WriteSVGIndex(const std::string LogDirectory, const std::string SVGIndexFil
 /////////////////////////////////////////////////////////////////////////////
 // 2022-12-26 I finally found an example of using BlueTooth Low Energy (BTLE) GATT via the older sockets interface https://github.com/dlenski/ttblue
 // I'll be heavily borrowing code from ttblue to see if I can't download historical data from the Govee Thermometers
+// https://software-dl.ti.com/lprf/simplelink_cc2640r2_latest/docs/blestack/ble_user_guide/html/ble-stack-3.x/hci.html
+// http://gbrault.github.io/gattclient/hci_8c.html#a8310688dd135cec47d8144c5b90da4fb
+// https://novelbits.io/bluetooth-le-att-gatt-explained-connection-oriented-communication/
 const char* addr_type_name(const int dst_type) 
 {
 	switch (dst_type) 
@@ -1648,53 +1652,7 @@ const char* addr_type_name(const int dst_type)
 	}
 }
 #define ATT_CID 4
-//static int l2cap_le_att_connect(const bdaddr_t* dst)
-//{
-//	if (ConsoleVerbosity > 0)
-//		std::cout << "[" << getTimeISO8601() << "] [" << ba2string(*dst) << "] Opening L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
-//	int sock = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-//	if (sock < 0) 
-//	{
-//		if (ConsoleVerbosity > 0)
-//			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(*dst) << "] Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
-//		return -1;
-//	}
-//	/* Set up source address */
-//	struct sockaddr_l2 srcaddr;
-//	memset(&srcaddr, 0, sizeof(srcaddr));
-//	srcaddr.l2_family = AF_BLUETOOTH;
-//	srcaddr.l2_cid = htobs(ATT_CID);
-//	srcaddr.l2_bdaddr_type = BDADDR_LE_RANDOM;
-//	if (bind(sock, (struct sockaddr*)&srcaddr, sizeof(srcaddr)) < 0) 
-//	{
-//		if (ConsoleVerbosity > 0)
-//			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(*dst) << "] Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
-//		close(sock);
-//		return -1;
-//	}
-//	/* Set up destination address */
-//	struct sockaddr_l2 dstaddr;
-//	memset(&dstaddr, 0, sizeof(dstaddr));
-//	dstaddr.l2_family = AF_BLUETOOTH;
-//	dstaddr.l2_cid = htobs(ATT_CID);
-//	dstaddr.l2_bdaddr_type = BDADDR_LE_PUBLIC;
-//	bacpy(&dstaddr.l2_bdaddr, dst);
-//	if (connect(sock, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
-//	{
-//		if (ConsoleVerbosity > 0)
-//			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(*dst) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
-//		close(sock);
-//		return -2;
-//	}
-//	if (ConsoleVerbosity > 0)
-//		std::cout << "[" << getTimeISO8601() << "] [" << ba2string(*dst) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
-//	return sock;
-//}
-#define BT_ATT_OP_READ_REQ			0x0a
-#define BT_ATT_DEFAULT_LE_MTU		23
-#define BT_ATT_OP_ERROR_RSP			0x01
-#define BT_ATT_OP_READ_RSP			0x0b
-#define BT_ATT_OP_WRITE_CMD			0x52
+
 /* Error codes for Error response PDU */
 #define ATT_ECODE_INVALID_HANDLE	0x01
 #define ATT_ECODE_READ_NOT_PERM		0x02
@@ -1717,11 +1675,11 @@ const char* addr_type_name(const int dst_type)
 #define ATT_ECODE_IO				0x80
 #define ATT_ECODE_TIMEOUT			0x81
 #define ATT_ECODE_ABORTED			0x82
-struct bt_att_pdu_error_rsp {
-	uint8_t opcode;
-	uint16_t handle;
-	uint8_t ecode;
-} __packed;
+//struct bt_att_pdu_error_rsp {
+//	uint8_t opcode;
+//	uint16_t handle;
+//	uint8_t ecode;
+//} __packed;
 const char* att_ecode2str(uint8_t status)
 {
 	switch (status) {
@@ -2017,17 +1975,38 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 					{
 						if (ConsoleVerbosity > 0)
 							std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
-						unsigned char WimBuffer[HCI_MAX_EVENT_SIZE] = { 0 };
+						//unsigned char WimBuffer[HCI_MAX_EVENT_SIZE] = { 0 };
 						//int WimBufferLength = att_read(l2cap_socket, 0x10, WimBuffer);
 						//std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Reading from handle 0x10 produced " << WimBufferLength << " Bytes" << std::endl;
 
 						unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
+
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_1 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, 0x2800 };
+						send(l2cap_socket, &primary_service_declaration_1, sizeof(primary_service_declaration_1), 0);
+						auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_2 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x000f, 0xffff, 0x2800 };
+						send(l2cap_socket, &primary_service_declaration_2, sizeof(primary_service_declaration_2), 0);
+						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_3 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x001c, 0xffff, 0x2800 };
+						send(l2cap_socket, &primary_service_declaration_3, sizeof(primary_service_declaration_3), 0);
+						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_4 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0020, 0xffff, 0x2800 };
+						send(l2cap_socket, &primary_service_declaration_4, sizeof(primary_service_declaration_4), 0);
+						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0007, 0x2802 };
+						send(l2cap_socket, &gatt_include_declaration, sizeof(gatt_include_declaration), 0);
+						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0007, 0x2803 };
+						send(l2cap_socket, &gatt_characteristic_declaration, sizeof(gatt_characteristic_declaration), 0);
+						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_characteristic_declaration2 = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0007, 0x0007, 0x2803 };
+						send(l2cap_socket, &gatt_characteristic_declaration2, sizeof(gatt_characteristic_declaration2), 0);
+						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+
 						// The following while loop attempts to read from the non-blocking socket. 
 						// As long as the read call simply times out, we sleep for 100 microseconds and try again.
-						struct write_packet { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } __attribute__((packed)) pkt;
-						char outgoing[] = "\xaa\x0e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa4";
-						pkt.opcode = 0x12;
-						pkt.handle = 0x0035;
+						struct { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } __attribute__((packed)) pkt = { 0x12, 0x0015 };
+						char outgoing[] = "\xaa\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xab" ;
 						memcpy(pkt.buf, outgoing, sizeof(outgoing));
 						send(l2cap_socket, &pkt, sizeof(pkt), 0);
 						int RetryCount = 50;

@@ -99,6 +99,9 @@
     <Text Include="BTData\btsnoop_hci.log" />
     <Text Include="gvh-titlemap.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="att-types.h" />
+  </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
       <LibraryDependencies>bluetooth</LibraryDependencies>
