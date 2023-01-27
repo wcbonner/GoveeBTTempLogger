@@ -1920,7 +1920,8 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 			uint8_t features[8];
 			if (hci_le_read_remote_features(BlueToothDevice_Handle, handle, features, 15000) != -1)
 			{
-				char* cp = lmp_featurestostr(features, "", 50);
+				char* prefix = "";
+				char* cp = lmp_featurestostr(features, prefix, 50);
 				if (cp != NULL)
 				{
 					std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "]     Features: " << cp << std::endl;
@@ -2054,7 +2055,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 
 						// The following while loop attempts to read from the non-blocking socket. 
 						// As long as the read call simply times out, we sleep for 100 microseconds and try again.
-						struct { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } __attribute__((packed)) pkt = { 0x12, 0x0015 };
+						struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } pkt = { 0x12, 0x0015 };
 						char outgoing[] = "\xaa\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xab" ;
 						memcpy(pkt.buf, outgoing, sizeof(outgoing));
 						send(l2cap_socket, &pkt, sizeof(pkt), 0);
