@@ -79,6 +79,7 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClCompile Include="goveebttemplogger.cpp" />
+    <ClCompile Include="uuid.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="GoveeBTTempLogger\DEBIAN\control" />
@@ -101,6 +102,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="att-types.h" />
+    <ClInclude Include="uuid.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>

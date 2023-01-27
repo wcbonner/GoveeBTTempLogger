@@ -84,9 +84,10 @@
 #include <utime.h>
 #include <vector>
 #include "att-types.h"
+#include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221230-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230127-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1803,6 +1804,13 @@ wim@WimPi4-Dev:~ $ /home/visualstudio/projects/GoveeBTTempLogger/bin/ARM/Debug/G
 [2022-12-30T06:33:48] reading from device. RetryCount = 32
 */
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
+std::string bt_UUID_2_String(const bt_uuid_t* uuid)
+{
+	char local[37] = { 0 };
+	bt_uuid_to_string(uuid, local, sizeof(local));
+	std::string rVal(local);
+	return(rVal);
+}
 void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, time_t GoveeLastReadTime = 0)
 {
 	time_t TimeNow;
@@ -1980,28 +1988,69 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 						//std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Reading from handle 0x10 produced " << WimBufferLength << " Bytes" << std::endl;
 
 						unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
+						// First we query the device to get the list of SERVICES. I should be storing this in a set of some sort. 
+						// What I end up with is a starting handle, ending handle, and either 16 bit or 128 bit UUID for the service.
+						struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; }
+							primary_service_declaration = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, GATT_PRIM_SVC_UUID };
+						do {
+							if (-1 == send(l2cap_socket, &primary_service_declaration, sizeof(primary_service_declaration), 0))
+								buf[0] = BT_ATT_ERROR_INVALID_HANDLE;
+							else
+							{
+								auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+								if (-1 == bufDataLen)
+									buf[0] = BT_ATT_ERROR_INVALID_HANDLE;
+								else
+								{
+									if (buf[0] == BT_ATT_OP_READ_BY_GRP_TYPE_RSP)
+									{
+										if (buf[1] == 6) // length of Handle/Value Pair
+										{
+											for (auto AttributeOffset = 2; AttributeOffset < bufDataLen; AttributeOffset += buf[1])
+											{
+												struct bt_attribute_data_uuid16 { uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } *attribute_data = (bt_attribute_data_uuid16*)&(buf[AttributeOffset]);
+												// TODO: Here I need to interpret the buffer, figure out what the maximum handle is, and increase the starting handle 
+												bt_uuid_t theUUID;
+												bt_uuid16_create(&theUUID, attribute_data->UUID);
+												std::cout << "[" << getTimeISO8601() << "] Handle: 0x" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << " Group End Handle: 0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
+											}
+										}
+										else if (buf[1] == 20) // length of Handle/Value Pair
+										{
+											for (auto AttributeOffset = 2; AttributeOffset < bufDataLen; AttributeOffset += buf[1])
+											{
+												struct bt_attribute_data_uuid128 { uint16_t starting_handle; uint16_t ending_handle; uint128_t UUID; } *attribute_data = (bt_attribute_data_uuid128*)&(buf[AttributeOffset]);
+												// TODO: Here I need to interpret the buffer, figure out what the maximum handle is, and increase the starting handle 
+												bt_uuid_t theUUID;
+												bt_uuid128_create(&theUUID, attribute_data->UUID);
+												std::cout << "[" << getTimeISO8601() << "] Handle: 0x" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << " Group End Handle: 0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
+											}
+										}
+									}
+								}
+							}
+						} while (buf[0] != BT_ATT_ERROR_INVALID_HANDLE);
+						std::cout << "[" << getTimeISO8601() << "] BT_ATT_ERROR_INVALID_HANDLE" << std::endl;
 
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_1 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, 0x2800 };
-						send(l2cap_socket, &primary_service_declaration_1, sizeof(primary_service_declaration_1), 0);
-						auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_2 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x000f, 0xffff, 0x2800 };
-						send(l2cap_socket, &primary_service_declaration_2, sizeof(primary_service_declaration_2), 0);
-						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_3 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x001c, 0xffff, 0x2800 };
-						send(l2cap_socket, &primary_service_declaration_3, sizeof(primary_service_declaration_3), 0);
-						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_4 = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0020, 0xffff, 0x2800 };
-						send(l2cap_socket, &primary_service_declaration_4, sizeof(primary_service_declaration_4), 0);
-						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0007, 0x2802 };
-						send(l2cap_socket, &gatt_include_declaration, sizeof(gatt_include_declaration), 0);
-						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0007, 0x2803 };
-						send(l2cap_socket, &gatt_characteristic_declaration, sizeof(gatt_characteristic_declaration), 0);
-						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_characteristic_declaration2 = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0007, 0x0007, 0x2803 };
-						send(l2cap_socket, &gatt_characteristic_declaration2, sizeof(gatt_characteristic_declaration2), 0);
-						bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+						// Next I go through my stored set of SERVICES requesting CHARACTERISTICS based on the combination of starting handle and ending handle
+						struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; }
+							gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0005, GATT_INCLUDE_UUID };
+						do {
+							send(l2cap_socket, &gatt_include_declaration, sizeof(gatt_include_declaration), 0);
+							auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+							// TODO: Here I need to interpret the buffer, figure out what the maximum handle is, and increase the starting handle 
+						} while (buf[0] != BT_ATT_ERROR_INVALID_HANDLE);
+
+						// Next I go through my stored set of SERVICES requesting CHARACTERISTICS based on the combination of starting handle and ending handle
+						struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; }
+							gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0005, GATT_CHARAC_UUID };
+						do {
+							send(l2cap_socket, &gatt_characteristic_declaration, sizeof(gatt_characteristic_declaration), 0);
+							auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+							// TODO: Here I need to interpret the buffer, figure out what the maximum handle is, and increase the starting handle 
+						} while (buf[0] != BT_ATT_ERROR_INVALID_HANDLE);
 
 						// The following while loop attempts to read from the non-blocking socket. 
 						// As long as the read call simply times out, we sleep for 100 microseconds and try again.
