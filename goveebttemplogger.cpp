@@ -52,7 +52,7 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
-#include <bluetooth/bluetooth.h>
+#include <bluetooth/bluetooth.h> // apt install libbluetooth-dev
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <bluetooth/l2cap.h>
@@ -1920,8 +1920,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 			uint8_t features[8];
 			if (hci_le_read_remote_features(BlueToothDevice_Handle, handle, features, 15000) != -1)
 			{
-				char* prefix = "";
-				char* cp = lmp_featurestostr(features, prefix, 50);
+				char* cp = lmp_featurestostr(features, "", 50);
 				if (cp != NULL)
 				{
 					std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "]     Features: " << cp << std::endl;
