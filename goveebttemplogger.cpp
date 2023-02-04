@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20221220-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230204-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2042,6 +2042,20 @@ int main(int argc, char **argv)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
+			// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
+			// and resetting the HCI before attempting scanning may stop the error. This will test that. (2023-02-04)
+			struct hci_request rq;
+			uint8_t status;
+			memset(&rq, 0, sizeof(rq));
+			rq.ogf = OGF_HOST_CTL;
+			rq.ocf = OCF_RESET;
+			rq.cparam = NULL;
+			rq.clen = 0;
+			rq.rparam = &status;
+			rq.rlen = 1;
+			if (hci_send_req(device_handle, &rq, 1000) < 0)
+				std::cerr << "[                   ] Error: Could not reset host controller: " << status << std::endl;
+
 			int on = 1; // Nonblocking on = 1, off = 0;
 			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
@@ -2069,13 +2083,13 @@ int main(int argc, char **argv)
 				// Scan Window: 18 (11.25 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
-				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0012), htobs(0x0012), 0x01, 0x00, 1000) < 0)
+				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
 					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
 				else
 				{
 					// Scan Interval : 8000 (5000 msec)
 					// Scan Window: 8000 (5000 msec)
-					if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), 0x01, 0x00, 1000) < 0)
+					if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
 						std::cerr << "[                   ] Error: Failed to set scan parameters(Scan Interval : 8000 (5000 msec)): " << strerror(errno) << std::endl;
 					// Scan Enable: true (0x01)
 					// Filter Duplicates: false (0x00)
