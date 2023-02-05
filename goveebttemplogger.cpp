@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230204-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230205-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2042,6 +2042,7 @@ int main(int argc, char **argv)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
+			#ifdef HCI_RESET
 			// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
 			// and resetting the HCI before attempting scanning may stop the error. This will test that. (2023-02-04)
 			struct hci_request rq;
@@ -2055,7 +2056,7 @@ int main(int argc, char **argv)
 			rq.rlen = 1;
 			if (hci_send_req(device_handle, &rq, 1000) < 0)
 				std::cerr << "[                   ] Error: Could not reset host controller: " << status << std::endl;
-
+			#endif
 			int on = 1; // Nonblocking on = 1, off = 0;
 			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
