@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230206-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230206-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2117,7 +2117,12 @@ int main(int argc, char **argv)
 			else
 			{
 				// I came across the note: The Host shall not issue this command when scanning is enabled in the Controller; if it is the Command Disallowed error code shall be used. http://pureswift.github.io/Bluetooth/docs/Structs/HCILESetScanParameters.html
-				hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device before setting scan parameters!
+				auto btRVal = hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000); // Disable Scanning on the device before setting scan parameters!
+				#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+				if (btRVal < 0)
+					// If the standard scan enable commands fails, try the extended command.
+					btRVal = hci_le_set_ext_scan_enable(device_handle, 0x00, 0x01, 1000);
+				#endif
 				char LocalName[0xff] = { 0 };
 				hci_read_local_name(device_handle, sizeof(LocalName), LocalName, 1000);
 				if (ConsoleVerbosity > 0)
@@ -2138,7 +2143,7 @@ int main(int argc, char **argv)
 				// Scan Window: 8000 (5000 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
-				auto btRVal = hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000);
+				btRVal = hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000);
 				#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
 				// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
 				// This custom code setting extended scan parameters is an attempt to work around the issue (2023-02-06)
@@ -2482,7 +2487,12 @@ int main(int argc, char **argv)
 								setsockopt(device_handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
 							}
 						}
-						hci_le_set_scan_enable(device_handle, 0x00, 1, 1000);
+						btRVal = hci_le_set_scan_enable(device_handle, 0x00, 0x01, 1000);
+						#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+						if (btRVal < 0)
+							// If the standard scan enable commands fails, try the extended command.
+							btRVal = hci_le_set_ext_scan_enable(device_handle, 0x00, 0x01, 1000);
+						#endif
 					}
 				}
 			}
