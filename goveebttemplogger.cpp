@@ -85,7 +85,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230205-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230206-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -200,6 +200,75 @@ std::string timeToExcelLocal(const time_t& TheTime)
 	}
 	return(ExcelDate.str());
 }
+/////////////////////////////////////////////////////////////////////////////
+#ifndef BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
+#define BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS		0x2041
+int hci_le_set_ext_scan_parameters(int dd, uint8_t type, uint16_t interval, uint16_t window, uint8_t own_type, uint8_t filter, int to)
+{
+	struct bt_hci_cmd_le_set_ext_scan_params {
+		uint8_t  own_addr_type;
+		uint8_t  filter_policy;
+		uint8_t  num_phys;
+		uint8_t  type;
+		uint16_t interval;
+		uint16_t window;
+	} __attribute__((packed)) param_cp;
+	memset(&param_cp, 0, sizeof(param_cp));
+	param_cp.type = type;
+	param_cp.interval = interval;
+	param_cp.window = window;
+	param_cp.own_addr_type = own_type;
+	param_cp.filter_policy = filter;
+	param_cp.num_phys = 1;
+	uint8_t status;
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS;
+	rq.cparam = &param_cp;
+	rq.clen = sizeof(bt_hci_cmd_le_set_ext_scan_params);
+	rq.rparam = &status;
+	rq.rlen = 1;
+	if (hci_send_req(dd, &rq, to) < 0)
+		return -1;
+	if (status) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+#endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
+#ifndef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+#define BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE		0x2042
+int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int to)
+{
+	struct bt_hci_cmd_le_set_ext_scan_enable {
+		uint8_t  enable;
+		uint8_t  filter_dup;
+		uint16_t duration;
+		uint16_t period;
+	} __attribute__((packed)) scan_cp;
+	memset(&scan_cp, 0, sizeof(scan_cp));
+	scan_cp.enable = enable;
+	scan_cp.filter_dup = filter_dup;
+	uint8_t status;
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE;
+	rq.cparam = &scan_cp;
+	rq.clen = sizeof(scan_cp);
+	rq.rparam = &status;
+	rq.rlen = 1;
+	if (hci_send_req(dd, &rq, to) < 0)
+		return -1;
+	if (status) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+#endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity = 1;
 std::string LogDirectory;	// If this remains empty, log Files are not created.
@@ -2042,21 +2111,6 @@ int main(int argc, char **argv)
 			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 		else
 		{
-			#ifdef HCI_RESET
-			// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
-			// and resetting the HCI before attempting scanning may stop the error. This will test that. (2023-02-04)
-			struct hci_request rq;
-			uint8_t status;
-			memset(&rq, 0, sizeof(rq));
-			rq.ogf = OGF_HOST_CTL;
-			rq.ocf = OCF_RESET;
-			rq.cparam = NULL;
-			rq.clen = 0;
-			rq.rparam = &status;
-			rq.rlen = 1;
-			if (hci_send_req(device_handle, &rq, 1000) < 0)
-				std::cerr << "[                   ] Error: Could not reset host controller: " << status << std::endl;
-			#endif
 			int on = 1; // Nonblocking on = 1, off = 0;
 			if (ioctl(device_handle, FIONBIO, (char *)&on) < 0)
 				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
@@ -2080,21 +2134,31 @@ int main(int argc, char **argv)
 						std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter: [" << addr << "]" << std::endl;
 				}
 				// Scan Type: Active (0x01)
-				// Scan Interval: 18 (11.25 msec)
-				// Scan Window: 18 (11.25 msec)
+				// Scan Interval : 8000 (5000 msec)
+				// Scan Window: 8000 (5000 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
-				if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
+				auto btRVal = hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000);
+				#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
+				// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
+				// This custom code setting extended scan parameters is an attempt to work around the issue (2023-02-06)
+				if (btRVal < 0)
+					// If the standard scan parameters commands fails, try the extended command.
+					btRVal = hci_le_set_ext_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000);
+				#endif
+				if (btRVal < 0)
 					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
 				else
 				{
-					// Scan Interval : 8000 (5000 msec)
-					// Scan Window: 8000 (5000 msec)
-					if (hci_le_set_scan_parameters(device_handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
-						std::cerr << "[                   ] Error: Failed to set scan parameters(Scan Interval : 8000 (5000 msec)): " << strerror(errno) << std::endl;
 					// Scan Enable: true (0x01)
 					// Filter Duplicates: false (0x00)
-					if (hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000) < 0)
+					btRVal = hci_le_set_scan_enable(device_handle, 0x01, 0x00, 1000);
+					#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+					if (btRVal < 0)
+						// If the standard scan enable commands fails, try the extended command.
+						btRVal = hci_le_set_ext_scan_enable(device_handle, 0x01, 0x00, 1000);
+					#endif
+					if (btRVal < 0)
 						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << std::endl;
 					else
 					{
