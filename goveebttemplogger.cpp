@@ -652,6 +652,22 @@ bool operator ==(const bdaddr_t& a, const bdaddr_t& b)
 	B = B << 8 | b.b[0];
 	return(A == B);
 }
+bool operator !=(const bdaddr_t& a, const bdaddr_t& b)
+{
+	unsigned long long A = a.b[5];
+	A = A << 8 | a.b[4];
+	A = A << 8 | a.b[3];
+	A = A << 8 | a.b[2];
+	A = A << 8 | a.b[1];
+	A = A << 8 | a.b[0];
+	unsigned long long B = b.b[5];
+	B = B << 8 | b.b[4];
+	B = B << 8 | b.b[3];
+	B = B << 8 | b.b[2];
+	B = B << 8 | b.b[1];
+	B = B << 8 | b.b[0];
+	return(A != B);
+}
 /////////////////////////////////////////////////////////////////////////////
 std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_str); std::string rVal(addr_str); return(rVal); }
 /////////////////////////////////////////////////////////////////////////////
@@ -2409,18 +2425,24 @@ int main(int argc, char **argv)
 					else
 						std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter: [" << ba2string(OnlyFilterAddress) << "]" << std::endl;
 				}
+				uint8_t btFilterPolicy = 0x00;
+				if (OnlyFilterAddress != NoFilterAddress)
+				{
+					hci_le_add_white_list(BlueToothDevice_Handle, &OnlyFilterAddress, LE_PUBLIC_ADDRESS, 1000);
+					btFilterPolicy = 0x01;
+				}
 				// Scan Type: Active (0x01)
 				// Scan Interval: 18 (11.25 msec)
 				// Scan Window: 18 (11.25 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
-				if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
+				if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, btFilterPolicy, 1000) < 0)
 					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
 				else
 				{
 					// Scan Interval : 8000 (5000 msec)
 					// Scan Window: 8000 (5000 msec)
-					if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, 0x00, 1000) < 0)
+					if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, btFilterPolicy, 1000) < 0)
 						std::cerr << "[                   ] Error: Failed to set scan parameters(Scan Interval : 8000 (5000 msec)): " << strerror(errno) << std::endl;
 					// Scan Enable: true (0x01)
 					// Filter Duplicates: false (0x00)
@@ -2777,6 +2799,9 @@ int main(int argc, char **argv)
 						hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, 1, 1000);
 					}
 				}
+				if (OnlyFilterAddress != NoFilterAddress)
+					hci_le_clear_white_list(BlueToothDevice_Handle, 1000);
+					//hci_le_rm_white_list(BlueToothDevice_Handle, &OnlyFilterAddress, LE_RANDOM_ADDRESS, 1000);
 			}
 			hci_close_dev(BlueToothDevice_Handle);
 		}
