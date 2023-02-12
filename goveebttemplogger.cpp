@@ -2078,7 +2078,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 								}
 							}
 						} while (buf[0] != BT_ATT_OP_ERROR_RSP);
-						std::cout << "[" << getTimeISO8601() << "] BT_ATT_OP_ERROR_RSP" << std::endl;
+						std::cout << "[" << getTimeISO8601() << "] BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 
 						// Next I go through my stored set of SERVICES requesting CHARACTERISTICS based on the combination of starting handle and ending handle
 						for (auto bts = BTServices.begin(); bts != BTServices.end(); bts++)
@@ -2130,7 +2130,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 									}
 								}
 							} while (buf[0] != BT_ATT_OP_ERROR_RSP);
-							std::cout << "[" << getTimeISO8601() << "] BT_ATT_OP_ERROR_RSP" << std::endl;
+							std::cout << "[" << getTimeISO8601() << "] BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 
 							// Next I go through my stored set of SERVICES requesting CHARACTERISTICS based on the combination of starting handle and ending handle
 							GATT_DeclarationPacket gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, bts->starting_handle, bts->ending_handle, GATT_CHARAC_UUID };
@@ -2181,7 +2181,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 									}
 								}
 							} while (buf[0] != BT_ATT_OP_ERROR_RSP);
-							std::cout << "[" << getTimeISO8601() << "] BT_ATT_OP_ERROR_RSP" << std::endl;
+							std::cout << "[" << getTimeISO8601() << "] BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 						}
 
 						GATT_InformationPacket gatt_information = { BT_ATT_OP_FIND_INFO_REQ, 0x002e, 0x002f };
@@ -2557,11 +2557,13 @@ int main(int argc, char **argv)
 						std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
 					std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
 					if (BT_WhiteList.empty())
-						std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter: [00:00:00:00:00:00]" << std::endl;
+						std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter" << std::endl;
 					else
 					{
+						std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
 						for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
-							std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter: [" << ba2string(*iter) << "]" << std::endl;
+							std::cout << " [" << ba2string(*iter) << "]";
+						std::cout << std::endl;
 					}
 				}
 				uint8_t btFilterPolicy = 0x00;
