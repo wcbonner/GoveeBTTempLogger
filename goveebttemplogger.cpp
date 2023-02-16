@@ -203,6 +203,75 @@ std::string timeToExcelLocal(const time_t& TheTime)
 	return(ExcelDate.str());
 }
 /////////////////////////////////////////////////////////////////////////////
+#ifndef BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
+#define BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS		0x2041
+int hci_le_set_ext_scan_parameters(int dd, uint8_t type, uint16_t interval, uint16_t window, uint8_t own_type, uint8_t filter, int to)
+{
+	struct bt_hci_cmd_le_set_ext_scan_params {
+		uint8_t  own_addr_type;
+		uint8_t  filter_policy;
+		uint8_t  num_phys;
+		uint8_t  type;
+		uint16_t interval;
+		uint16_t window;
+	} __attribute__((packed)) param_cp;
+	memset(&param_cp, 0, sizeof(param_cp));
+	param_cp.type = type;
+	param_cp.interval = interval;
+	param_cp.window = window;
+	param_cp.own_addr_type = own_type;
+	param_cp.filter_policy = filter;
+	param_cp.num_phys = 1;
+	uint8_t status;
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS;
+	rq.cparam = &param_cp;
+	rq.clen = sizeof(bt_hci_cmd_le_set_ext_scan_params);
+	rq.rparam = &status;
+	rq.rlen = 1;
+	if (hci_send_req(dd, &rq, to) < 0)
+		return -1;
+	if (status) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+#endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
+#ifndef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+#define BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE		0x2042
+int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int to)
+{
+	struct bt_hci_cmd_le_set_ext_scan_enable {
+		uint8_t  enable;
+		uint8_t  filter_dup;
+		uint16_t duration;
+		uint16_t period;
+	} __attribute__((packed)) scan_cp;
+	memset(&scan_cp, 0, sizeof(scan_cp));
+	scan_cp.enable = enable;
+	scan_cp.filter_dup = filter_dup;
+	uint8_t status;
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE;
+	rq.cparam = &scan_cp;
+	rq.clen = sizeof(scan_cp);
+	rq.rparam = &status;
+	rq.rlen = 1;
+	if (hci_send_req(dd, &rq, to) < 0)
+		return -1;
+	if (status) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+#endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+/////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity = 1;
 std::string LogDirectory;	// If this remains empty, log Files are not created.
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
@@ -2603,6 +2672,7 @@ int main(int argc, char **argv)
 				hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut); // Disable Scanning on the device before setting scan parameters!
 				char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
 				hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, 1000);
+
 				if (ConsoleVerbosity > 0)
 				{
 					if (!ControllerAddress.empty())
@@ -2629,8 +2699,8 @@ int main(int argc, char **argv)
 					btFilterPolicy = 0x01;
 				}
 				// Scan Type: Active (0x01)
-				// Scan Interval: 18 (11.25 msec)
-				// Scan Window: 18 (11.25 msec)
+				// Scan Interval : 8000 (5000 msec)
+				// Scan Window: 8000 (5000 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
 				if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, btFilterPolicy, 1000) < 0)
