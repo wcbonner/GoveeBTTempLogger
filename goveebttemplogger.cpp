@@ -1907,7 +1907,12 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 	time_t TimeNow;
 	time(&TimeNow);
 	// Bluetooth HCI Command - LE Set Scan Enable (false)
-	hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut); // Disable Scanning on the device
+	auto btRVal = hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut); // Disable Scanning on the device before setting scan parameters!
+	#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+	if (btRVal < 0)
+		// If the standard scan enable commands fails, try the extended command.
+		btRVal = hci_le_set_ext_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut);
+	#endif
 	if (ConsoleVerbosity > 0)
 		std::cout << "[" << getTimeISO8601() << "] Scanning Stopped" << std::endl;
 
@@ -2449,7 +2454,12 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 #ifndef DEBUG
 	}
 #endif
-	hci_le_set_scan_enable(BlueToothDevice_Handle, 0x01, bt_ScanFilterDuplicates, bt_TimeOut); // Enable Scanning on the device
+	btRVal = hci_le_set_scan_enable(BlueToothDevice_Handle, 0x01, bt_ScanFilterDuplicates, bt_TimeOut); // Enable Scanning on the device
+	#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+	if (btRVal < 0)
+		// If the standard scan enable commands fails, try the extended command.
+		btRVal = hci_le_set_ext_scan_enable(BlueToothDevice_Handle, 0x01, bt_ScanFilterDuplicates, bt_TimeOut);
+	#endif	
 	if (ConsoleVerbosity > 0)
 		std::cout << "[" << getTimeISO8601() << "] Scanning..." << std::endl;
 }
@@ -2669,7 +2679,12 @@ int main(int argc, char **argv)
 			else
 			{
 				// I came across the note: The Host shall not issue this command when scanning is enabled in the Controller; if it is the Command Disallowed error code shall be used. http://pureswift.github.io/Bluetooth/docs/Structs/HCILESetScanParameters.html
-				hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut); // Disable Scanning on the device before setting scan parameters!
+				auto btRVal = hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut); // Disable Scanning on the device before setting scan parameters!
+				#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+				if (btRVal < 0)
+					// If the standard scan enable commands fails, try the extended command.
+					btRVal = hci_le_set_ext_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut);
+				#endif
 				char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
 				hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, 1000);
 
@@ -2703,17 +2718,25 @@ int main(int argc, char **argv)
 				// Scan Window: 8000 (5000 msec)
 				// Own Address Type: Random Device Address (0x01)
 				// Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
-				if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, btFilterPolicy, 1000) < 0)
+				btRVal = hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, btFilterPolicy, 1000);
+				#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_PARAMS
+				// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
+				// This custom code setting extended scan parameters is an attempt to work around the issue (2023-02-06)
+				if (btRVal < 0)
+					// If the standard scan parameters commands fails, try the extended command.
+					btRVal = hci_le_set_ext_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x0012), htobs(0x0012), LE_RANDOM_ADDRESS, btFilterPolicy, 1000);
+				#endif
+				if (btRVal < 0)
 					std::cerr << "[                   ] Error: Failed to set scan parameters: " << strerror(errno) << std::endl;
 				else
 				{
-					// Scan Interval : 8000 (5000 msec)
-					// Scan Window: 8000 (5000 msec)
-					//if (hci_le_set_scan_parameters(BlueToothDevice_Handle, 0x01, htobs(0x1f40), htobs(0x1f40), LE_RANDOM_ADDRESS, btFilterPolicy, 1000) < 0)
-					//	std::cerr << "[                   ] Error: Failed to set scan parameters(Scan Interval : 8000 (5000 msec)): " << strerror(errno) << std::endl;
-					// Scan Enable: true (0x01)
-					// Filter Duplicates: false (0x00)
-					if (hci_le_set_scan_enable(BlueToothDevice_Handle, 0x01, bt_ScanFilterDuplicates, bt_TimeOut) < 0)
+					btRVal = hci_le_set_scan_enable(BlueToothDevice_Handle, 0x01, bt_ScanFilterDuplicates, bt_TimeOut);
+					#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+					if (btRVal < 0)
+						// If the standard scan enable commands fails, try the extended command.
+						btRVal = hci_le_set_ext_scan_enable(BlueToothDevice_Handle, 0x01, bt_ScanFilterDuplicates, bt_TimeOut);
+					#endif	
+					if (btRVal < 0)
 					{
 						std::cerr << "[                   ] Error: Failed to enable scan: " << strerror(errno) << " (" << errno << ")" << std::endl;
 						if (errno == EPERM)
@@ -3048,7 +3071,12 @@ int main(int argc, char **argv)
 								setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
 							}
 						}
-						hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut);
+						btRVal = hci_le_set_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut);
+						#ifdef BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+						if (btRVal < 0)
+							// If the standard scan enable commands fails, try the extended command.
+							btRVal = hci_le_set_ext_scan_enable(BlueToothDevice_Handle, 0x00, bt_ScanFilterDuplicates, bt_TimeOut);
+						#endif
 					}
 				}
 				if (!BT_WhiteList.empty())
