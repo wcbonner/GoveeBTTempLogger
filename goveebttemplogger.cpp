@@ -2243,7 +2243,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 						// As long as the read call simply times out, we sleep for 100 microseconds and try again.
 						//struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } 
 						HandleNotificationPacket pkt = { BT_ATT_OP_WRITE_REQ, 0x002d, {0x33,0x01,0x27,0x81,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x96} };
-						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] [" << ba2string(GoveeBTAddress) << "] BT_ATT_OP_WRITE_REQ Handle: ";
+						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] BT_ATT_OP_WRITE_REQ Handle: ";
 						std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 						for (auto index = 0; index < 20; index++)
 							std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
@@ -2358,13 +2358,13 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 							}
 							else
 							{
-								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] [" << ba2string(GoveeBTAddress) << "] Reading from device. RetryCount = " << RetryCount << std::endl;
+								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Reading from device. RetryCount = " << RetryCount << std::endl;
 								usleep(100000); // 1,000,000 = 1 second.
 								if (--RetryCount < 0)
 									bDownloadInProgress = false;
 							}
 						}
-						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] [" << ba2string(GoveeBTAddress) << "] Closing l2cap_socket" << std::endl;
+						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Closing l2cap_socket" << std::endl;
 						close(l2cap_socket);
 					}
 				}
@@ -2373,7 +2373,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 		if (handle != 0)
 		{
 			hci_disconnect(BlueToothDevice_Handle, handle, HCI_OE_USER_ENDED_CONNECTION, 2000);
-			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] [" << ba2string(GoveeBTAddress) << "] hci_disconnect" << std::endl;
+			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_disconnect" << std::endl;
 		}
 		time(&TimeNow);
 		GoveeLastReadTime = TimeNow;
