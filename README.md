@@ -181,10 +181,9 @@ bluetooth.src == e3:5e:cc:21:5c:0f || bluetooth.dst == e3:5e:cc:21:5c:0f || blue
 #### My H5174 (3 AA Batteries)
 bluetooth.src == A4:C1:38:DC:CC:3D || bluetooth.dst == A4:C1:38:DC:CC:3D
 
-# What I've learned from decoding H5074 2022-12-31
+# What I've learned from decoding H5074 2023-02-15
  * open and connect lcap socket
- * send struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_1 = {BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, 0x2800 };
- * send: 218	31.238678	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
+ * send struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } primary_service_declaration_1 = {BT_ATT_OP_READ_BY_GRP_TYPE_REQ,  * send: 218	31.238678	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
  * recieve: 221	31.413696	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	29	Rcvd Read By Group Type Response, Attribute List Length: 3, Generic Access Profile, Generic Attribute Profile, Device Information
  * because packet can't be bigger than 32 bytes, we only recived 3 handles, the biggest grout end handle is 0x0016, so we now need to modify our initial request to start at 0x0017
  * send: 222	31.431977	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xffff
@@ -196,6 +195,29 @@ bluetooth.src == A4:C1:38:DC:CC:3D || bluetooth.dst == A4:C1:38:DC:CC:3D
  * send: 229	31.679199	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x003c..0xffff
  * recieve: 231	31.720642	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0xffff (Unknown: Unknown)
  * and that was our first error response. So now we are going to move on to reading by type
+0x0001, 0xffff, 0x2800 };
+```
+[2023-02-16T03:06:59] GoveeBTTempLogger Version 2.20230215-1 Built on: Feb 15 2023 at 16:49:54
+[2023-02-16T03:06:59] LocalName: WimPi4-Dev
+[2023-02-16T03:06:59] BlueTooth Address Filter: [E3:5E:CC:21:5C:0F]
+[2023-02-16T03:06:59] Scanning...
+[2023-02-16T03:07:24] 44 [E3:5E:CC:21:5C:0F] (Flags) 06 (UUID) 0A18F5FE88EC (Name) Govee_H5074_5C0F
+[2023-02-16T03:07:24] Scanning Stopped
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] hci_le_create_conn Return(0) handle (0040)
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] Connected L2CAP LE connection on ATT channel: 4
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xFFFF
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] <== Handles: 0x0001..0x0005 UUID: 1800
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] <== Handles: 0x0006..0x0009 UUID: 1801
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] <== Handles: 0x000A..0x0016 UUID: 180A
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xFFFF
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] <== Handles: 0x0017..0x002A UUID: FEF5
+[2023-02-16T03:07:26] [E3:5E:CC:21:5C:0F] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x002B..0xFFFF
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] <== Handles: 0x002B..0x003B UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x003C..0xFFFF
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP
+```
+This gets a list of services, each defined by a UUID and a pair of handles.
+Next, for each service, we attempt to get details using the pair of handles. For each service, we try GATT Include Declaration and then GATT Characteristic Declaration, looping on the results as needed.
  * send struct { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, 0x0001, 0x0005, 0x2802 };
  * send: 232	31.730683	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0005
  * I'm not sure why the maximum handle was only 0x0005 on that one, but we got an error, so will move on to the next query
@@ -206,9 +228,140 @@ bluetooth.src == A4:C1:38:DC:CC:3D || bluetooth.dst == A4:C1:38:DC:CC:3D
  * once again, maximum handle returned was 0x0005 sp we'll try again starting with 0x005.
  * send: 238	31.803650	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Characteristic Declaration, Handles: 0x0005..0x0005
  * recieve: 240	31.825531	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0x0006 (Generic Attribute Profile)
- * since I got an error I can move on to the next request. Though why we are requesting 2802 again after having moved on to 2803 I'm not sure.
- * send: 241	31.839569	ASUSTekC_30:4e:ef (Nexus 7)	e3:5e:cc:21:5c:0f ()	ATT	16	Sent Read By Type Request, GATT Include Declaration, Handles: 0x0006..0x0009
- * recieve: 243	31.870423	e3:5e:cc:21:5c:0f ()	ASUSTekC_30:4e:ef (Nexus 7)	ATT	14	Rcvd Error Response - Attribute Not Found, Handle: 0x000a (Device Information)
+```
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0005
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0005
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] <== Handles: 0x0002..0x0003 Characteristic Properties: 0x02 UUID: 2A00
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] <== Handles: 0x0004..0x0005 Characteristic Properties: 0x02 UUID: 2A01
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0005..0x0005
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:27] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0006..0x0009
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0006..0x0009
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== Handles: 0x0007..0x0008 Characteristic Properties: 0x22 UUID: 2A05
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0008..0x0009
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000A..0x0016
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000A..0x0016
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== Handles: 0x000B..0x000C Characteristic Properties: 0x02 UUID: 2A29
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== Handles: 0x000D..0x000E Characteristic Properties: 0x02 UUID: 2A24
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] <== Handles: 0x000F..0x0010 Characteristic Properties: 0x02 UUID: 2A26
+[2023-02-16T03:07:28] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0010..0x0016
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] <== Handles: 0x0011..0x0012 Characteristic Properties: 0x02 UUID: 2A28
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] <== Handles: 0x0013..0x0014 Characteristic Properties: 0x02 UUID: 2A23
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] <== Handles: 0x0015..0x0016 Characteristic Properties: 0x02 UUID: 2A50
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0016..0x0016
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0017..0x002A
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0017..0x002A
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] <== Handles: 0x0018..0x0019 Characteristic Properties: 0x0A UUID: 34cc54b9-f956-c691-2140-a641a8ca8280
+[2023-02-16T03:07:29] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0019..0x002A
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] <== Handles: 0x001A..0x001B Characteristic Properties: 0x0A UUID: 5186f05a-3442-0488-5f4b-c35ef0494272
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001B..0x002A
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] <== Handles: 0x001C..0x001D Characteristic Properties: 0x02 UUID: d44f33fb-927c-22a0-fe45-a14725db536c
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001D..0x002A
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] <== Handles: 0x001E..0x001F Characteristic Properties: 0x0A UUID: 31da3f67-5b85-8391-d849-0c00a3b9849d
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001F..0x002A
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] <== Handles: 0x0020..0x0021 Characteristic Properties: 0x0E UUID: b29c7bb1-d057-1691-a14c-16d5e8717845
+[2023-02-16T03:07:30] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0021..0x002A
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] <== Handles: 0x0022..0x0023 Characteristic Properties: 0x12 UUID: 885c066a-ebb3-0a99-f546-8c7994df785f
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0023..0x002A
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] <== Handles: 0x0025..0x0026 Characteristic Properties: 0x02 UUID: 3a913bdb-c8ac-1da2-1b40-e50db5e8b464
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0026..0x002A
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] <== Handles: 0x0027..0x0028 Characteristic Properties: 0x02 UUID: 3bfb6752-878f-5484-9c4d-be77dddfc342
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0028..0x002A
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] <== Handles: 0x0029..0x002A Characteristic Properties: 0x02 UUID: 3ce2fc3d-90c4-afa3-bb43-3d82ea1edeb7
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x002A..0x002A
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Include Declaration, Handles: 0x002B..0x003B
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2023-02-16T03:07:31] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x002B..0x003B
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] <== Handles: 0x002C..0x002D Characteristic Properties: 0x1A UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x002D..0x003B
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] <== Handles: 0x0030..0x0031 Characteristic Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0031..0x003B
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] <== Handles: 0x0034..0x0035 Characteristic Properties: 0x1A UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0035..0x003B
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] <== Handles: 0x0038..0x0039 Characteristic Properties: 0x1A UUID: 14205f53-4b43-4f52-5f49-4c4c45544e49
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0039..0x003B
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+```
+Now I've cycled through all of the Characteristics Declarations and Properties. After this, I am sending some find information request commands that I've directly copied from the govee app trace in wireshark. I don't know where the handles are coming from.
+
+I'm also writing a value to an unknown handle, in an attempt to get data returned from the device. It's not working.
+```
+[2023-02-16T03:07:32] [E3:5E:CC:21:5C:0F] ==> Find Information Request, Handles: 0x002E..0x002F
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x002E UUID: 2902
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x002F UUID: 2901
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] ==> Find Information Request, Handles: 0x0032..0x0033
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x0032 UUID: 2902
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x0033 UUID: 2901
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] ==> Find Information Request, Handles: 0x0036..0x0037
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x0036 UUID: 2902
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x0037 UUID: 2901
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] ==> Find Information Request, Handles: 0x003A..0x003B
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x003A UUID: 2902
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] <== Handle: 0x003B UUID: 2901
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] BT_ATT_OP_WRITE_REQ Handle: 002D Value: 3301278100020000000000000000000000000096
+[2023-02-16T03:07:33] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 32
+[2023-02-16T03:07:45] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 31
+[2023-02-16T03:07:45] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 30
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2F
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2E
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2D
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2C
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2B
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2A
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 29
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 28
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 27
+[2023-02-16T03:07:46] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 26
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 25
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 24
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 23
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 22
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 21
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 20
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1F
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1E
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1D
+[2023-02-16T03:07:47] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1C
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1B
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1A
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 19
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 18
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 17
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 16
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 15
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 14
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 13
+[2023-02-16T03:07:48] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 12
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 11
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 10
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = F
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = E
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = D
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = C
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = B
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = A
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 9
+[2023-02-16T03:07:49] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 8
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 7
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 6
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 5
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 4
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 3
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 2
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 1
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Reading from device. RetryCount = 0
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] Closing l2cap_socket
+[2023-02-16T03:07:50] [E3:5E:CC:21:5C:0F] [E3:5E:CC:21:5C:0F] hci_disconnect
+[2023-02-16T03:07:50] Scanning...
+GoveeBTTempLogger Version 2.20230215-1 Built on: Feb 15 2023 at 16:49:54 (exiting)
+```
  * UUID's are really important in the handshaking. [Service UUID: 494e54454c4c495f524f434b535f4857] and [UUID: 494e54454c4c495f524f434b535f2013] are associated with all of the data packets returned on Handle: 0x0031 that appear to be the historical data.
 
 The Following two frames are the response that gets the UUID
