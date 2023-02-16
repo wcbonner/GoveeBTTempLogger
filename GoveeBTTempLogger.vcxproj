@@ -79,6 +79,7 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClCompile Include="goveebttemplogger.cpp" />
+    <ClCompile Include="uuid.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="GoveeBTTempLogger\DEBIAN\control" />
@@ -99,6 +100,10 @@
     <Text Include="BTData\btsnoop_hci.log" />
     <Text Include="gvh-titlemap.txt" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="att-types.h" />
+    <ClInclude Include="uuid.h" />
+  </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
       <LibraryDependencies>bluetooth</LibraryDependencies>
@@ -114,10 +119,12 @@
       </Command>
     </RemotePreBuildEvent>
     <RemotePostBuildEvent>
-      <Command>
-      </Command>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
     </RemotePostBuildEvent>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
@@ -143,6 +150,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
@@ -155,6 +165,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
@@ -167,6 +180,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
     <Link>
