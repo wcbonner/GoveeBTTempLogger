@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230215-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230216-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2514,9 +2514,8 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	std::string ControllerAddress;
 	std::string MRTGAddress;
-	std::set< bdaddr_t> BT_WhiteList;
+	std::set<bdaddr_t> BT_WhiteList;
 	bdaddr_t OnlyFilterAddress = { 0 };
-	//const bdaddr_t NoFilterAddress = { 0 };
 
 	for (;;)
 	{
@@ -2706,10 +2705,28 @@ int main(int argc, char **argv)
 				uint8_t btFilterPolicy = 0x00;
 				if (!BT_WhiteList.empty())
 				{
-					for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
+					const bdaddr_t TestAddress = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+					if (TestAddress == *BT_WhiteList.begin()) // if first element in whitelist is FFFFFFFFFF
 					{
-						OnlyFilterAddress = *iter;
-						hci_le_add_white_list(BlueToothDevice_Handle, &OnlyFilterAddress, LE_PUBLIC_ADDRESS, 1000);
+						if (ConsoleVerbosity > 0)
+							std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+						for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+						{
+							const bdaddr_t TheAddress = it->first;
+							hci_le_add_white_list(BlueToothDevice_Handle, &TheAddress, LE_PUBLIC_ADDRESS, 1000);
+							if (ConsoleVerbosity > 0)
+								std::cout << " [" << ba2string(TheAddress) << "]";
+						}
+						if (ConsoleVerbosity > 0)
+							std::cout << std::endl;
+					}
+					else
+					{
+						for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
+						{
+							OnlyFilterAddress = *iter;
+							hci_le_add_white_list(BlueToothDevice_Handle, &OnlyFilterAddress, LE_PUBLIC_ADDRESS, 1000);
+						}
 					}
 					btFilterPolicy = 0x01;
 				}
@@ -2742,13 +2759,13 @@ int main(int argc, char **argv)
 						if (errno == EPERM)
 						{
 							std::cerr << "**********************************************************" << std::endl;
-							std::cerr << "NOTE: This program lacks the permissions necessary for" << std::endl;
+							std::cerr << " NOTE: This program lacks the permissions necessary for" << std::endl;
 							std::cerr << "  manipulating the raw Bluetooth HCI socket, which" << std::endl;
 							std::cerr << "  is required for scanning and for setting the minimum" << std::endl;
 							std::cerr << "  connection inverval to speed up data transfer.\n" << std::endl << std::endl;
 							std::cerr << "  To fix this, run it as root or, better yet, set the" << std::endl;
 							std::cerr << "  following capabilities on the GoveeBTTempLogger executable:\n" << std::endl << std::endl;
-							std::cerr << "    # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
+							std::cerr << "  # sudo setcap 'cap_net_raw,cap_net_admin+eip' goveebttemplogger\n" << std::endl << std::endl;
 							std::cerr << "**********************************************************" << std::endl;
 						}
 					}
