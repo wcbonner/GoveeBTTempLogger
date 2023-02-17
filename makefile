@@ -1,6 +1,8 @@
 CXX ?= g++
 
-GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp
+uuid.o: uuid.c uuid.h
+
+GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp uuid.o
 	mkdir -p $(shell dirname $@)
 	$(CXX) -Wno-psabi -O3 -std=c++11 $? -o$@ -lbluetooth
 
@@ -15,6 +17,7 @@ install-deb: deb
 	apt install ./GoveeBTTempLogger.deb
 
 clean:
+	-rm -f uuid.o
 	-rm -rf GoveeBTTempLogger/usr/local/bin
 	-rm -f GoveeBTTempLogger.deb
 	git restore GoveeBTTempLogger/DEBIAN/control
