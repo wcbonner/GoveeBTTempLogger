@@ -11,7 +11,7 @@ deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/DEBIAN/
 	sed -i "s/Architecture: .*/Architecture: $(shell dpkg --print-architecture)/" GoveeBTTempLogger/DEBIAN/control
 	chmod a+x GoveeBTTempLogger/DEBIAN/postinst GoveeBTTempLogger/DEBIAN/postrm GoveeBTTempLogger/DEBIAN/prerm
 	dpkg-deb --build GoveeBTTempLogger
-	dpkg-name ./GoveeBTTempLogger.deb
+	dpkg-name --overwrite GoveeBTTempLogger.deb
 
 install-deb: deb
 	apt install ./GoveeBTTempLogger.deb
