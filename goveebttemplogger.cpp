@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230216-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230216-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2710,15 +2710,21 @@ int main(int argc, char **argv)
 					{
 						if (ConsoleVerbosity > 0)
 							std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+						else
+							std::cerr << "BlueTooth Address Filter:";
 						for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 						{
 							const bdaddr_t TheAddress = it->first;
 							hci_le_add_white_list(BlueToothDevice_Handle, &TheAddress, LE_PUBLIC_ADDRESS, 1000);
 							if (ConsoleVerbosity > 0)
 								std::cout << " [" << ba2string(TheAddress) << "]";
+							else
+								std::cerr << " [" << ba2string(TheAddress) << "]";
 						}
 						if (ConsoleVerbosity > 0)
 							std::cout << std::endl;
+						else
+							std::cerr << std::endl;
 					}
 					else
 					{
