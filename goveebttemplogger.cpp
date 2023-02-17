@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230216-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230217-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2480,10 +2480,10 @@ static void usage(int argc, char **argv)
 	std::cout << "    -o | --only XX:XX:XX:XX:XX:XX only report this address" << std::endl;
 	std::cout << "    -C | --controller XX:XX:XX:XX:XX:XX use the controller with this address" << std::endl;
 	std::cout << "    -a | --average minutes [" << MinutesAverage << "]" << std::endl;
-	std::cout << "    -s | --svg name      SVG output directory" << std::endl;
+	std::cout << "    -s | --svg name      SVG output directory [" << SVGDirectory << "]" << std::endl;
 	std::cout << "    -i | --index name    HTML index file for SVG files" << std::endl;
-	std::cout << "    -T | --titlemap name SVG title fully qualified filename" << std::endl;
-	std::cout << "    -c | --celsius       SVG output using degrees C" << std::endl;
+	std::cout << "    -T | --titlemap name SVG title fully qualified filename [" << SVGTitleMapFilename << "]" << std::endl;
+	std::cout << "    -c | --celsius       SVG output using degrees C [" << std::boolalpha << !SVGFahrenheit << "]" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
@@ -2528,6 +2528,7 @@ int main(int argc, char **argv)
 		{
 		case 0: /* getopt_long() flag */
 			break;
+		case '?':
 		case 'h':
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
