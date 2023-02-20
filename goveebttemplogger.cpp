@@ -1893,11 +1893,12 @@ bool operator ==(const bt_uuid_t& a, const bt_uuid_t& b)
 	else
 		switch (a.type)
 		{
-		case a.BT_UUID16:
+		case 16:
 			return (a.value.u16 == b.value.u16);
-		case a.BT_UUID32:
+		case 32:
 			return (a.value.u32 == b.value.u32);
-		case a.BT_UUID128:
+		case 128:
+		default:
 			if (a.value.u128.data[0] != b.value.u128.data[0])
 				return (false);
 			if (a.value.u128.data[1] != b.value.u128.data[1])
@@ -1932,7 +1933,7 @@ bool operator ==(const bt_uuid_t& a, const bt_uuid_t& b)
 				return (false);
 			return (true);
 		}
-		return(false);
+	return(false);
 }
 std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 {
@@ -2245,7 +2246,10 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 							if (bts->theUUID == INTELLI_ROCKS_HW)
 								for (auto btsc = bts->characteristics.begin(); btsc != bts->characteristics.end(); btsc++)
 								{
-									GATT_InformationPacket gatt_information = { BT_ATT_OP_FIND_INFO_REQ, btsc->ending_handle+1, btsc->ending_handle+2 };
+									GATT_InformationPacket gatt_information = { BT_ATT_OP_FIND_INFO_REQ, btsc->ending_handle, btsc->ending_handle };
+									gatt_information.starting_handle++;
+									gatt_information.ending_handle++;
+									gatt_information.ending_handle++;
 									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> Find Information Request, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.ending_handle << std::endl;
 									if (-1 == send(l2cap_socket, &gatt_information, sizeof(gatt_information), 0))
 										buf[0] = BT_ATT_OP_ERROR_RSP;
