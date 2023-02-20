@@ -123,7 +123,7 @@
     </RemotePostBuildEvent>
     <ClCompile />
     <ClCompile>
-      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;DISPLAY_BT_SERVICE_DETAILS</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
