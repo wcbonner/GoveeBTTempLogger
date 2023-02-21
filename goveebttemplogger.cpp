@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230219-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230221-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -1854,7 +1854,7 @@ int att_write(int fd, const uint16_t handle, const void* buf, const int length)
 	return(length);
 }
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } GATT_DeclarationPacket;
-typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; } GATT_InformationPacket;
+typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_WritePacket;
 class BlueToothServiceCharacteristic {public: uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; bt_uuid_t theUUID; };
 class BlueToothService { public: bt_uuid_t theUUID; uint16_t starting_handle; uint16_t ending_handle; std::vector<BlueToothServiceCharacteristic> characteristics; };
 /*
@@ -1944,6 +1944,54 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 	{
 		std::stringstream ss;
 		ss << std::hex << std::setw(4) << std::setfill('0') << uuid->value.u16;
+		switch (uuid->value.u16)
+		{
+			// https://specificationrefs.bluetooth.com/assigned-values/16-bit%20UUID%20Numbers%20Document.pdf
+		case 0x1800:
+			ss << " (Generic Access)";
+			break;
+		case 0x1801:
+			ss << " (Generic Attribute)";
+			break;
+		case 0x180A:
+			ss << " (Device Information)";
+			break;
+		case 0xFEF5:
+			ss << " (Dialog Semiconductor GmbH)";
+			break;
+		case 0x2A00:
+			ss << " (Device Name)";
+			break;
+		case 0x2A01:
+			ss << " (Appearance)";
+			break;
+		case 0x2A05:
+			ss << " (Service Changed)";
+			break;
+		case 0x2A29:
+			ss << " (Manufacturer Name String)";
+			break;
+		case 0x2A24:
+			ss << " (Model Number String)";
+			break;
+		case 0x2A26:
+			ss << " (Firmware Revision String)";
+			break;
+		case 0x2A28:
+			ss << " (Software Revision String)";
+			break;
+		case 0x2A23:
+			ss << " (System ID)";
+			break;
+		case 0x2A50:
+			ss << " (PnP ID)";
+			break;
+		case 0x2901:
+			ss << " (Characteristic User Description)";
+			break;
+		case 0x2902:
+			ss << " (Client Characteristic Configuration)";
+		}
 		rVal = ss.str();
 	}
 	return(rVal);
@@ -1988,7 +2036,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 			&handle,
 			15000);	// A 15 second timeout gives me a better chance of success
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
 		#ifdef BT_READ_REMOTE_FEATURES
 		if ((iRet == 0) && (handle != 0))
 		{
@@ -2014,7 +2062,7 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 			if (iRet != -1)
 			{
 				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "]      Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
-				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "]   Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
+				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "]   Subversion: " << std::hex << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
 				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "] Manufacturer: " << bt_compidtostr(ver.manufacturer) << std::endl;
 			}
 		}
@@ -2097,14 +2145,10 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 										{
 											if (buf[1] == 6) // length of Handle/Value Pair
 											{
-												// UUID: 1800 Generic Access
-												// UUID: 1801 Generic Attribute
-												// UUID: 180A Device Information
-												// UUID: FEF5 Dialog Semiconductor GmbH
 												struct bt_attribute_data_uuid16 { uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } *attribute_data = (bt_attribute_data_uuid16*)&(buf[AttributeOffset]);
 												bt_uuid_t theUUID;
 												bt_uuid16_create(&theUUID, attribute_data->UUID);
-												std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << std::hex << std::setw(4) << std::setfill('0') << theUUID.value.u16 << std::endl;
+												std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
 												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
 												BlueToothService bts = { theUUID, attribute_data->starting_handle, attribute_data->ending_handle };
 												BTServices.push_back(bts);
@@ -2168,15 +2212,6 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 												BlueToothServiceCharacteristic Characteristic;
 												if (buf[1] == 7) // length of Handle/Value Pair
 												{
-													// UUID: 2A00 Device Name
-													// UUID: 2A01 Appearance
-													// UUID: 2A05 Service Changed
-													// UUID: 2A29 Manufacturer Name String
-													// UUID: 2A24 Model Number String
-													// UUID: 2A26 Firmware Revision String
-													// UUID: 2A28 Software Revision String
-													// UUID: 2A23 System ID
-													// UUID: 2A50 PnP ID
 													struct __attribute__((__packed__)) bt_attribute_data { uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; uint16_t UUID; } *attribute_data = (bt_attribute_data*)&(buf[AttributeOffset]);
 													bt_uuid_t theUUID;
 													bt_uuid16_create(&theUUID, attribute_data->UUID);
@@ -2226,27 +2261,32 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 						// List accumulated Services
 						for (auto bts = BTServices.begin(); bts != BTServices.end(); bts++)
 						{
-							std::cout << "[" << getTimeISO8601() << "] Service Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << bts->starting_handle;
+							std::cout << "[-------------------] Service Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << bts->starting_handle;
 							std::cout << "..0x" << std::setw(4) << std::setfill('0') << bts->ending_handle;
-							std::cout << " UUID: " << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << bt_UUID_2_String(&(bts->theUUID)) << std::endl;
+							std::cout << " UUID: " << std::hex << std::setw(4) << std::setfill('0') << bt_UUID_2_String(&(bts->theUUID)) << std::endl;
 							for (auto btsc = bts->characteristics.begin(); btsc != bts->characteristics.end(); btsc++)
 							{
 								std::cout << "[                   ] Characteristic Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << btsc->starting_handle;
 								std::cout << "..0x" << std::setw(4) << std::setfill('0') << btsc->ending_handle;
+								// Characteristic Properties: 0x1a, Notify, Write, Read
+								// Characteristic Properties: 0x12, Notify, Read
 								std::cout << " Properties: 0x" << std::setw(2) << std::setfill('0') << unsigned(btsc->properties);
 								std::cout << " UUID: " << bt_UUID_2_String(&btsc->theUUID) << std::endl;
 							}
 						}
-#endif		
+#endif // DISPLAY_BT_SERVICE_DETAILS
 
-						for (auto bts = BTServices.begin(); bts != BTServices.end(); bts++)
+						// Loop Through Govee services, request information on the handles. 
+						// I'm not storing or doing anything with this information right now, but the android app does it, so I'm repeating the sequence.
+						buf[0] = 0;
+						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
 						{
 							bt_uuid_t INTELLI_ROCKS_HW;
 							bt_uuid128_create(&INTELLI_ROCKS_HW, { 0x57, 0x48, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
 							if (bts->theUUID == INTELLI_ROCKS_HW)
 								for (auto btsc = bts->characteristics.begin(); btsc != bts->characteristics.end(); btsc++)
 								{
-									GATT_InformationPacket gatt_information = { BT_ATT_OP_FIND_INFO_REQ, btsc->ending_handle, btsc->ending_handle };
+									struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; } gatt_information = { BT_ATT_OP_FIND_INFO_REQ, btsc->ending_handle, btsc->ending_handle };
 									gatt_information.starting_handle++;
 									gatt_information.ending_handle++;
 									gatt_information.ending_handle++;
@@ -2270,8 +2310,52 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 													bt_uuid_t theUUID;
 													bt_uuid16_create(&theUUID, attribute_data->UUID);
 													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handle: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->handle;
-													std::cout << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+													std::cout << " UUID: " << bt_UUID_2_String(&theUUID);
+													std::cout << std::endl;
 												}
+											}
+										}
+									}
+								}
+						}
+
+						// This loops through and enables notification on each of the Govee service handles
+						buf[0] = 0;
+						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
+						{
+							bt_uuid_t INTELLI_ROCKS_HW;
+							bt_uuid128_create(&INTELLI_ROCKS_HW, { 0x57, 0x48, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
+							if (bts->theUUID == INTELLI_ROCKS_HW)
+								for (auto btsc = bts->characteristics.begin(); btsc != bts->characteristics.end(); btsc++)
+								{
+									struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[2]; } pkt = { BT_ATT_OP_WRITE_REQ, btsc->ending_handle, {0x01 ,0x00} };
+									pkt.handle++;
+									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+									std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
+									for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
+										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
+									std::cout << std::endl;
+									if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
+										buf[0] = BT_ATT_OP_ERROR_RSP;
+									else
+									{
+										auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+										if (-1 == bufDataLen)
+											buf[0] = BT_ATT_OP_ERROR_RSP;
+										else
+										{
+											if (buf[0] == BT_ATT_OP_WRITE_RSP)
+											{
+												std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+											}
+											else if (buf[0] == BT_ATT_OP_ERROR_RSP)
+											{
+												struct __attribute__((__packed__)) bt_error { uint8_t opcode; uint8_t req_opcode; uint16_t handle; uint8_t errcode; } * result = (bt_error*) & (buf[0]);
+												std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_ERROR_RSP";
+												std::cout << " Handle: " << std::hex << std::setw(4) << std::setfill('0') << result->handle;
+												std::cout << " Error: " << std::dec << result->errcode;
+												std::cout << std::endl;
+												buf[0] = 0; // this allows me to keep looping
 											}
 										}
 									}
@@ -2280,148 +2364,98 @@ void ConnectAndDownload(int BlueToothDevice_Handle, bdaddr_t GoveeBTAddress, tim
 
 						// The following while loop attempts to read from the non-blocking socket. 
 						// As long as the read call simply times out, we sleep for 100 microseconds and try again.
-						struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[2]; } pkt = { BT_ATT_OP_WRITE_REQ, 0x002e, {0x01 ,0x00} };
-						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] BT_ATT_OP_WRITE_REQ Handle: ";
-						std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
-						for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
-							std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
-						std::cout << std::endl;
-						if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
-							buf[0] = BT_ATT_OP_ERROR_RSP;
-						else
-						{
-							auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-							if (-1 == bufDataLen)
-								buf[0] = BT_ATT_OP_ERROR_RSP;
-							else
-							{
-								if (buf[0] == BT_ATT_OP_WRITE_RSP)
-								{
-								}
-							}
-						}
-
-						//struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } pkt = { BT_ATT_OP_WRITE_REQ, 0x002d, {0x33,0x01,0x27,0x81,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x96} };
-						struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } pkt2 = { BT_ATT_OP_WRITE_REQ, 0x0035, {0xaa,0x0e,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa4} };
-						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] BT_ATT_OP_WRITE_REQ Handle: ";
-						std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
-						for (auto index = 0; index < sizeof(pkt2.buf)/sizeof(pkt2.buf[0]); index++)
-							std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt2.buf[index]);
-						std::cout << std::endl;
-						send(l2cap_socket, &pkt2, sizeof(pkt2), 0);
-						int RetryCount = 50;
+						std::queue<GATT_WritePacket> WritePacketQueue;
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x0035, {0xaa,0x0e,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa4} });
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x0035, {0xaa,0x0e,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa4} });
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x0035, {0xaa,0x0d,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa7} });
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x0035, {0x33,0x10,0x59,0x77,0xaa,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa6} });
+						// For each of the above, I got both a write response and a handle notification from handle 0x0035
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x002d, {0x33,0x02,0x00,0x81,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x31} });
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x002d, {0x33,0x01,0x3d,0xee,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xe0} });
+						// For each of the above, I got both a write response and a handle notification from handle 0x002d
+						// then I get 89 notifications on handle 0x0031
+						// The first three handle 0x0031 packets have values:
+						// Value: 3dee021250020e67020e65020e65020e66020e66
+						// Value: 3de8020e68020e66020e66020e66020e65020e66
+						// Value: 3de2020e64020e6602124d02124f02124c020e5f
+						// I'm guessing that the last packet send a command 0x3301 followed by a starting address of 0x3dee and a finishing address of 0x0001
+						// I had data in my app from about 11 days ago, and if this data is stored in minute increments, 3dee = 15854, and 1584/60/24 = 11 days
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x002d, {0xaa,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xab} });
+						// After that, I got 6 more notifications, then a write response, and then 113 notifications
+						WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x002d, {0xaa,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xab} });
+						// After that, I got 5 more notifications, then a write response, and then 92 notifications
+						// This patern kept up with notifications on handle 0x0031 until the value counted down to zero.
+						// Here's the last three Value Notifications:
+						// Value: 000e016377016377016377016377016377016377
+						// Value: 0008016377016377016377016377016377016377
+						// Value: 0002016377015f8fffffffffffffffffffffffff
+						// Then there was a notification on handle 0x002d
+						// Value: ee010a53000000000000000000000000000000b6
+						// There were 2644 Notification packets on Handle 31, 
+						int RetryCount = 32;
 						while (bDownloadInProgress)
 						{
-							auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-							if (bufDataLen > 1)
+							auto pkt = WritePacketQueue.front();
+							if (!WritePacketQueue.empty())
 							{
-								//RetryCount = 50;
-								if (buf[0] == BT_ATT_OP_WRITE_RSP)
-									std::cout << "[-------------------] BT_ATT_OP_WRITE_RSP" << std::endl;
-								else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
+								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+								std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
+								for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
+									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
+								std::cout << std::endl;
+								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
 								{
-									//const HandleNotificationPacket* returnpkt = (HandleNotificationPacket*)(buf);
-									//std::cout << "[-------------------] BT_ATT_OP_HANDLE_VAL_NOT Handle: ";
-									//std::cout << std::hex << std::setfill('0') << std::setw(4) << returnpkt->handle << " Value: ";
-									//for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
-									//	std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(returnpkt->buf[index]);
-									//std::cout << std::endl;
+									buf[0] = BT_ATT_OP_ERROR_RSP;
+									bDownloadInProgress = false;
 								}
-#ifdef FOO
+								else
+									WritePacketQueue.pop();
+							}
+							if ((buf[0] != BT_ATT_OP_ERROR_RSP) && bDownloadInProgress)
+							{
+								auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+								if (bufDataLen > 1)
 								{
-									// At this point I should have an HCI Event in buf (hci_event_hdr)
-									hci_event_hdr* header = (hci_event_hdr*)(buf + 1);
-									if (header->evt == EVT_LE_META_EVENT)
+									RetryCount = 32; // if we got a response, reset the retry count
+									if (buf[0] == BT_ATT_OP_WRITE_RSP)
+										std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+									else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 									{
-										evt_le_meta_event* meta = (evt_le_meta_event*)(header + HCI_EVENT_HDR_SIZE);
-										if (meta->subevent == EVT_LE_CONN_COMPLETE)
+										std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+										struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+										std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+										if (data->handle == 0x0031)
 										{
-											evt_le_connection_complete* concomp = (evt_le_connection_complete*)(meta->data);
-											char metaaddr[19] = { 0 };
-											ba2str(&(concomp->peer_bdaddr), metaaddr);
-											std::cout << "[-------------------] EVT_LE_CONN_COMPLETE [" << metaaddr << "] Status(" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(concomp->status) << ") Handle(" << int(concomp->handle) << ")" << std::endl;
-											if (concomp->status == 0x00)
+											std::cout << " offset: " << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[0]) << std::setfill('0') << std::setw(2) << unsigned(data->value[1]);
+											for (auto index = 2; index < sizeof(data->value) / sizeof(data->value[0]); index += 3)
 											{
-												//handle = concomp->handle;
-												//if (handle != 0)
-												//{
-												//	// Bluetooth HCI Command - LE Read Remote Features
-												//	uint8_t features[8];
-												//	//if (hci_read_remote_features(BlueToothDevice_Handle, handle, features, timeout) != -1)
-												//	if (hci_le_read_remote_features(BlueToothDevice_Handle, handle, features, 2000) != -1)
-												//	{
-												//		// TODO: I think the lmp fumction below may leak memory with a malloc
-												//		// Commented out till I figure this out.
-												//		//std::string ssFeatures(lmp_featurestostr(features, "", 50));
-												//		//std::cout << "[" << getTimeISO8601() << "] Features: " << ssFeatures << std::endl;
-												//		std::cout << "[-------------------] Features: TODO: Fix this so it works!" << std::endl;
-												//	}
-												//	// Bluetooth HCI Command - Read Remote Version Information
-												//	struct hci_version ver;
-												//	if (hci_read_remote_version(BlueToothDevice_Handle, handle, &ver, 2000) != -1)
-												//	{
-												//		std::cout << "[-------------------] Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
-												//		std::cout << "[-------------------] Subversion: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
-												//		std::cout << "[-------------------] Manufacture: " << bt_compidtostr(ver.manufacturer) << std::endl;
-												//	}
-												//}
+												int iTemp = int(data->value[index]) << 16 | int(data->value[index + 1]) << 8 | int(data->value[index + 2]);
+												bool bNegative = iTemp & 0x800000;	// check sign bit
+												iTemp = iTemp & 0x7ffff;			// mask off sign bit
+												double Temperature = float(iTemp) / 10000.0;
+												double Humidity = float(iTemp % 1000) / 10.0;
+												if (bNegative)						// apply sign bit
+													Temperature = -1.0 * Temperature;
+												std::cout << " " << std::dec << Temperature;
+												std::cout << " " << std::dec << Humidity;
 											}
 										}
-										else if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
-										{
-											le_advertising_info* advrpt = (le_advertising_info*)(meta->data);
-											char metaaddr[19] = { 0 };
-											ba2str(&(advrpt->bdaddr), metaaddr);
-											std::cout << "[-------------------] EVT_LE_ADVERTISING_REPORT [" << metaaddr << "] evt_type(" << advrpt->evt_type << ")" << std::endl;
-										}
-										else if (meta->subevent == EVT_PHYSICAL_LINK_COMPLETE)
-										{
-											evt_physical_link_complete* ptr = (evt_physical_link_complete*)(meta->data);
-											std::cout << "[-------------------] EVT_PHYSICAL_LINK_COMPLETE Status(" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(ptr->status) << ") Handle(" << int(ptr->handle) << ")" << std::endl;
-											if (ptr->status == 0)
-												handle = ptr->handle;
-										}
 										else
-											std::cout << "[-------------------] EVT_LE_META_EVENT subevent(" << std::hex << int(meta->subevent) << ")" << std::endl;
-									}
-									else if (header->evt == EVT_CMD_COMPLETE)
-									{
-										evt_cmd_complete* ptr = (evt_cmd_complete*)(buf + (HCI_EVENT_HDR_SIZE + HCI_TYPE_LEN));
-										std::cout << "[-------------------] EVT_CMD_COMPLETE" << std::endl;
-
-									}
-									else if (header->evt == EVT_CMD_STATUS)
-									{
-										evt_cmd_status* ptr = (evt_cmd_status*)(buf + (HCI_EVENT_HDR_SIZE + HCI_TYPE_LEN));
-										std::cout << "[-------------------] EVT_CMD_STATUS" << std::endl;
-									}
-									else if (header->evt == EVT_DISCONN_COMPLETE)
-									{
-										evt_disconn_complete* ptr = (evt_disconn_complete*)(buf + (HCI_EVENT_HDR_SIZE + HCI_TYPE_LEN));
-										std::cout << "[-------------------] EVT_DISCONN_COMPLETE" << std::endl;
-										bDownloadInProgress = false;
-									}
-									else if (header->evt == EVT_READ_REMOTE_VERSION_COMPLETE)
-									{
-										std::cout << "[-------------------] EVT_READ_REMOTE_VERSION_COMPLETE" << std::endl;
-									}
-									else if (header->evt == EVT_NUM_COMP_PKTS)
-									{
-										std::cout << "[-------------------] EVT_NUM_COMP_PKTS" << std::endl;
+										{
+											std::cout << " Value: ";
+											for (auto index = 0; index < sizeof(data->value) / sizeof(data->value[0]); index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+										}
+										std::cout << std::endl;
 									}
 								}
-								else if (buf[0] == HCI_ACLDATA_PKT)
+								else
 								{
-									std::cout << "[-------------------] HCI_ACLDATA_PKT" << std::endl;
+									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Reading from device. RetryCount = " << std::dec << RetryCount << std::endl;
+									usleep(100000); // 1,000,000 = 1 second.
+									if (--RetryCount < 0)
+										bDownloadInProgress = false;
 								}
-#endif
-							}
-							else
-							{
-								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Reading from device. RetryCount = " << RetryCount << std::endl;
-								usleep(100000); // 1,000,000 = 1 second.
-								if (--RetryCount < 0)
-									bDownloadInProgress = false;
 							}
 						}
 						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Closing l2cap_socket" << std::endl;
