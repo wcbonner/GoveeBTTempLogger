@@ -15,14 +15,11 @@ deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/DEBIAN/
 	dpkg-deb --build GoveeBTTempLogger
 
 install-deb: deb
-	apt install ./GoveeBTTempLogger.deb
-
-#	apt install ./GoveeBTTempLogger_`grep Version: GoveeBTTempLogger/DEBIAN/control | awk '{print $$2}'`_`dpkg --print-architecture`.deb
+	apt install ./GoveeBTTempLogger_`grep Version: GoveeBTTempLogger/DEBIAN/control | awk '{print $$2}'`_`dpkg --print-architecture`.deb
 
 clean:
 	-rm -f uuid.o
 	-rm -rf GoveeBTTempLogger/usr/local/bin
-	-rm -f GoveeBTTempLogger.deb
 	git restore GoveeBTTempLogger/DEBIAN/control
 
 .PHONY: clean deb install-deb
