@@ -72,7 +72,7 @@ bluetooth.src == A4:C1:38:DC:CC:3D || bluetooth.dst == A4:C1:38:DC:CC:3D
 [2023-02-21T20:19:37] LocalName: WimPi4-Dev
 [2023-02-21T20:19:37] BlueTooth Address Filter: [E3:5E:CC:21:5C:0F]
 [2023-02-21T20:19:37] Scanning...
-[2023-02-21T20:20:21] 26 [E3:5E:CC:21:5C:0F] (Temp) 11.67°C (Humidity) 82.22% (Battery) 100% (GVH5074)
+[2023-02-21T20:20:21] 26 [E3:5E:CC:21:5C:0F] (Temp) 11.67Â°C (Humidity) 82.22% (Battery) 100% (GVH5074)
 [2023-02-21T20:20:21] Scanning Stopped
 [2023-02-21T20:20:22] [E3:5E:CC:21:5C:0F] hci_le_create_conn Return(0) handle (0040)
 [2023-02-21T20:20:22] [E3:5E:CC:21:5C:0F] Connected L2CAP LE connection on ATT channel: 4
@@ -727,7 +727,7 @@ I'm also writing a value to an unknown handle, in an attempt to get data returne
 [2023-02-21T20:20:47] 60 seconds or more have passed. Writing LOG Files
 [-------------------] [E3:5E:CC:21:5C:0F] 00:00:00
 GoveeBTTempLogger Version 2.20230221-1 Built on: Feb 21 2023 at 12:18:53 (exiting)
-w```
+```
  * UUID's are really important in the handshaking. [Service UUID: 494e54454c4c495f524f434b535f4857] and [UUID: 494e54454c4c495f524f434b535f2013] are associated with all of the data packets returned on Handle: 0x0031 that appear to be the historical data.
 
 # Bluetooth Capture Files
