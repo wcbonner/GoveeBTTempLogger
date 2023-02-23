@@ -1728,7 +1728,7 @@ const char* addr_type_name(const int dst_type)
 	}
 }
 #define ATT_CID 4
-
+#ifdef FOO
 /* Error codes for Error response PDU */
 #define ATT_ECODE_INVALID_HANDLE	0x01
 #define ATT_ECODE_READ_NOT_PERM		0x02
@@ -1857,6 +1857,7 @@ int att_write(int fd, const uint16_t handle, const void* buf, const int length)
 		return(result);
 	return(length);
 }
+#endif // FOO
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } GATT_DeclarationPacket;
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_WritePacket;
 class BlueToothServiceCharacteristic {public: uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; bt_uuid_t theUUID; };
@@ -2637,7 +2638,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 /////////////////////////////////////////////////////////////////////////////
 int LogFileTime = 60;
 int MinutesAverage = 5;
-bool DownloadData = false;
+int DaysBetweenDataDownload = 0;
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
@@ -2734,7 +2735,7 @@ int main(int argc, char **argv)
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
 		case 'd':
-			DownloadData = true;
+			DaysBetweenDataDownload = 14;
 			break;
 		case 's':
 			TempString = std::string(optarg);
@@ -2794,7 +2795,7 @@ int main(int argc, char **argv)
 			std::cout << "[                   ] titlemap: " << SVGTitleMapFilename << std::endl;
 			std::cout << "[                   ]     time: " << LogFileTime << std::endl;
 			std::cout << "[                   ]  average: " << MinutesAverage << std::endl;
-			std::cout << "[                   ] download: " << std::boolalpha << DownloadData << std::endl;
+			std::cout << "[                   ] download: " << DaysBetweenDataDownload << std::endl;
 		}
 	}
 	else
@@ -3125,7 +3126,7 @@ int main(int argc, char **argv)
 												}
 												if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 													std::cout << ConsoleOutLine.str() << std::endl;
-												if (DownloadData && AddressInGoveeSet)
+												if ((DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
 												{
 													int BatteryToRecord = 0;
 													auto RecentTemperature = GoveeTemperatures.find(info->bdaddr);
@@ -3138,7 +3139,7 @@ int main(int argc, char **argv)
 													time_t TimeNow;
 													time(&TimeNow);
 													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * 7)) // 1 Week
+													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 													{
 														bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
 														time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
