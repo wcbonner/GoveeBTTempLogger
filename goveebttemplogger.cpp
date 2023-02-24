@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230223-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230223-3 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2668,7 +2668,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 		if (ConsoleVerbosity > 0)
 			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Download from device. " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
 		else
-			std::cerr << "Download from device: [" << ba2string(GoveeBTAddress) << "]" << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
+			std::cerr << "Download from device: [" << ba2string(GoveeBTAddress) << "] " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
 		TimeDownloadStart -= static_cast<long>(60) * offset;
 	}
 	return(TimeDownloadStart);

@@ -127,5 +127,52 @@ The H5181, 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in ea
 (UUID) 5183 (Flags) 05 (Manu) 5DA1B401000101E40186076C2F660000 (Temp) 19°C (Temp) 121.34°C (Battery) 0% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: CB)
 ```
 
+## Download Details
+It has taken me a long time to get around to downloading data from the devices directly instead of purely listening for advertisments. The direct download method is nice because it can retrieve data accumulated while the listener was offline. 
+
+I have also run into problems recognizing advertisments. This has led to too much time experimenting with the method of scanning for bluetooth advertisments, primarily with the settings of ScanWindow and ScanInterval, but also with the difference between active scanning and passive scanning. 
+### Passive Scanning
+In this mode that program is doing excactly what you'd expect, listening for advertisments.
+### Active Scanning
+In this mode the bluetooth stack itself will attempt to connect to devices it recives advertisments from and retrieve more information. 
+### Scan Window vs Scan Interval
+For the longest time I've had fixed values set in my code for Scan Window and Scan Interval quickly being set to bt_ScanInterval(0x0012) bt_ScanWindow(0x0012) followed by bt_ScanInterval(0x1f40) bt_ScanWindow(0x1f40).
+The values are in increments of 0.625 msec. The First value was 11.25 msec, and the second value was  (5000 msec).
+Doing a bunch of reading I came across recommendations to use 40 msec and 30 msec, so I've tried bt_ScanInterval(64) and bt_ScanWindow(48). When it's set this way, I seem to get advertisments, but I'm not able to connect and download.
+
+
+Connections on bluetooth devices are all based on handles and UUIDs. There are some defined UUIDs that every bluetooth device is required to support, and then there are custom UUIDs. This listing came from a GVH5177. 
+```
+[-------------------] Service Handles: 0x0001..0x0007 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x12 UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[-------------------] Service Handles: 0x0008..0x000b UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x0009..0x000a Properties: 0x20 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000c..0x000e UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a50 (PnP ID)
+[-------------------] Service Handles: 0x000f..0x001b UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+[-------------------] Service Handles: 0x001c..0x001f UUID: 12190d0c-0b0a-0908-0706-050403020100
+[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 122b0d0c-0b0a-0908-0706-050403020100
+```
+**57485f53-4b43-4f52-5f49-4c4c45544e49** is the custom 128 bit UUID that all of the Govee thermometers seem to use for their primary service. If printed as an ascii string, it looks like this text backwards **INTELLI_ROCKS_HW**.  (**WH_SKCOR_ILLETNI**)
+
+**12205f53-4b43-4f52-5f49-4c4c45544e49** is the 128 bit UUID of the service characteristic that I write to enable download of data. It looks like the primary UUID except that the first two bytes are different. **INTELLI_ROCKS_**.  (**_SKCOR_ILLETNI**)
+
+Most of the devices hold 20 days of history. The GVH5177 and GVH5174 devices hald a month of data.
+```
+Feb 23 13:52:39 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:DC:CC:3D] 2023-02-03 13:52:00 2023-02-23 13:52:00 (28800)
+Feb 23 13:53:07 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:EC:0B:03] 2023-02-03 13:51:00 2023-02-23 13:52:00 (28801)
+Feb 23 13:53:40 WimPi4 goveebttemplogger[28158]: Download from device: [E3:5E:CC:21:5C:0F] 2023-02-03 13:53:00 2023-02-23 13:53:00 (28800)
+Feb 23 13:54:25 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:0D:3B:10] 2023-01-24 13:50:00 2023-02-23 13:53:00 (43203)
+Feb 23 13:55:28 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:D5:A3:3B] 2023-02-03 13:54:00 2023-02-23 13:54:00 (28800)
+Feb 23 13:56:14 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:65:A2:6A] 2023-02-03 13:52:00 2023-02-23 13:55:00 (28803)
+Feb 23 13:57:05 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:05:C7:A1] 2023-02-03 13:53:00 2023-02-23 13:56:00 (28803)
+Feb 23 13:58:00 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:13:AE:36] 2023-02-03 13:54:00 2023-02-23 13:57:00 (28803)
+```
+
 ## BTData directory contains Data Dumps
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App.
