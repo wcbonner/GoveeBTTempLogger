@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230302-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230302-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -125,37 +125,40 @@ std::string getTimeISO8601(void)
 }
 time_t ISO8601totime(const std::string & ISOTime)
 {
-	struct tm UTC;
-	UTC.tm_year = stoi(ISOTime.substr(0, 4)) - 1900;
-	UTC.tm_mon = stoi(ISOTime.substr(5, 2)) - 1;
-	UTC.tm_mday = stoi(ISOTime.substr(8, 2));
-	UTC.tm_hour = stoi(ISOTime.substr(11, 2));
-	UTC.tm_min = stoi(ISOTime.substr(14, 2));
-	UTC.tm_sec = stoi(ISOTime.substr(17, 2));
-	UTC.tm_gmtoff = 0;
-	UTC.tm_isdst = -1;
-	UTC.tm_zone = 0;
-#ifdef _MSC_VER
-	_tzset();
-	_get_daylight(&(UTC.tm_isdst));
-#endif
-# ifdef __USE_MISC
-	time_t timer = timegm(&UTC);	
-#else
-	time_t timer = mktime(&UTC);
-	timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
-#endif
-#ifdef _MSC_VER
-	long Timezone_seconds = 0;
-	_get_timezone(&Timezone_seconds);
-	timer -= Timezone_seconds;
-	int DST_hours = 0;
-	_get_daylight(&DST_hours);
-	long DST_seconds = 0;
-	_get_dstbias(&DST_seconds);
-	timer += DST_hours * DST_seconds;
-#else
-#endif
+	time_t timer(0);
+	if (ISOTime.length() >= 19)
+	{
+		struct tm UTC;
+		UTC.tm_year = stoi(ISOTime.substr(0, 4)) - 1900;
+		UTC.tm_mon = stoi(ISOTime.substr(5, 2)) - 1;
+		UTC.tm_mday = stoi(ISOTime.substr(8, 2));
+		UTC.tm_hour = stoi(ISOTime.substr(11, 2));
+		UTC.tm_min = stoi(ISOTime.substr(14, 2));
+		UTC.tm_sec = stoi(ISOTime.substr(17, 2));
+		UTC.tm_gmtoff = 0;
+		UTC.tm_isdst = -1;
+		UTC.tm_zone = 0;
+		#ifdef _MSC_VER
+		_tzset();
+		_get_daylight(&(UTC.tm_isdst));
+		#endif
+		#ifdef __USE_MISC
+		timer = timegm(&UTC);
+		#else
+		timer = mktime(&UTC);
+		timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
+		#endif
+		#ifdef _MSC_VER
+		long Timezone_seconds = 0;
+		_get_timezone(&Timezone_seconds);
+		timer -= Timezone_seconds;
+		int DST_hours = 0;
+		_get_daylight(&DST_hours);
+		long DST_seconds = 0;
+		_get_dstbias(&DST_seconds);
+		timer += DST_hours * DST_seconds;
+		#endif
+	}
 	return(timer);
 }
 // Microsoft Excel doesn't recognize ISO8601 format dates with the "T" seperating the date and time
@@ -849,7 +852,7 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 
 	return(NewFormatFileName);
 }
-bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap)
+bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap, std::map<bdaddr_t, time_t> &PersistenceData)
 {
 	bool rval = false;
 	if (!LogDirectory.empty())
@@ -868,6 +871,41 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 					}
 					LogFile.close();
 					rval = true;
+				}
+			}
+		}
+		if (!PersistenceData.empty())
+		{
+			if (ConsoleVerbosity > 0)
+				for (auto iter = PersistenceData.begin(); iter != PersistenceData.end(); iter++)
+					std::cout << "[-------------------] [" << ba2string(iter->first) << "] " << timeToISO8601(iter->second) << std::endl;
+			// If PersistenceData has updated information, write new data to file
+			std::string filename = LogDirectory + "/gvh-lastdownload.txt";
+			time_t MostRecentDownload(0);
+			for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
+				if (MostRecentDownload < it->second)
+					MostRecentDownload = it->second;
+			bool NewData(true);
+			struct stat64 StatBuffer;
+			StatBuffer.st_mtim.tv_sec = 0;
+			if (0 == stat64(filename.c_str(), &StatBuffer))
+			{
+				// compare the date of the file with the most recent data in the structure.
+				if (MostRecentDownload <= StatBuffer.st_mtim.tv_sec)
+					NewData = false;
+			}
+			if (NewData)
+			{
+				std::ofstream PersistenceFile(filename, std::ios_base::out | std::ios_base::trunc);
+				if (PersistenceFile.is_open())
+				{
+					for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
+						PersistenceFile << ba2string(it->first) << "\t" << timeToISO8601(it->second) << std::endl;
+					PersistenceFile.close();
+					struct utimbuf Persistut;
+					Persistut.actime = MostRecentDownload;
+					Persistut.modtime = MostRecentDownload;
+					utime(filename.c_str(), &Persistut);
 				}
 			}
 		}
@@ -1517,9 +1555,10 @@ void ReadLoggedData(void)
 			while ((dirp = readdir(dp)) != NULL)
 				if (DT_REG == dirp->d_type)
 				{
-					std::string filename = LogDirectory + "/" + std::string(dirp->d_name);
-					if ((filename.substr(LogDirectory.size(), 4) == "/gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
-						files.push_back(filename);
+					std::string filename(dirp->d_name);
+					if (filename != "gvh-lastdownload.txt")
+						if ((filename.substr(0, 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
+							files.push_back(LogDirectory + "/" + filename);
 				}
 			closedir(dp);
 			if (!files.empty())
@@ -2858,6 +2897,39 @@ int main(int argc, char **argv)
 		WriteAllSVG();
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
+	// Read Persistence Data about when the last connection and download of data was done as opposed to listening for advertisments
+	// We don't want to connect too often because it uses more battery on the device, but it's nice to have a more consistent 
+	// timeline of data occasionally.
+	if (!LogDirectory.empty())
+	{
+		std::string filename = LogDirectory + "/gvh-lastdownload.txt";
+		std::ifstream TheFile(filename);
+		if (TheFile.is_open())
+		{
+			std::string TheLine;
+			while (std::getline(TheFile, TheLine))
+			{
+				// rudimentary line checking. It's at least as long as the BT Address and has a Tab character
+				if ((TheLine.size() > 18) &&
+					(TheLine.find("\t") != std::string::npos))
+				{
+					char buffer[256];
+					if (TheLine.size() < sizeof(buffer))
+					{
+						TheLine.copy(buffer, TheLine.size());
+						buffer[TheLine.size()] = '\0';
+						std::string theAddress(strtok(buffer, "\t"));
+						std::string theDate(strtok(NULL, "\t"));
+						bdaddr_t TheBlueToothAddress({0});
+						str2ba(theAddress.c_str(), &TheBlueToothAddress);
+						GoveeLastDownload.insert(std::make_pair(TheBlueToothAddress, ISO8601totime(theDate)));
+					}
+				}
+			}
+			TheFile.close();
+		}
+	}
+	///////////////////////////////////////////////////////////////////////////////////////////////
 	int BlueToothDevice_ID;
 	if (ControllerAddress.empty())
 		BlueToothDevice_ID = hci_get_route(NULL);
@@ -3233,17 +3305,9 @@ int main(int argc, char **argv)
 								if (difftime(TimeNow, TimeStart) > LogFileTime)
 								{
 									if (ConsoleVerbosity > 0)
-									{
 										std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
-										for (auto iter = GoveeLastDownload.begin(); iter != GoveeLastDownload.end(); iter++)
-										{
-											char addr[19] = { 0 };
-											ba2str(&iter->first, addr);
-											std::cout << "[-------------------] [" << addr << "] " << timeToISO8601(iter->second) << std::endl;
-										}
-									}
 									TimeStart = TimeNow;
-									GenerateLogFile(GoveeTemperatures);
+									GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 									MonitorLoggedData();
 								}
 								if (difftime(TimeNow, TimeAdvertisment) > 3 * 60) // Hack to force scanning restart regularly
@@ -3264,7 +3328,7 @@ int main(int argc, char **argv)
 		signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
 		signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
 
-		GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
+		GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
 
 		if (ConsoleVerbosity > 0)
 		{
