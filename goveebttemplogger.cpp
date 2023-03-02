@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230223-3 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230302-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -371,7 +371,6 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			Humidity = HumidityMin = HumidityMax = std::atof(theHumidity.c_str());
 			std::string theBattery(strtok(NULL, "\t"));
 			Battery = std::atoi(theBattery.c_str());
-			Averages = 1;
 			char* theModel = strtok(NULL, "\t");
 			if (theModel != NULL)
 			{
@@ -398,6 +397,10 @@ Govee_Temp::Govee_Temp(const std::string & data)
 					index++;
 				}
 			}
+			time_t timeNow(0);
+			time(&timeNow);
+			if (Time <= timeNow) // Only validate data from the past.
+				Averages = 1;
 		}
 	}
 }
