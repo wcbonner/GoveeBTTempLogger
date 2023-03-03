@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230302-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230302-3 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -144,8 +144,12 @@ time_t ISO8601totime(const std::string & ISOTime)
 		#endif
 		#ifdef __USE_MISC
 		timer = timegm(&UTC);
+		if (timer == -1)
+			return(0);	// if timegm() returned an error value, leave time set at epoch
 		#else
 		timer = mktime(&UTC);
+		if (timer == -1)
+			return(0);	// if mktime() returned an error value, leave time set at epoch
 		timer -= timezone; // HACK: Works in my initial testing on the raspberry pi, but it's currently not DST
 		#endif
 		#ifdef _MSC_VER
