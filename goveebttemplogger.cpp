@@ -93,7 +93,7 @@ std::string timeToISO8601(const time_t & TheTime)
 {
 	std::ostringstream ISOTime;
 	struct tm UTC;
-	if (0 != gmtime_r(&TheTime, &UTC))
+	if (nullptr != gmtime_r(&TheTime, &UTC))
 	{
 		ISOTime.fill('0');
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
@@ -171,7 +171,7 @@ std::string timeToExcelDate(const time_t & TheTime)
 {
 	std::ostringstream ExcelDate;
 	struct tm UTC;
-	if (0 != gmtime_r(&TheTime, &UTC))
+	if (nullptr != gmtime_r(&TheTime, &UTC))
 	{
 		ExcelDate.fill('0');
 		ExcelDate << UTC.tm_year + 1900 << "-";
@@ -192,7 +192,7 @@ std::string timeToExcelLocal(const time_t& TheTime)
 {
 	std::ostringstream ExcelDate;
 	struct tm UTC;
-	if (0 != localtime_r(&TheTime, &UTC))
+	if (nullptr != localtime_r(&TheTime, &UTC))
 	{
 		ExcelDate.fill('0');
 		ExcelDate << UTC.tm_year + 1900 << "-";
@@ -756,8 +756,8 @@ bool ValidateDirectory(std::string& DirectoryName)
 	while ((!DirectoryName.empty()) && (DirectoryName.back() == '/'))
 		DirectoryName.pop_back();
 	// https://linux.die.net/man/2/stat
-	struct stat StatBuffer;
-	if (0 == stat(DirectoryName.c_str(), &StatBuffer))
+	struct stat64 StatBuffer;
+	if (0 == stat64(DirectoryName.c_str(), &StatBuffer))
 		if (S_ISDIR(StatBuffer.st_mode))
 		{
 			// https://linux.die.net/man/2/access
@@ -1143,10 +1143,10 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
-	const int SVGWidth = 500;
-	const int SVGHeight = 135;
-	const int FontSize = 12;
-	const int TickSize = 2;
+	const int SVGWidth(500);
+	const int SVGHeight(135);
+	const int FontSize(12);
+	const int TickSize(2);
 	int GraphWidth = SVGWidth - (FontSize * 5);
 	const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 	if (!TheValues.empty())
@@ -1643,9 +1643,7 @@ void WriteAllSVG()
 	for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 	{
 		const bdaddr_t TheAddress = it->first;
-		char addr[19] = { 0 };
-		ba2str(&TheAddress, addr);
-		std::string btAddress(addr);
+		std::string btAddress(ba2string(TheAddress));
 		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 			btAddress.erase(pos, 1);
 		std::string ssTitle(btAddress);
