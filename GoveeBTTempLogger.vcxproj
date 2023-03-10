@@ -124,6 +124,7 @@
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG;DISPLAY_BT_SERVICE_DETAILS</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -144,6 +145,9 @@
       <Command>
       </Command>
     </RemotePostBuildEvent>
+    <ClCompile>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>
@@ -152,6 +156,7 @@
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -159,6 +164,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
@@ -167,6 +175,7 @@
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -174,6 +183,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
     <Link>
@@ -182,6 +194,7 @@
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
@@ -189,6 +202,9 @@
       <LibraryDependencies>bluetooth</LibraryDependencies>
     </Link>
     <ClCompile />
+    <ClCompile>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

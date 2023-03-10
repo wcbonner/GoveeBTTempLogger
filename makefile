@@ -1,10 +1,11 @@
 CXX ?= g++
+CXXFLAGS += -std=c++17
 
 uuid.o: uuid.c uuid.h
 
 GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp uuid.o
 	mkdir -p $(shell dirname $@)
-	$(CXX) -Wno-psabi -O3 -std=c++11 $? -o$@ -lbluetooth
+	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth
 	sudo setcap 'cap_net_raw,cap_net_admin+eip' $@
 
 deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/DEBIAN/control GoveeBTTempLogger/usr/local/lib/systemd/system/goveebttemplogger.service
