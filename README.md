@@ -50,7 +50,7 @@ If the --svg option is not added to the command line, the program should continu
 Note: be sure to clone this repository before running below commands: git clone https://github.com/wcbonner/GoveeBTTempLogger.git
 
 ```sh
-sudo apt-get install bluetooth bluez libbluetooth-dev
+sudo apt-get install bluetooth bluez libbluetooth-dev dpkg-dev
 make deb
 sudo make install-deb
 ```
