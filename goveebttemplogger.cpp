@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230320-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230331-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -2585,9 +2585,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						// Then there was a notification on handle 0x002d
 						// Value: ee010a53000000000000000000000000000000b6
 						// There were 2644 Notification packets on Handle 31, 
-						int RetryCount = 4;
-						int NotificationCount = 0;
-						bool bDownloadInProgress = true;
+						int RetryCount(4);
+						int NotificationCount(0);
+						bool bDownloadInProgress(true);
 						while (bDownloadInProgress)
 						{
 							auto pkt = WritePacketQueue.front();
@@ -2641,7 +2641,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											}
 											if (ConsoleVerbosity > 1)
 												std::cout << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
-											for (auto index = 2; (index < sizeof(data->value) / sizeof(data->value[0]) && (offset > 0)); index += 3)
+											for (auto index = 2; (index < (bufDataLen - sizeof(uint8_t) - sizeof(uint16_t))) && (offset > 0); index += 3)
 											{
 												int iTemp = int(data->value[index]) << 16 | int(data->value[index + 1]) << 8 | int(data->value[index + 2]);
 												bool bNegative = iTemp & 0x800000;	// check sign bit
