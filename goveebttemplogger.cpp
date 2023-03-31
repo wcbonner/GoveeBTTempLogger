@@ -2147,9 +2147,9 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
 {
-	time_t TimeDownloadStart = 0;
-	uint16_t DataPointsRecieved = 0;
-	uint16_t offset = 0;
+	time_t TimeDownloadStart(0);
+	uint16_t DataPointsRecieved(0);
+	uint16_t offset(0);
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
 	socklen_t olen = sizeof(original_filter);
