@@ -279,23 +279,23 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 }
 #endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
 /////////////////////////////////////////////////////////////////////////////
-int ConsoleVerbosity = 1;
+int ConsoleVerbosity(1);
 std::string LogDirectory;	// If this remains empty, log Files are not created.
 std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
-int SVGBattery = 0; // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
-int SVGMinMax = 0; // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
-bool SVGFahrenheit = true;
+int SVGBattery(0); // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
+int SVGMinMax(0); // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
+bool SVGFahrenheit(true);
 std::string SVGTitleMapFilename;
 std::string SVGIndexFilename;
 // The following details were taken from https://github.com/oetiker/mrtg
-const size_t DAY_COUNT = 600;			/* 400 samples is 33.33 hours */
-const size_t WEEK_COUNT = 600;			/* 400 samples is 8.33 days */
-const size_t MONTH_COUNT = 600;			/* 400 samples is 33.33 days */
-const size_t YEAR_COUNT = 2 * 366;		/* 1 sample / day, 366 days, 2 years */
-const size_t DAY_SAMPLE = 5 * 60;		/* Sample every 5 minutes */
-const size_t WEEK_SAMPLE = 30 * 60;		/* Sample every 30 minutes */
-const size_t MONTH_SAMPLE = 2 * 60 * 60;/* Sample every 2 hours */
-const size_t YEAR_SAMPLE = 24 * 60 * 60;/* Sample every 24 hours */
+const size_t DAY_COUNT(600);			/* 400 samples is 33.33 hours */
+const size_t WEEK_COUNT(600);			/* 400 samples is 8.33 days */
+const size_t MONTH_COUNT(600);			/* 400 samples is 33.33 days */
+const size_t YEAR_COUNT(2 * 366);		/* 1 sample / day, 366 days, 2 years */
+const size_t DAY_SAMPLE(5 * 60);		/* Sample every 5 minutes */
+const size_t WEEK_SAMPLE(30 * 60);		/* Sample every 30 minutes */
+const size_t MONTH_SAMPLE(2 * 60 * 60);	/* Sample every 2 hours */
+const size_t YEAR_SAMPLE(24 * 60 * 60);	/* Sample every 24 hours */
 /////////////////////////////////////////////////////////////////////////////
 // Class I'm using for storing raw data from the Govee thermometers
 enum class ThermometerType 
@@ -2718,9 +2718,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	return(TimeDownloadStart);
 }
 /////////////////////////////////////////////////////////////////////////////
-int LogFileTime = 60;
-int MinutesAverage = 5;
-int DaysBetweenDataDownload = 0;
+int LogFileTime(60);
+int MinutesAverage(5);
+int DaysBetweenDataDownload(0);
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
