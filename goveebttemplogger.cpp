@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230331-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230403-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime)
 {
@@ -809,7 +809,7 @@ bool ValidateDirectory(std::string& DirectoryName)
 	return(rval);
 }
 // Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
-std::string GenerateLogFileName(const bdaddr_t &a)
+std::string GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 {
 	std::ostringstream OutputFilename;
 	OutputFilename << LogDirectory;
@@ -826,8 +826,8 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
 	OutputFilename << btAddress;
-	time_t timer;
-	time(&timer);
+	if (timer == 0)
+		time(&timer);
 	struct tm UTC;
 	if (0 != gmtime_r(&timer, &UTC))
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
@@ -2915,10 +2915,14 @@ int main(int argc, char **argv)
 	// timeline of data occasionally.
 	if (!LogDirectory.empty())
 	{
-		std::string filename = LogDirectory + "/gvh-lastdownload.txt";
+		std::string filename = LogDirectory + "/" + GVHLastDownloadFileName;
 		std::ifstream TheFile(filename);
 		if (TheFile.is_open())
 		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
+			else
+				std::cerr << "Reading: " << filename << std::endl;
 			std::string TheLine;
 			while (std::getline(TheFile, TheLine))
 			{
