@@ -733,6 +733,7 @@ bool operator ==(const bdaddr_t& a, const bdaddr_t& b)
 }
 /////////////////////////////////////////////////////////////////////////////
 std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_str); std::string rVal(addr_str); return(rVal); }
+bdaddr_t string2ba(const std::string& a) { std::string ssBTAddress(a); if (ssBTAddress.length() == 12)for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)ssBTAddress.insert(index, ":"); bdaddr_t TheBlueToothAddress({ 0 }); if (ssBTAddress.length() == 17)str2ba(ssBTAddress.c_str(), &TheBlueToothAddress); return(TheBlueToothAddress); }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
