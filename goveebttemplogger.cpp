@@ -736,6 +736,7 @@ std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_st
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
+const std::string GVHLastDownloadFileName("gvh-lastdownload.txt");
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -814,9 +815,17 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 	OutputFilename << LogDirectory;
 	if (LogDirectory.back() != '/')
 		OutputFilename << "/";
+	// Original version of filename was formatted gvh507x_XXXX with only last two bytes of bluetooth address
+	// Second version of filename was formatted gvh507x_XXXXXXXXXXXX with all six bytes of the bluetooth address
+	// Third version of filename is formatted gvh-XXXXXXXXXXXX because I've been tired of the 507x for the past two years (2023-04-03)
+	//OutputFilename << "gvh507x_";
+	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
+	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
 	OutputFilename << "gvh507x_";
-	OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
-	OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
+	std::string btAddress(ba2string(a));
+	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+		btAddress.erase(pos, 1);
+	OutputFilename << btAddress;
 	time_t timer;
 	time(&timer);
 	struct tm UTC;
@@ -831,12 +840,7 @@ std::string GenerateLogFileName(const bdaddr_t &a)
 	OutputFilename << LogDirectory;
 	if (LogDirectory.back() != '/')
 		OutputFilename << "/";
-	OutputFilename << "gvh507x_";
-	char addr[19] = { 0 };
-	ba2str(&a, addr);
-	std::string btAddress(addr);
-	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
-		btAddress.erase(pos, 1);
+	OutputFilename << "gvh-";
 	OutputFilename << btAddress;
 	if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
 		OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
@@ -884,7 +888,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				for (auto iter = PersistenceData.begin(); iter != PersistenceData.end(); iter++)
 					std::cout << "[-------------------] [" << ba2string(iter->first) << "] " << timeToISO8601(iter->second) << std::endl;
 			// If PersistenceData has updated information, write new data to file
-			std::string filename = LogDirectory + "/gvh-lastdownload.txt";
+			std::string filename = LogDirectory + "/" + GVHLastDownloadFileName;
 			time_t MostRecentDownload(0);
 			for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
 				if (MostRecentDownload < it->second)
@@ -1523,8 +1527,13 @@ void ReadLoggedData(const std::string & filename)
 		std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
 	else
 		std::cerr << "Reading: " << filename << std::endl;
+	std::string ssBTAddress;
 	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
-	std::string ssBTAddress(filename.substr(LogDirectory.length() + 9, 12));
+	auto pos = filename.rfind("gvh-");
+	if (pos != std::string::npos)
+		ssBTAddress = filename.substr(pos+4, 12);	// new filename format (2023-04-03)
+	else
+		ssBTAddress = filename.substr(LogDirectory.length() + 9, 12);	// old filname format
 	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
 		ssBTAddress.insert(index, ":");
 	bdaddr_t TheBlueToothAddress;
@@ -1560,9 +1569,10 @@ void ReadLoggedData(void)
 				if (DT_REG == dirp->d_type)
 				{
 					std::string filename(dirp->d_name);
-					if (filename != "gvh-lastdownload.txt")
-						if ((filename.substr(0, 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
-							files.push_back(LogDirectory + "/" + filename);
+					if (filename != GVHLastDownloadFileName)
+						if (SVGTitleMapFilename.find(filename) == std::string::npos)
+							if ((filename.substr(0, 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
+								files.push_back(LogDirectory + "/" + filename);
 				}
 			closedir(dp);
 			if (!files.empty())
@@ -2721,6 +2731,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 int LogFileTime(60);
 int MinutesAverage(5);
 int DaysBetweenDataDownload(0);
+const int MaxMinutesBetweenBluetoothAdvertisments(3);
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
@@ -3312,10 +3323,10 @@ int main(int argc, char **argv)
 									GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 									MonitorLoggedData();
 								}
-								if (difftime(TimeNow, TimeAdvertisment) > 3 * 60) // Hack to force scanning restart regularly
+								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
 								{
 									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments!" << std::endl;
+										std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
 									btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 								}
 							}
