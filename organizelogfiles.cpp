@@ -235,6 +235,39 @@ bool ValidateDirectory(std::string& DirectoryName)
 	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
+bool operator <(const bdaddr_t &a, const bdaddr_t &b)
+{
+	unsigned long long A = a.b[5];
+	A = A << 8 | a.b[4];
+	A = A << 8 | a.b[3];
+	A = A << 8 | a.b[2];
+	A = A << 8 | a.b[1];
+	A = A << 8 | a.b[0];
+	unsigned long long B = b.b[5];
+	B = B << 8 | b.b[4];
+	B = B << 8 | b.b[3];
+	B = B << 8 | b.b[2];
+	B = B << 8 | b.b[1];
+	B = B << 8 | b.b[0];
+	return(A < B);
+}
+bool operator ==(const bdaddr_t& a, const bdaddr_t& b)
+{
+	unsigned long long A = a.b[5];
+	A = A << 8 | a.b[4];
+	A = A << 8 | a.b[3];
+	A = A << 8 | a.b[2];
+	A = A << 8 | a.b[1];
+	A = A << 8 | a.b[0];
+	unsigned long long B = b.b[5];
+	B = B << 8 | b.b[4];
+	B = B << 8 | b.b[3];
+	B = B << 8 | b.b[2];
+	B = B << 8 | b.b[1];
+	B = B << 8 | b.b[0];
+	return(A == B);
+}
+/////////////////////////////////////////////////////////////////////////////
 std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_str); std::string rVal(addr_str); return(rVal); }
 bdaddr_t string2ba(const std::string& a) { std::string ssBTAddress(a);if (ssBTAddress.length() == 12)for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)ssBTAddress.insert(index, ":");bdaddr_t TheBlueToothAddress({ 0 });if (ssBTAddress.length() == 17)str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);return(TheBlueToothAddress); }
 /////////////////////////////////////////////////////////////////////////////
@@ -341,7 +374,9 @@ int main(int argc, char** argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	tzset();
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	if (!LogDirectory.empty())
+	if (LogDirectory.empty())
+		usage(argc, argv);
+	else
 	{
 		DIR* dp;
 		if ((dp = opendir(LogDirectory.c_str())) != NULL)
@@ -352,7 +387,8 @@ int main(int argc, char** argv)
 				if (DT_REG == dirp->d_type)
 				{
 					std::string filename(dirp->d_name); // gvh-E38EC8C1989A-2023-04.txt
-					if (filename.length() == 24)
+					// std::cout <<  filename << " length: " << filename.length() << std::endl;
+					if (filename.length() == 28)
 						if ((filename.substr(0, 4) == "gvh-") && (filename.substr(filename.size() - 4, 4) == ".txt"))
 							files.push_back(filename);
 				}
@@ -363,10 +399,10 @@ int main(int argc, char** argv)
 				std::map<bdaddr_t, std::vector<std::string>> LogFileData;
 				while (!files.empty())
 				{
-					std::cout << "Reading: " << *files.begin();
 					std::ifstream TheFile(*files.begin());
 					if (TheFile.is_open())
 					{
+						std::cout << "Reading: " << *files.begin();
 						int count(0);
 						std::string ssBTAddress(files.begin()->substr(4, 12));
 						bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
@@ -388,8 +424,8 @@ int main(int argc, char** argv)
 							std::cout << " Renamed " << *files.begin() << " to " << BackupName << std::endl;
 						else
 							std::cout << " Unable to Rename " << *files.begin() << " to " << BackupName << std::endl;
+						std::cout << std::endl;
 					}
-					std::cout << std::endl;
 					files.pop_front();
 				}
 				for (auto Device = LogFileData.begin(); Device != LogFileData.end(); Device++)
