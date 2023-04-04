@@ -399,10 +399,11 @@ int main(int argc, char** argv)
 				std::map<bdaddr_t, std::vector<std::string>> LogFileData;
 				while (!files.empty())
 				{
-					std::ifstream TheFile(*files.begin());
+					std::string FQFileName(LogDirectory + "/" + *files.begin());
+					std::ifstream TheFile(FQFileName);
 					if (TheFile.is_open())
 					{
-						std::cout << "Reading: " << *files.begin();
+						std::cout << "Reading: " << FQFileName;
 						int count(0);
 						std::string ssBTAddress(files.begin()->substr(4, 12));
 						bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
@@ -419,11 +420,11 @@ int main(int argc, char** argv)
 						}
 						std::cout << " (" << count << " lines)";
 						TheFile.close();
-						std::string BackupName(*files.begin()+".bak");
-						if (rename(files.begin()->c_str(), BackupName.c_str()) == 0)
-							std::cout << " Renamed " << *files.begin() << " to " << BackupName << std::endl;
+						std::string BackupName(FQFileName + ".bak");
+						if (rename(FQFileName.c_str(), BackupName.c_str()) == 0)
+							std::cout << " Renamed " << FQFileName << " to " << BackupName << std::endl;
 						else
-							std::cout << " Unable to Rename " << *files.begin() << " to " << BackupName << std::endl;
+							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName << std::endl;
 						std::cout << std::endl;
 					}
 					files.pop_front();
