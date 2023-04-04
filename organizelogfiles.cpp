@@ -405,7 +405,10 @@ int main(int argc, char** argv)
 					{
 						std::cout << "Reading: " << FQFileName;
 						int count(0);
-						std::string ssBTAddress(files.begin()->substr(4, 12));
+						std::string ssBTAddress;
+						auto pos = FQFileName.rfind("gvh-");
+						if (pos != std::string::npos)
+							ssBTAddress = FQFileName.substr(pos + 4, 12);	// new filename format (2023-04-03)
 						bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
 						std::vector<std::string> foo; // this is just a throwaway, so I can call the next line.
 						auto ret = LogFileData.insert(std::make_pair(TheBlueToothAddress, foo));
@@ -422,9 +425,9 @@ int main(int argc, char** argv)
 						TheFile.close();
 						std::string BackupName(FQFileName + ".bak");
 						if (rename(FQFileName.c_str(), BackupName.c_str()) == 0)
-							std::cout << " Renamed " << FQFileName << " to " << BackupName << std::endl;
+							std::cout << " Renamed " << FQFileName << " to " << BackupName;
 						else
-							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName << std::endl;
+							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName;
 						std::cout << std::endl;
 					}
 					files.pop_front();
