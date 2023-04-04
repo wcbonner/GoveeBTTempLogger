@@ -8,10 +8,10 @@ GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp uuid.o
 	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth
 	sudo setcap 'cap_net_raw,cap_net_admin+eip' $@
 
-GoveeBTTempLogger/usr/local/bin/organizelogfiles: organizelogfiles.cpp
+GoveeBTTempLogger/usr/local/bin/gvh-organizelogs: gvh-organizelogs.cpp
 	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth
 
-deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/usr/local/bin/organizelogfiles GoveeBTTempLogger/DEBIAN/control GoveeBTTempLogger/usr/local/lib/systemd/system/goveebttemplogger.service
+deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/usr/local/bin/gvh-organizelogs GoveeBTTempLogger/DEBIAN/control GoveeBTTempLogger/usr/local/lib/systemd/system/goveebttemplogger.service
 	# Set architecture for the resulting .deb to the actually built architecture
 	sed -i "s/Architecture: .*/Architecture: $(shell dpkg --print-architecture)/" GoveeBTTempLogger/DEBIAN/control
 	chmod a+x GoveeBTTempLogger/DEBIAN/postinst GoveeBTTempLogger/DEBIAN/postrm GoveeBTTempLogger/DEBIAN/prerm
