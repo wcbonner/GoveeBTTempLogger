@@ -35,6 +35,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <deque>
 #include <dirent.h>
 #include <fstream>
 #include <getopt.h>
@@ -49,7 +50,6 @@
 #include <sys/types.h>
 #include <unistd.h> // For close()
 #include <utime.h>
-#include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230403-3 Built on: " __DATE__ " at " __TIME__);
@@ -396,7 +396,7 @@ int main(int argc, char** argv)
 			if (!files.empty())
 			{
 				sort(files.begin(), files.end());
-				std::map<bdaddr_t, std::vector<std::string>> LogFileData;
+				std::map<bdaddr_t, std::deque<std::string>> LogFileData;
 				bdaddr_t LastBlueToothAddress({0});
 				while (!files.empty())
 				{
@@ -460,7 +460,7 @@ int main(int argc, char** argv)
 							}
 							LastBlueToothAddress = TheBlueToothAddress;
 						}
-						std::vector<std::string> foo; // this is just a throwaway, so I can call the next line.
+						std::deque<std::string> foo; // this is just a throwaway, so I can call the next line.
 						auto ret = LogFileData.insert(std::make_pair(TheBlueToothAddress, foo));
 						std::string TheLine;
 						while (std::getline(TheFile, TheLine))
