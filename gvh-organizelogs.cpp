@@ -25,6 +25,7 @@
 
 // This is an auxilary program used to occasionally clean up some issues 
 // with the GoveeBTTempLogger log files. 
+// For best results, run the program, delete the backup files created, run a second time, and delete the new backup files.
 
 #include <algorithm>
 #include <arpa/inet.h>
@@ -84,11 +85,11 @@ std::string timeToISO8601(const time_t& TheTime, const bool LocalTime = false)
 	}
 	return(ISOTime.str());
 }
-std::string getTimeISO8601(void)
+std::string getTimeISO8601(const bool LocalTime = false)
 {
 	time_t timer;
 	time(&timer);
-	std::string isostring(timeToISO8601(timer));
+	std::string isostring(timeToISO8601(timer, LocalTime));
 	std::string rval;
 	rval.assign(isostring.begin(), isostring.end());
 	return(rval);
@@ -359,7 +360,6 @@ int main(int argc, char** argv)
 			if (!files.empty())
 			{
 				sort(files.begin(), files.end());
-				std::map<bdaddr_t, std::deque<std::string>> LogFileData;
 				bdaddr_t LastBlueToothAddress({0});
 				while (!files.empty())
 				{
@@ -367,126 +367,78 @@ int main(int argc, char** argv)
 					std::ifstream TheFile(FQFileName);
 					if (TheFile.is_open())
 					{
-						std::cout << "Reading: " << FQFileName;
+						std::deque<std::string> DataLines;
+						std::cout << "[" << getTimeISO8601() << "] Reading: " << FQFileName;
 						int count(0);
 						std::string ssBTAddress;
 						auto pos = FQFileName.rfind("gvh-");
 						if (pos != std::string::npos)
 							ssBTAddress = FQFileName.substr(pos + 4, 12);	// new filename format (2023-04-03)
 						bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
-						if (!(TheBlueToothAddress == LastBlueToothAddress)) // this loop was added in an attempt to reduce memory requirements by only working on one device at a time.
-						{
-							auto Device = LogFileData.find(LastBlueToothAddress);
-							if (Device != LogFileData.end())
-							{
-								auto TheBlueToothAddress = Device->first;
-								auto DataLines = Device->second;
-								sort(DataLines.begin(), DataLines.end());
-								std::ofstream LogFile;
-								time_t TheTime(0), LastTime(0);
-								int LastYear(0), LastMonth(0);
-								std::string LastFileName;
-								int count(0);
-								for (auto TheLine = DataLines.begin(); TheLine != DataLines.end(); TheLine++)
-								{
-									TheTime = ISO8601totime(*TheLine);
-									struct tm UTC;
-									if (nullptr != gmtime_r(&TheTime, &UTC))
-									{
-										if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
-										{
-											LastYear = UTC.tm_year;
-											LastMonth = UTC.tm_mon;
-											if (LogFile.is_open())
-											{
-												std::cout << " (" << count << " lines)" << std::endl;
-												LogFile.close();
-											}
-											if (!LastFileName.empty())
-											{
-												struct utimbuf ut;
-												ut.actime = LastTime;
-												ut.modtime = LastTime;
-												utime(LastFileName.c_str(), &ut);
-											}
-											LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
-											LogFile.open(LastFileName, std::ios_base::out | std::ios_base::trunc);
-											std::cout << "Writing: " << LastFileName;
-										}
-										LogFile << *TheLine << std::endl;
-										LastTime = TheTime;
-										count++;
-									}
-								}
-								std::cout << " (" << count << " lines)" << std::endl;
-								LogFileData.erase(Device);
-							}
-							LastBlueToothAddress = TheBlueToothAddress;
-						}
-						std::deque<std::string> foo; // this is just a throwaway, so I can call the next line.
-						auto ret = LogFileData.insert(std::make_pair(TheBlueToothAddress, foo));
+						// Read All Data From Existing Log, removing nulls if possible
 						std::string TheLine;
 						while (std::getline(TheFile, TheLine))
 						{
 							// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
 							for (auto pos = TheLine.find('\000'); pos != std::string::npos; pos = TheLine.find('\000'))
 								TheLine.erase(pos);
-							ret.first->second.push_back(TheLine);
+							DataLines.push_back(TheLine);
 							count++;
 						}
 						std::cout << " (" << count << " lines)";
 						TheFile.close();
 						std::string BackupName(FQFileName + ".bak");
+						// Rename Existing Log to backup.
 						if (rename(FQFileName.c_str(), BackupName.c_str()) == 0)
-							std::cout << " Renamed " << FQFileName << " to " << BackupName;
-						else
-							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName;
-						std::cout << std::endl;
-					}
-					files.pop_front();
-				}
-				for (auto Device = LogFileData.begin(); Device != LogFileData.end(); Device++)
-				{
-					auto TheBlueToothAddress = Device->first;
-					auto DataLines = Device->second;
-					sort(DataLines.begin(), DataLines.end());
-					std::ofstream LogFile;
-					time_t TheTime(0), LastTime(0);
-					int LastYear(0), LastMonth(0);
-					std::string LastFileName;
-					int count(0);
-					for (auto TheLine = DataLines.begin(); TheLine != DataLines.end(); TheLine++)
-					{
-						TheTime = ISO8601totime(*TheLine);
-						struct tm UTC;
-						if (nullptr != gmtime_r(&TheTime, &UTC))
 						{
-							if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
+							std::cout << " Renamed " << FQFileName << " to " << BackupName << std::endl;
+							// Sort all Data
+							sort(DataLines.begin(), DataLines.end());
+							// Distribute Data to appropriate new Log Files
+							std::ofstream LogFile;
+							time_t TheTime(0), LastTime(0);
+							int LastYear(0), LastMonth(0);
+							std::string LastFileName;
+							while (!DataLines.empty())
 							{
-								LastYear = UTC.tm_year;
-								LastMonth = UTC.tm_mon;
-								if (LogFile.is_open())
+								auto TheLine(DataLines.begin());
+								TheTime = ISO8601totime(*TheLine);
+								struct tm UTC;
+								if (nullptr != gmtime_r(&TheTime, &UTC))
 								{
-									std::cout << " (" << count << " lines)" << std::endl;
-									LogFile.close();
+									if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
+									{
+										LastYear = UTC.tm_year;
+										LastMonth = UTC.tm_mon;
+										if (LogFile.is_open())
+										{
+											std::cout << " (" << count << " lines)" << std::endl;
+											LogFile.close();
+										}
+										if (!LastFileName.empty())
+										{
+											struct utimbuf ut;
+											ut.actime = LastTime;
+											ut.modtime = LastTime;
+											utime(LastFileName.c_str(), &ut);
+										}
+										LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
+										LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
+										std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
+										count = 0;
+									}
+									LogFile << *TheLine << std::endl;
+									LastTime = TheTime;
+									count++;
 								}
-								if (!LastFileName.empty())
-								{
-									struct utimbuf ut;
-									ut.actime = LastTime;
-									ut.modtime = LastTime;
-									utime(LastFileName.c_str(), &ut);
-								}
-								LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
-								LogFile.open(LastFileName, std::ios_base::out | std::ios_base::trunc);
-								std::cout << "Writing: " << LastFileName;
+								DataLines.pop_front();
 							}
-							LogFile << *TheLine << std::endl;
-							LastTime = TheTime;
-							count++;
+							std::cout << " (" << count << " lines)" << std::endl;
 						}
+						else
+							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName << std::endl;
+						files.pop_front();
 					}
-					std::cout << " (" << count << " lines)" << std::endl;
 				}
 			}
 		}

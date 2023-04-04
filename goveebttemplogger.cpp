@@ -118,11 +118,11 @@ std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 	}
 	return(ISOTime.str());
 }
-std::string getTimeISO8601(void)
+std::string getTimeISO8601(const bool LocalTime = false)
 {
 	time_t timer;
 	time(&timer);
-	std::string isostring(timeToISO8601(timer));
+	std::string isostring(timeToISO8601(timer, LocalTime));
 	std::string rval;
 	rval.assign(isostring.begin(), isostring.end());
 	return(rval);
