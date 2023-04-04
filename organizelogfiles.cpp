@@ -52,7 +52,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230403-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230403-3 Built on: " __DATE__ " at " __TIME__);
 std::string LogDirectory;
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t& TheTime)
@@ -397,6 +397,7 @@ int main(int argc, char** argv)
 			{
 				sort(files.begin(), files.end());
 				std::map<bdaddr_t, std::vector<std::string>> LogFileData;
+				bdaddr_t LastBlueToothAddress({0});
 				while (!files.empty())
 				{
 					std::string FQFileName(LogDirectory + "/" + *files.begin());
@@ -410,6 +411,55 @@ int main(int argc, char** argv)
 						if (pos != std::string::npos)
 							ssBTAddress = FQFileName.substr(pos + 4, 12);	// new filename format (2023-04-03)
 						bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
+						if (!(TheBlueToothAddress == LastBlueToothAddress)) // this loop was added in an attempt to reduce memory requirements by only working on one device at a time.
+						{
+							auto Device = LogFileData.find(LastBlueToothAddress);
+							if (Device != LogFileData.end())
+							{
+								auto TheBlueToothAddress = Device->first;
+								auto DataLines = Device->second;
+								sort(DataLines.begin(), DataLines.end());
+								std::ofstream LogFile;
+								time_t TheTime(0), LastTime(0);
+								int LastYear(0), LastMonth(0);
+								std::string LastFileName;
+								int count(0);
+								for (auto TheLine = DataLines.begin(); TheLine != DataLines.end(); TheLine++)
+								{
+									TheTime = ISO8601totime(*TheLine);
+									struct tm UTC;
+									if (nullptr != gmtime_r(&TheTime, &UTC))
+									{
+										if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
+										{
+											LastYear = UTC.tm_year;
+											LastMonth = UTC.tm_mon;
+											if (LogFile.is_open())
+											{
+												std::cout << " (" << count << " lines)" << std::endl;
+												LogFile.close();
+											}
+											if (!LastFileName.empty())
+											{
+												struct utimbuf ut;
+												ut.actime = LastTime;
+												ut.modtime = LastTime;
+												utime(LastFileName.c_str(), &ut);
+											}
+											LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
+											LogFile.open(LastFileName, std::ios_base::out | std::ios_base::trunc);
+											std::cout << "Writing: " << LastFileName;
+										}
+										LogFile << *TheLine << std::endl;
+										LastTime = TheTime;
+										count++;
+									}
+								}
+								std::cout << " (" << count << " lines)" << std::endl;
+								LogFileData.erase(Device);
+							}
+							LastBlueToothAddress = TheBlueToothAddress;
+						}
 						std::vector<std::string> foo; // this is just a throwaway, so I can call the next line.
 						auto ret = LogFileData.insert(std::make_pair(TheBlueToothAddress, foo));
 						std::string TheLine;
