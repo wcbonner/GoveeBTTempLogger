@@ -52,7 +52,7 @@
 #include <vector>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230403-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230403-2 Built on: " __DATE__ " at " __TIME__);
 std::string LogDirectory;
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t& TheTime)
@@ -448,7 +448,7 @@ int main(int argc, char** argv)
 						struct tm UTC;
 						if (nullptr != gmtime_r(&TheTime, &UTC))
 						{
-							if ((UTC.tm_year != LastYear) && (UTC.tm_mon != LastMonth))
+							if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
 							{
 								LastYear = UTC.tm_year;
 								LastMonth = UTC.tm_mon;
@@ -464,15 +464,16 @@ int main(int argc, char** argv)
 									ut.modtime = LastTime;
 									utime(LastFileName.c_str(), &ut);
 								}
-								LastTime = TheTime;
 								LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
 								LogFile.open(LastFileName, std::ios_base::out | std::ios_base::trunc);
 								std::cout << "Writing: " << LastFileName;
 							}
 							LogFile << *TheLine << std::endl;
+							LastTime = TheTime;
 							count++;
 						}
 					}
+					std::cout << " (" << count << " lines)" << std::endl;
 				}
 			}
 		}
