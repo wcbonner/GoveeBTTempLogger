@@ -55,6 +55,7 @@
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230404-1 Built on: " __DATE__ " at " __TIME__);
 std::string LogDirectory;
+std::string BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t& TheTime, const bool LocalTime = false)
 {
@@ -295,12 +296,14 @@ static void usage(int argc, char** argv)
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
+	std::cout << "    -b | --backup name   Backup Directory [" << BackupDirectory << "]" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:";
+static const char short_options[] = "hl:b:";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
+		{ "backup",    required_argument, NULL, 'b' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -328,6 +331,11 @@ int main(int argc, char** argv)
 			if (ValidateDirectory(TempString))
 				LogDirectory = TempString;
 			break;
+		case 'b':
+			TempString = std::string(optarg);
+			if (ValidateDirectory(TempString))
+				BackupDirectory = TempString;
+			break;
 		default:
 			usage(argc, argv);
 			exit(EXIT_FAILURE);
@@ -338,7 +346,7 @@ int main(int argc, char** argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	tzset();
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	if (LogDirectory.empty())
+	if (LogDirectory.empty() || BackupDirectory.empty())
 		usage(argc, argv);
 	else
 	{
@@ -364,6 +372,7 @@ int main(int argc, char** argv)
 				while (!files.empty())
 				{
 					std::string FQFileName(LogDirectory + "/" + *files.begin());
+					std::string BackupName(BackupDirectory + "/" + *files.begin());
 					std::ifstream TheFile(FQFileName);
 					if (TheFile.is_open())
 					{
@@ -387,7 +396,6 @@ int main(int argc, char** argv)
 						}
 						std::cout << " (" << count << " lines)";
 						TheFile.close();
-						std::string BackupName(FQFileName + ".bak");
 						// Rename Existing Log to backup.
 						if (rename(FQFileName.c_str(), BackupName.c_str()) == 0)
 						{
