@@ -52,14 +52,19 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230403-3 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230404-1 Built on: " __DATE__ " at " __TIME__);
 std::string LogDirectory;
 /////////////////////////////////////////////////////////////////////////////
-std::string timeToISO8601(const time_t& TheTime)
+std::string timeToISO8601(const time_t& TheTime, const bool LocalTime = false)
 {
 	std::ostringstream ISOTime;
 	struct tm UTC;
-	if (nullptr != gmtime_r(&TheTime, &UTC))
+	struct tm* timecallresult(nullptr);
+	if (LocalTime)
+		timecallresult = localtime_r(&TheTime, &UTC);
+	else
+		timecallresult = gmtime_r(&TheTime, &UTC);
+	if (nullptr != timecallresult)
 	{
 		ISOTime.fill('0');
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
@@ -86,7 +91,6 @@ std::string getTimeISO8601(void)
 	std::string isostring(timeToISO8601(timer));
 	std::string rval;
 	rval.assign(isostring.begin(), isostring.end());
-
 	return(rval);
 }
 time_t ISO8601totime(const std::string& ISOTime)
@@ -133,49 +137,8 @@ time_t ISO8601totime(const std::string& ISOTime)
 }
 // Microsoft Excel doesn't recognize ISO8601 format dates with the "T" seperating the date and time
 // This function puts a space where the T goes for ISO8601. The dates can be decoded with ISO8601totime()
-std::string timeToExcelDate(const time_t& TheTime)
-{
-	std::ostringstream ExcelDate;
-	struct tm UTC;
-	if (nullptr != gmtime_r(&TheTime, &UTC))
-	{
-		ExcelDate.fill('0');
-		ExcelDate << UTC.tm_year + 1900 << "-";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_mon + 1 << "-";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_mday << " ";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_hour << ":";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_min << ":";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_sec;
-	}
-	return(ExcelDate.str());
-}
-std::string timeToExcelLocal(const time_t& TheTime)
-{
-	std::ostringstream ExcelDate;
-	struct tm UTC;
-	if (nullptr != localtime_r(&TheTime, &UTC))
-	{
-		ExcelDate.fill('0');
-		ExcelDate << UTC.tm_year + 1900 << "-";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_mon + 1 << "-";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_mday << " ";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_hour << ":";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_min << ":";
-		ExcelDate.width(2);
-		ExcelDate << UTC.tm_sec;
-	}
-	return(ExcelDate.str());
-}
-/////////////////////////////////////////////////////////////////////////////
+std::string timeToExcelDate(const time_t& TheTime, const bool LocalTime = false) { std::string ExcelDate(timeToISO8601(TheTime, LocalTime)); ExcelDate.replace(10, 1, " "); return(ExcelDate); }
+std::string timeToExcelLocal(const time_t& TheTime) { return(timeToExcelDate(TheTime, true)); }/////////////////////////////////////////////////////////////////////////////
 bool ValidateDirectory(std::string& DirectoryName)
 {
 	bool rval = false;
