@@ -53,7 +53,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230404-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230405-1 Built on: " __DATE__ " at " __TIME__);
 std::string LogDirectory;
 std::string BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
@@ -407,37 +407,44 @@ int main(int argc, char** argv)
 							time_t TheTime(0), LastTime(0);
 							int LastYear(0), LastMonth(0);
 							std::string LastFileName;
+							std::string LastLine;
 							while (!DataLines.empty())
 							{
-								auto TheLine(DataLines.begin());
-								TheTime = ISO8601totime(*TheLine);
-								struct tm UTC;
-								if (nullptr != gmtime_r(&TheTime, &UTC))
+								if (DataLines.begin()->length() > 18)	// line is longer than an ISO8601 String
 								{
-									if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
+									if (0 != LastLine.compare(*DataLines.begin()))	// line is unique
 									{
-										LastYear = UTC.tm_year;
-										LastMonth = UTC.tm_mon;
-										if (LogFile.is_open())
+										TheTime = ISO8601totime(*DataLines.begin());
+										struct tm UTC;
+										if (nullptr != gmtime_r(&TheTime, &UTC))
 										{
-											std::cout << " (" << count << " lines)" << std::endl;
-											LogFile.close();
-											if (!LastFileName.empty())
+											if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
 											{
-												struct utimbuf ut;
-												ut.actime = LastTime;
-												ut.modtime = LastTime;
-												utime(LastFileName.c_str(), &ut);
+												LastYear = UTC.tm_year;
+												LastMonth = UTC.tm_mon;
+												if (LogFile.is_open())
+												{
+													std::cout << " (" << count << " lines)" << std::endl;
+													LogFile.close();
+													if (!LastFileName.empty())
+													{
+														struct utimbuf ut;
+														ut.actime = LastTime;
+														ut.modtime = LastTime;
+														utime(LastFileName.c_str(), &ut);
+													}
+												}
+												LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
+												LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
+												std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
+												count = 0;
 											}
+											LogFile << *DataLines.begin() << std::endl;
+											LastTime = TheTime;
+											count++;
 										}
-										LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
-										LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
-										std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
-										count = 0;
+										LastLine = *DataLines.begin();
 									}
-									LogFile << *TheLine << std::endl;
-									LastTime = TheTime;
-									count++;
 								}
 								DataLines.pop_front();
 							}
