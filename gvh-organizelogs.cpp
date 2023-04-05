@@ -422,13 +422,13 @@ int main(int argc, char** argv)
 										{
 											std::cout << " (" << count << " lines)" << std::endl;
 											LogFile.close();
-										}
-										if (!LastFileName.empty())
-										{
-											struct utimbuf ut;
-											ut.actime = LastTime;
-											ut.modtime = LastTime;
-											utime(LastFileName.c_str(), &ut);
+											if (!LastFileName.empty())
+											{
+												struct utimbuf ut;
+												ut.actime = LastTime;
+												ut.modtime = LastTime;
+												utime(LastFileName.c_str(), &ut);
+											}
 										}
 										LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
 										LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
@@ -442,6 +442,14 @@ int main(int argc, char** argv)
 								DataLines.pop_front();
 							}
 							std::cout << " (" << count << " lines)" << std::endl;
+							LogFile.close();
+							if (!LastFileName.empty())
+							{
+								struct utimbuf ut;
+								ut.actime = LastTime;
+								ut.modtime = LastTime;
+								utime(LastFileName.c_str(), &ut);
+							}
 						}
 						else
 							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName << std::endl;
