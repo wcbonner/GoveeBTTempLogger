@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230404-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230414-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -1996,11 +1996,11 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 	return(rVal);
 }
 // My command to stop and start bluetooth scanning
+uint8_t bt_ScanType(0x01);		// Scan Type: Active (0x01)
+// In passive scanning, the BLE module just listens to other node advertisements.
+// in active scanning the module will request more information once an advertisement is received, and the advertiser will answer with information like friendly name and supported profiles.
 int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdaddr_t>& BT_WhiteList)
 {
-	const uint8_t bt_ScanType(0x01);		// Scan Type: Active (0x01)
-	// In passive scanning, the BLE module just listens to other node advertisements.
-	// in active scanning the module will request more information once an advertisement is received, and the advertiser will answer with information like friendly name and supported profiles.
 	// For a long time my code set bt_ScanInterval(0x0012) bt_ScanWindow(0x0012) followed by bt_ScanInterval(0x1f40) bt_ScanWindow(0x1f40)
 	//const uint16_t bt_ScanInterval(18);	// Scan Interval: 18 (11.25 msec) (how long to wait between scans).
 	//const uint16_t bt_ScanWindow(18);	// Scan Window: 18 (11.25 msec) (how long to scan)
@@ -2717,9 +2717,10 @@ static void usage(int argc, char **argv)
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
+	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:s:i:T:cb:x:d";
+static const char short_options[] = "hl:t:v:m:o:C:a:s:i:T:cb:x:dp";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -2731,11 +2732,12 @@ static const struct option long_options[] = {
 		{ "average",required_argument, NULL, 'a' },
 		{ "svg",	required_argument, NULL, 's' },
 		{ "index",	required_argument, NULL, 'i' },
-		{ "titlemap",	required_argument, NULL, 'T' },
+		{ "titlemap",required_argument,NULL, 'T' },
 		{ "celsius",no_argument,       NULL, 'c' },
 		{ "battery",required_argument, NULL, 'b' },
 		{ "minmax",	required_argument, NULL, 'x' },
-		{ "download",no_argument,NULL, 'd' },
+		{ "download",no_argument,      NULL, 'd' },
+		{ "passive",no_argument,       NULL, 'p' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -2794,6 +2796,9 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			DaysBetweenDataDownload = 14;
+			break;
+		case 'p':
+			bt_ScanType = 0;
 			break;
 		case 's':
 			TempString = std::string(optarg);
