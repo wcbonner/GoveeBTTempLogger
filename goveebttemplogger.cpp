@@ -1573,9 +1573,9 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 			{
 				LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename << std::endl;
+					std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename.string() << std::endl;
 				else
-					std::cerr << "Reading: " << TitleMapFilename << std::endl;
+					std::cerr << "Reading: " << TitleMapFilename.string() << std::endl;
 				std::string TheLine;
 
 				static const std::string addressFormat("01:02:03:04:05:06");
@@ -2879,9 +2879,9 @@ int main(int argc, char **argv)
 		if (TheFile.is_open())
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
+				std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
 			else
-				std::cerr << "Reading: " << filename << std::endl;
+				std::cerr << "Reading: " << filename.string() << std::endl;
 			std::string TheLine;
 			while (std::getline(TheFile, TheLine))
 			{
