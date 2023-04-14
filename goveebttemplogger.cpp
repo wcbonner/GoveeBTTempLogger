@@ -63,7 +63,7 @@
 #include <cstdio>
 #include <cstring>
 #include <ctime>
-#include <dirent.h>
+#include <filesystem>
 #include <fstream>
 #include <getopt.h>
 #include <iomanip>
@@ -244,13 +244,13 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 #endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity(1);
-std::string LogDirectory;	// If this remains empty, log Files are not created.
-std::string SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
+std::filesystem::path LogDirectory;	// If this remains empty, log Files are not created.
+std::filesystem::path SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 int SVGBattery(0); // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
 int SVGMinMax(0); // 0x01 = Draw Temperature and Humiditiy Minimum and Maximum line on daily, 0x02 = on weekly, 0x04 = on monthly, 0x08 = on yearly
 bool SVGFahrenheit(true);
-std::string SVGTitleMapFilename;
-std::string SVGIndexFilename;
+std::filesystem::path SVGTitleMapFilename;
+std::filesystem::path SVGIndexFilename;
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT(600);			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT(600);			/* 400 samples is 8.33 days */
@@ -715,12 +715,9 @@ void SignalHandlerSIGHUP(int signal)
 	std::cerr << "***************** SIGHUP: Caught HangUp, finishing loop and quitting. *****************" << std::endl;
 }
 /////////////////////////////////////////////////////////////////////////////
-bool ValidateDirectory(std::string& DirectoryName)
+bool ValidateDirectory(const std::filesystem::path& DirectoryName)
 {
 	bool rval = false;
-	// I want to make sure the directory name does not end with a "/"
-	while ((!DirectoryName.empty()) && (DirectoryName.back() == '/'))
-		DirectoryName.pop_back();
 	// https://linux.die.net/man/2/stat
 	struct stat64 StatBuffer;
 	if (0 == stat64(DirectoryName.c_str(), &StatBuffer))
@@ -774,12 +771,9 @@ bool ValidateDirectory(std::string& DirectoryName)
 	return(rval);
 }
 // Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
-std::string GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
+std::filesystem::path GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 {
 	std::ostringstream OutputFilename;
-	OutputFilename << LogDirectory;
-	if (LogDirectory.back() != '/')
-		OutputFilename << "/";
 	// Original version of filename was formatted gvh507x_XXXX with only last two bytes of bluetooth address
 	// Second version of filename was formatted gvh507x_XXXXXXXXXXXX with all six bytes of the bluetooth address
 	// Third version of filename is formatted gvh-XXXXXXXXXXXX because I've been tired of the 507x for the past two years (2023-04-03)
@@ -798,29 +792,32 @@ std::string GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
 			OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
 	OutputFilename << ".txt";
-	std::string OldFormatFileName(OutputFilename.str());
+	std::filesystem::path OldFormatFileName(LogDirectory / OutputFilename.str());
 
 	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
 	OutputFilename.str("");
-	OutputFilename << LogDirectory;
-	if (LogDirectory.back() != '/')
-		OutputFilename << "/";
 	OutputFilename << "gvh-";
 	OutputFilename << btAddress;
 	if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
 		OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
 	OutputFilename << ".txt";
-	std::string NewFormatFileName(OutputFilename.str());
+	std::filesystem::path NewFormatFileName(LogDirectory / OutputFilename.str());
 
 	// This is a temporary hack to transparently change log file name formats
 	std::ifstream OldFile(OldFormatFileName);
 	if (OldFile.is_open())
 	{
 		OldFile.close();
-		if (rename(OldFormatFileName.c_str(), NewFormatFileName.c_str()) == 0)
+		try 
+		{ 
+			std::filesystem::rename(OldFormatFileName, NewFormatFileName);
 			std::cerr << "[                   ] Renamed " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
-		else 
+		}
+		catch (const std::filesystem::filesystem_error& ia)
+		{ 
+			std::cerr << "[                   ] " << ia.what() << std::endl;
 			std::cerr << "[                   ] Unable to Rename " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
+		}
 	}
 
 	return(NewFormatFileName);
@@ -853,7 +850,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				for (auto iter = PersistenceData.begin(); iter != PersistenceData.end(); iter++)
 					std::cout << "[-------------------] [" << ba2string(iter->first) << "] " << timeToISO8601(iter->second) << std::endl;
 			// If PersistenceData has updated information, write new data to file
-			std::string filename = LogDirectory + "/" + GVHLastDownloadFileName;
+			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
 			time_t MostRecentDownload(0);
 			for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
 				if (MostRecentDownload < it->second)
@@ -973,7 +970,7 @@ std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT a
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles; 
 enum class GraphType { daily, weekly, monthly, yearly};
 // Returns a curated vector of data points specific to the requested graph type read directly from a real MRTG log file on disk.
-void ReadMRTGData(const std::string& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
+void ReadMRTGData(const std::filesystem::path& MRTGLogFileName, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
 {
 	std::ifstream TheInFile(MRTGLogFileName);
 	if (TheInFile.is_open())
@@ -1109,7 +1106,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 // Interesting ideas about SVG and possible tools to look at: https://blog.usejournal.com/of-svg-minification-and-gzip-21cd26a5d007
 // Tools Mentioned: svgo gzthermal https://github.com/subzey/svg-gz-supplement/
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
-void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::string& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
+void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
 	// By declaring these items here, I'm then basing all my other dimensions on these
 	const int SVGWidth(500);
@@ -1486,7 +1483,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 	if (ZeroAccumulator)
 		FakeMRTGFile[1] = Govee_Temp();
 }
-void ReadLoggedData(const std::string & filename)
+void ReadLoggedData(const std::filesystem::path& filename)
 {
 	if (ConsoleVerbosity > 0)
 		std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
@@ -1494,11 +1491,11 @@ void ReadLoggedData(const std::string & filename)
 		std::cerr << "Reading: " << filename << std::endl;
 	std::string ssBTAddress;
 	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
-	auto pos = filename.rfind("gvh-");
+	auto pos = filename.stem().string().find("gvh-");
 	if (pos != std::string::npos)
-		ssBTAddress = filename.substr(pos+4, 12);	// new filename format (2023-04-03)
+		ssBTAddress = filename.stem().string().substr(4, 12);	// new filename format (2023-04-03)
 	else
-		ssBTAddress = filename.substr(LogDirectory.length() + 9, 12);	// old filname format
+		ssBTAddress = filename.stem().string().substr(9, 12);	// old filname format
 	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
 		ssBTAddress.insert(index, ":");
 	bdaddr_t TheBlueToothAddress;
@@ -1525,29 +1522,21 @@ void ReadLoggedData(void)
 {
 	if (!LogDirectory.empty())
 	{
-		DIR* dp;
-		if ((dp = opendir(LogDirectory.c_str())) != NULL)
+		std::deque<std::filesystem::path> files;
+		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
+			if (dir_entry.is_regular_file())
+				if (dir_entry.path() != GVHLastDownloadFileName)
+					if (dir_entry.path() != SVGTitleMapFilename)
+						if (dir_entry.path().extension() == ".txt")
+							if (dir_entry.path().string().substr(0, 3) == "gvh")
+								files.push_back(dir_entry);
+		if (!files.empty())
 		{
-			std::deque<std::string> files;
-			struct dirent* dirp;
-			while ((dirp = readdir(dp)) != NULL)
-				if (DT_REG == dirp->d_type)
-				{
-					std::string filename(dirp->d_name);
-					if (filename != GVHLastDownloadFileName)
-						if (SVGTitleMapFilename.find(filename) == std::string::npos)
-							if ((filename.substr(0, 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
-								files.push_back(LogDirectory + "/" + filename);
-				}
-			closedir(dp);
-			if (!files.empty())
+			sort(files.begin(), files.end());
+			while (!files.empty())
 			{
-				sort(files.begin(), files.end());
-				while (!files.empty())
-				{
-					ReadLoggedData(*files.begin());
-					files.pop_front();
-				}
+				ReadLoggedData(*files.begin());
+				files.pop_front();
 			}
 		}
 	}
@@ -1558,7 +1547,7 @@ void MonitorLoggedData(void)
 	{
 		for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 		{
-			std::string filename(GenerateLogFileName(it->first));
+			std::filesystem::path filename(GenerateLogFileName(it->first));
 			struct stat64 FileStat;
 			FileStat.st_mtim.tv_sec = 0;
 			if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
@@ -1568,7 +1557,7 @@ void MonitorLoggedData(void)
 		}
 	}
 }
-bool ReadTitleMap(const std::string& TitleMapFilename)
+bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 {
 	bool rval = false;
 	static time_t LastModified = 0;
@@ -1624,106 +1613,101 @@ void WriteAllSVG()
 		std::string ssTitle(btAddress);
 		if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
 			ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
+		std::filesystem::path OutputPath;
 		std::ostringstream OutputFilename;
 		OutputFilename.str("");
-		OutputFilename << SVGDirectory;
-		OutputFilename << "/gvh-";
+		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-day.svg";
+		OutputPath = SVGDirectory / OutputFilename.str();
 		std::vector<Govee_Temp> TheValues;
 		ReadMRTGData(TheAddress, TheValues, GraphType::daily);
-		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
+		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
 		OutputFilename.str("");
-		OutputFilename << SVGDirectory;
-		OutputFilename << "/gvh-";
+		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-week.svg";
+		OutputPath = SVGDirectory / OutputFilename.str();
 		ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
-		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
+		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
 		OutputFilename.str("");
-		OutputFilename << SVGDirectory;
-		OutputFilename << "/gvh-";
+		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-month.svg";
+		OutputPath = SVGDirectory / OutputFilename.str();
 		ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
-		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
+		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
 		OutputFilename.str("");
-		OutputFilename << SVGDirectory;
-		OutputFilename << "/gvh-";
+		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-year.svg";
+		OutputPath = SVGDirectory / OutputFilename.str();
 		ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
-		WriteSVG(TheValues, OutputFilename.str(), ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
+		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
 	}
 }
-void WriteSVGIndex(const std::string LogDirectory, const std::string SVGIndexFilename)
+void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesystem::path SVGIndexFilename)
 {
 	if (!LogDirectory.empty())
 	{
-		DIR* dp;
-		if ((dp = opendir(LogDirectory.c_str())) != NULL)
+		if (ConsoleVerbosity > 0)
+			std::cout << "[" << getTimeISO8601() << "] Reading: " << LogDirectory << std::endl;
+		std::set<std::string> files;
+		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
+			if (dir_entry.is_regular_file())
+				if (dir_entry.path() != GVHLastDownloadFileName)
+					if (dir_entry.path() != SVGTitleMapFilename)
+						if (dir_entry.path().extension() == ".txt")
+							if (dir_entry.path().string().substr(0, 3) == "gvh")
+							{
+								std::string ssBTAddress(dir_entry.path().stem().string().substr(4, 12));
+								files.insert(ssBTAddress);
+							}
+		if (!files.empty())
 		{
-			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Reading: " << LogDirectory << std::endl;
-			std::set<std::string> files;
-			struct dirent* dirp;
-			while ((dirp = readdir(dp)) != NULL)
-				if (DT_REG == dirp->d_type)
-				{
-					std::string filename = std::string(dirp->d_name);
-					if ((filename.substr(0, 3) == "gvh") && (filename.substr(filename.size() - 4, 4) == ".txt"))
-					{
-						std::string ssBTAddress(filename.substr(8, 12));
-						files.insert(ssBTAddress);
-					}
-				}
-			closedir(dp);
-			if (!files.empty())
+			std::ofstream SVGIndexFile(SVGIndexFilename);
+			if (SVGIndexFile.is_open())
 			{
-				std::ofstream SVGIndexFile(SVGIndexFilename);
-				if (SVGIndexFile.is_open())
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGIndexFilename << std::endl;
+				SVGIndexFile << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << std::endl;
+				SVGIndexFile << "<html>" << std::endl;
+				SVGIndexFile << "<head>" << std::endl;
+				SVGIndexFile << "\t<title>" << ProgramVersionString << "</title>" << std::endl;
+				SVGIndexFile << "\t<meta http-equiv=\"content-type\" content=\"text/html; charset=iso-8859-15\">" << std::endl;
+				SVGIndexFile << "\t<meta http-equiv=\"Refresh\" CONTENT=\"300\">" << std::endl;
+				SVGIndexFile << "\t<meta http-equiv=\"Cache-Control\" content=\"no-cache\">" << std::endl;
+				SVGIndexFile << "\t<meta http-equiv=\"Pragma\" CONTENT=\"no-cache\">" << std::endl;
+				SVGIndexFile << "\t<style type=\"text/css\">" << std::endl;
+				SVGIndexFile << "\t\tbody { color: black; }" << std::endl;
+				SVGIndexFile << "\t\t.image { float: left; position: relative; zoom: 85%; }" << std::endl;
+				SVGIndexFile << "\t\t@media only screen and (max-width: 980px) {" << std::endl;
+				SVGIndexFile << "\t\t\t.image { float: left; position: relative; zoom: 190%; }" << std::endl;
+				SVGIndexFile << "\t\t}" << std::endl;
+				SVGIndexFile << "\t</style>" << std::endl;
+				SVGIndexFile << "</head>" << std::endl;
+				SVGIndexFile << "<body>" << std::endl;
+				SVGIndexFile << "\t<div>" << std::endl;
+				SVGIndexFile << std::endl;
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Writing:";
+				for (auto ssBTAddress = files.begin(); ssBTAddress != files.end(); ssBTAddress++)
 				{
-					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGIndexFilename << std::endl;
-					SVGIndexFile << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << std::endl;
-					SVGIndexFile << "<html>" << std::endl;
-					SVGIndexFile << "<head>" << std::endl;
-					SVGIndexFile << "\t<title>" << ProgramVersionString << "</title>" << std::endl;
-					SVGIndexFile << "\t<meta http-equiv=\"content-type\" content=\"text/html; charset=iso-8859-15\">" << std::endl;
-					SVGIndexFile << "\t<meta http-equiv=\"Refresh\" CONTENT=\"300\">" << std::endl;
-					SVGIndexFile << "\t<meta http-equiv=\"Cache-Control\" content=\"no-cache\">" << std::endl;
-					SVGIndexFile << "\t<meta http-equiv=\"Pragma\" CONTENT=\"no-cache\">" << std::endl;
-					SVGIndexFile << "\t<style type=\"text/css\">" << std::endl;
-					SVGIndexFile << "\t\tbody { color: black; }" << std::endl;
-					SVGIndexFile << "\t\t.image { float: left; position: relative; zoom: 85%; }" << std::endl;
-					SVGIndexFile << "\t\t@media only screen and (max-width: 980px) {" << std::endl;
-					SVGIndexFile << "\t\t\t.image { float: left; position: relative; zoom: 190%; }" << std::endl;
-					SVGIndexFile << "\t\t}" << std::endl;
-					SVGIndexFile << "\t</style>" << std::endl;
-					SVGIndexFile << "</head>" << std::endl;
-					SVGIndexFile << "<body>" << std::endl;
-					SVGIndexFile << "\t<div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
 					SVGIndexFile << std::endl;
 					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601() << "] Writing:";
-					for (auto ssBTAddress = files.begin(); ssBTAddress != files.end(); ssBTAddress++)
-					{
-						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-						SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-						SVGIndexFile << std::endl;
-						if (ConsoleVerbosity > 0)
-							std::cout << " " << *ssBTAddress;
-					}
-					if (ConsoleVerbosity > 0)
-						std::cout << std::endl;
-					SVGIndexFile << "\t</div>" << std::endl;
-					SVGIndexFile << "</body>" << std::endl;
-					SVGIndexFile << "</html>" << std::endl;
-					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601() << "] Done" << std::endl;
+						std::cout << " " << *ssBTAddress;
 				}
+				if (ConsoleVerbosity > 0)
+					std::cout << std::endl;
+				SVGIndexFile << "\t</div>" << std::endl;
+				SVGIndexFile << "</body>" << std::endl;
+				SVGIndexFile << "</html>" << std::endl;
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Done" << std::endl;
 			}
 		}
 	}
@@ -2752,6 +2736,7 @@ int main(int argc, char **argv)
 	for (;;)
 	{
 		std::string TempString;
+		std::filesystem::path TempPath;
 		int idx;
 		int c = getopt_long(argc, argv, short_options, long_options, &idx);
 		if (-1 == c)
@@ -2765,9 +2750,11 @@ int main(int argc, char **argv)
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
 		case 'l':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				LogDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				TempPath = TempString;
 			break;
 		case 't':
 			try { LogFileTime = std::stoi(optarg); }
@@ -2801,18 +2788,20 @@ int main(int argc, char **argv)
 			bt_ScanType = 0;
 			break;
 		case 's':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				SVGDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				SVGDirectory = TempPath;
 			break;
 		case 'i':
-			TempString = std::string(optarg);
-			SVGIndexFilename = TempString;
+			TempPath = std::string(optarg);
+			SVGIndexFilename = TempPath;
 			break;
 		case 'T':
-			TempString = std::string(optarg);
-			if (ReadTitleMap(TempString))
-				SVGTitleMapFilename = TempString;
+			TempPath = std::string(optarg);
+			if (ReadTitleMap(TempPath))
+				SVGTitleMapFilename = TempPath;
 			break;
 		case 'c':
 			SVGFahrenheit = false;
@@ -2885,7 +2874,7 @@ int main(int argc, char **argv)
 	// timeline of data occasionally.
 	if (!LogDirectory.empty())
 	{
-		std::string filename = LogDirectory + "/" + GVHLastDownloadFileName;
+		std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
 		std::ifstream TheFile(filename);
 		if (TheFile.is_open())
 		{
