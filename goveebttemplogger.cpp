@@ -1486,9 +1486,9 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 void ReadLoggedData(const std::filesystem::path& filename)
 {
 	if (ConsoleVerbosity > 0)
-		std::cout << "[" << getTimeISO8601() << "] Reading: " << filename << std::endl;
+		std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
 	else
-		std::cerr << "Reading: " << filename << std::endl;
+		std::cerr << "Reading: " << filename.string() << std::endl;
 	std::string ssBTAddress;
 	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
 	auto pos = filename.stem().string().find("gvh-");
@@ -1525,10 +1525,10 @@ void ReadLoggedData(void)
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
-				if (dir_entry.path() != GVHLastDownloadFileName)
+				if (dir_entry.path().filename() != GVHLastDownloadFileName)
 					if (dir_entry.path() != SVGTitleMapFilename)
 						if (dir_entry.path().extension() == ".txt")
-							if (dir_entry.path().string().substr(0, 3) == "gvh")
+							if (dir_entry.path().stem().string().substr(0, 3) == "gvh")
 								files.push_back(dir_entry);
 		if (!files.empty())
 		{
@@ -2754,7 +2754,7 @@ int main(int argc, char **argv)
 			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
 				TempPath = TempPath.parent_path();
 			if (ValidateDirectory(TempPath))
-				TempPath = TempString;
+				LogDirectory = TempPath;
 			break;
 		case 't':
 			try { LogFileTime = std::stoi(optarg); }
