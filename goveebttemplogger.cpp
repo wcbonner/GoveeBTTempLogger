@@ -1129,9 +1129,9 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 			if (SVGFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGFileName << " With Title: " << Title << std::endl;
+					std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
 				else
-					std::cerr << "Writing: " << SVGFileName << " With Title: " << Title << std::endl;
+					std::cerr << "Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
 				std::ostringstream tempOString;
 				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << (Fahrenheit ? "°F)" : "°C)");
 				std::string YLegendTemperature(tempOString.str());
