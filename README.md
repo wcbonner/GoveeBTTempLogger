@@ -44,7 +44,7 @@ If the --svg option is not added to the command line, the program should continu
 
  * Kernel version 3.6 or above
  * ```libbluetooth-dev```
- * I started using the C++17 ```<filesystem>``` include file recently and the included routines don't seem to compile prior to Debian GNU/Linux 11 (bullseye) even though the C++17 features appear supported on prior releases. (Check your release with ```lsb_release -d```)
+ * I switched to the C++17 ```<filesystem>``` include file from the less portable ```<dirent.h>``` On April 14 2023 and the included routines don't seem to compile prior to Debian GNU/Linux 11 (bullseye) even though the C++17 features appear supported on prior releases. (Check your release with ```lsb_release -d```)
 
 #### Ubuntu/Debian/Raspbian
 
