@@ -44,13 +44,16 @@ If the --svg option is not added to the command line, the program should continu
 
  * Kernel version 3.6 or above
  * ```libbluetooth-dev```
+ * I started using the C++17 ```<filesystem>``` include file recently and the included routines don't seem to compile prior to Debian GNU/Linux 11 (bullseye) even though the C++17 features appear supported on prior releases. (Check your release with ```lsb_release -d```)
 
 #### Ubuntu/Debian/Raspbian
 
-Note: be sure to clone this repository before running below commands: git clone https://github.com/wcbonner/GoveeBTTempLogger.git
+Note: be sure to clone this repository.
 
 ```sh
-sudo apt-get install bluetooth bluez libbluetooth-dev dpkg-dev
+git clone https://github.com/wcbonner/GoveeBTTempLogger.git
+cd GoveeBTTempLogger
+sudo apt install bluetooth bluez libbluetooth-dev dpkg-dev
 make deb
 sudo make install-deb
 ```
