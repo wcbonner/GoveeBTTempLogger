@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230414-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230611-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -442,7 +442,10 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
 			bool bNegative = iTemp & 0x800000;	// check sign bit
 			iTemp = iTemp & 0x7ffff;			// mask off sign bit
-			Temperature[0] = float(iTemp) / 10000.0;
+			Temperature[0] = float(iTemp / 1000) / 10.0; // issue #49 fix. 
+			// After converting the hexadecimal number into decimal the first three digits are the 
+			// temperature and the last three digits are the humidity.So "03519e" converts to "217502" 
+			// which means 21.7 °C and 50.2 % humidity without any rounding.
 			if (bNegative)						// apply sign bit
 				Temperature[0] = -1.0 * Temperature[0];
 			Humidity = float(iTemp % 1000) / 10.0;
