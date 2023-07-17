@@ -53,7 +53,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230717-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230717-3 Built on: " __DATE__ " at " __TIME__);
 std::filesystem::path LogDirectory;
 std::filesystem::path BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
@@ -345,6 +345,8 @@ int main(int argc, char** argv)
 	std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << std::endl;
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	tzset();
+	std::locale mylocale("");   // get global locale
+	std::cout.imbue(mylocale);  // imbue global locale
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (LogDirectory.empty() || BackupDirectory.empty())
 		usage(argc, argv);
