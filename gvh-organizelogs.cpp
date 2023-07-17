@@ -53,7 +53,7 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230717-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230717-2 Built on: " __DATE__ " at " __TIME__);
 std::filesystem::path LogDirectory;
 std::filesystem::path BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
@@ -368,8 +368,7 @@ int main(int argc, char** argv)
 			while (!files.empty())
 			{
 				std::filesystem::path FQFileName(*files.begin());
-				std::filesystem::path BackupName(BackupDirectory);
-				BackupName.replace_filename(FQFileName.filename());
+				std::filesystem::path BackupName(BackupDirectory / FQFileName.filename());
 				BackupName.replace_extension(FQFileName.extension());
 				std::ifstream TheFile(FQFileName);
 				if (TheFile.is_open())
