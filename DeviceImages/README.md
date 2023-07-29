@@ -11,11 +11,15 @@ Powered by 2 AAA Batteries
 
 ## H5174
 ![image](h5174-phone.jpg) ![image](h5174.jpg)
-Powered by 3 AAA Batteries
+Powered by 3 AA Batteries
 
 ## H5177
 ![image](h5177-phone.jpg)
-Powered by 3 AAA Batteries
+Powered by 3 AA Batteries
+
+## H5179
+![image](h5179-phone.jpg)
+Powered by 3 AA Batteries
 
 ## H5182
 ![image](h5182-phone.jpg) ![image](h5182.jpg)
