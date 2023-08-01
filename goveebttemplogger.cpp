@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230611-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230801-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -408,6 +408,8 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 		Model = ThermometerType::H5177;
 	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
 		Model = ThermometerType::H5174;
+	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
+		Model = ThermometerType::H5179;
 	else if (0 == Name.substr(0, 8).compare("GVH5075_"))
 		Model = ThermometerType::H5075;
 	else if (0 == Name.substr(0, 12).compare("Govee_H5074_"))
@@ -467,6 +469,23 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Temperature[0] = float(iTemp) / 100.0;
 			Humidity = float(iHumidity) / 100.0;
 			Battery = int(data[9]);
+			Averages = 1;
+			time(&Time);
+			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
+			rval = true;
+		}
+		else if ((data_len == 12) && (data[2] == 0x01) && (data[3] == 0x88) && (data[4] == 0xEC)) // Govee_H5179
+		{
+			if (Model == ThermometerType::Unknown)
+				Model = ThermometerType::H5179;
+			// This is from data provided in https://github.com/wcbonner/GoveeBTTempLogger/issues/36
+			// 0188EC00 0101 2008 121B 64
+			// 2 3 4 5  6 7  8 9
+			short iTemp = short(data[9]) << 8 | short(data[8]);
+			int iHumidity = int(data[11]) << 8 | int(data[12]);
+			Temperature[0] = float(iTemp) / 100.0;
+			Humidity = float(iHumidity) / 100.0;
+			Battery = int(data[12]);
 			Averages = 1;
 			time(&Time);
 			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
