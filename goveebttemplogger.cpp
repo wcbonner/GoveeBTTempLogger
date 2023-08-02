@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230801-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230802-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -479,10 +479,10 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			if (Model == ThermometerType::Unknown)
 				Model = ThermometerType::H5179;
 			// This is from data provided in https://github.com/wcbonner/GoveeBTTempLogger/issues/36
-			// 0188EC00 0101 2008 121B 64
-			// 2 3 4 5  6 7  8 9
+			// 0188EC00 0101 3C0A 1E19 64 (Temp) 26.2°C (Humidity) 65% (Battery) 100% (GVH5179)
+			// 2 3 4 5  6 7  8 9  1011 12
 			short iTemp = short(data[9]) << 8 | short(data[8]);
-			int iHumidity = int(data[11]) << 8 | int(data[12]);
+			int iHumidity = int(data[11]) << 8 | int(data[10]);
 			Temperature[0] = float(iTemp) / 100.0;
 			Humidity = float(iHumidity) / 100.0;
 			Battery = int(data[12]);
