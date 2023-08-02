@@ -479,7 +479,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			if (Model == ThermometerType::Unknown)
 				Model = ThermometerType::H5179;
 			// This is from data provided in https://github.com/wcbonner/GoveeBTTempLogger/issues/36
-			// 0188EC00 0101 3C0A 1E19 64 (Temp) 26.2°C (Humidity) 65% (Battery) 100% (GVH5179)
+			// 0188EC00 0101 0A0A B018 64 (Temp) 25.7°C (Humidity) 63.2% (Battery) 100% (GVH5179)
 			// 2 3 4 5  6 7  8 9  1011 12
 			short iTemp = short(data[9]) << 8 | short(data[8]);
 			int iHumidity = int(data[11]) << 8 | int(data[10]);
