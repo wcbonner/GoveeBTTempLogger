@@ -9,6 +9,10 @@ Powered by 1 CR2477 cell battery
 ![image](h5075-phone.jpg) ![image](h5075.jpg)
 Powered by 2 AAA Batteries
 
+## H5100
+![image](h5100-phone.jpg)
+Powered by 1 AAA Battery
+
 ## H5174
 ![image](h5174-phone.jpg)
 Powered by 3 AA Batteries

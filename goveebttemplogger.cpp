@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230802-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230830-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -267,6 +267,7 @@ enum class ThermometerType
 	Unknown = 0,
 	H5074 = 5074, 
 	H5075 = 5075, 
+	H5100 = 5100,
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
@@ -406,6 +407,8 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 	ThermometerType rval = Model;
 	if (0 == Name.substr(0, 8).compare("GVH5177_"))
 		Model = ThermometerType::H5177;
+	else if (0 == Name.substr(0, 8).compare("GVH5100_"))
+		Model = ThermometerType::H5100;
 	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
 		Model = ThermometerType::H5174;
 	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
@@ -491,7 +494,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 			rval = true;
 		}
-		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx or GVH5174_xxxx
+		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx or GVH5174_xxxx or GVH5100_xxxx
 		{
 			// This is a guess based on the H5075 3 byte encoding
 			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
@@ -3191,6 +3194,9 @@ int main(int argc, char **argv)
 																			break;
 																		case ThermometerType::H5075:
 																			ConsoleOutLine << " (GVH5075)";
+																			break;
+																		case ThermometerType::H5100:
+																			ConsoleOutLine << " (GVH5100)";
 																			break;
 																		case ThermometerType::H5174:
 																			ConsoleOutLine << " (GVH5174)";
