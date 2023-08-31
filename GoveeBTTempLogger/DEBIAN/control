@@ -1,5 +1,5 @@
 Package: GoveeBTTempLogger
-Version: 2.20230830-2
+Version: 2.20230831-1
 Section: custom
 Priority: optional
 Architecture: armhf

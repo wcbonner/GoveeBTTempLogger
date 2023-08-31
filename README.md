@@ -107,6 +107,9 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -c (--celsius) SVG output using degrees C
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
+ * -d (--download) Periodically attempt to connect and download stored data
+ * -p (--passive) Bluetooth LE Passive Scanning
+ * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
 
  ## Log File Format
 

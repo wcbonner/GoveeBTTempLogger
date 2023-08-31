@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230830-2 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230831-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -244,6 +244,7 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 #endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity(1);
+bool UseBluetooth(true);
 std::filesystem::path LogDirectory;	// If this remains empty, log Files are not created.
 std::filesystem::path SVGDirectory;	// If this remains empty, SVG Files are not created. If it's specified, _day, _week, _month, and _year.svg files are created for each bluetooth address seen.
 int SVGBattery(0); // 0x01 = Draw Battery line on daily, 0x02 = Draw Battery line on weekly, 0x04 = Draw Battery line on monthly, 0x08 = Draw Battery line on yearly
@@ -738,6 +739,11 @@ void SignalHandlerSIGHUP(int signal)
 {
 	bRun = false;
 	std::cerr << "***************** SIGHUP: Caught HangUp, finishing loop and quitting. *****************" << std::endl;
+}
+void SignalHandlerSIGALRM(int signal)
+{
+	if (ConsoleVerbosity > 0)
+		std::cout << "[" << getTimeISO8601() << "] ***************** SIGALRM: Caught Alarm. *****************" << std::endl;
 }
 /////////////////////////////////////////////////////////////////////////////
 bool ValidateDirectory(const std::filesystem::path& DirectoryName)
@@ -1566,7 +1572,7 @@ void ReadLoggedData(void)
 		}
 	}
 }
-void MonitorLoggedData(void)
+void MonitorLoggedData(const int SecondsRecent = 35*60)
 {
 	if (!LogDirectory.empty())
 	{
@@ -1577,7 +1583,7 @@ void MonitorLoggedData(void)
 			FileStat.st_mtim.tv_sec = 0;
 			if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 				if (!it->second.empty())
-					if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (35 * 60)))	// only read the file if it's at least thirty five minutes more recent than existing data
+					if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (SecondsRecent)))	// only read the file if it's at least thirty five minutes more recent than existing data
 						ReadLoggedData(filename);
 		}
 	}
@@ -2727,9 +2733,10 @@ static void usage(int argc, char **argv)
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
+	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:s:i:T:cb:x:dp";
+static const char short_options[] = "hl:t:v:m:o:C:a:s:i:T:cb:x:dpn";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -2747,6 +2754,7 @@ static const struct option long_options[] = {
 		{ "minmax",	required_argument, NULL, 'x' },
 		{ "download",no_argument,      NULL, 'd' },
 		{ "passive",no_argument,       NULL, 'p' },
+		{ "no-bluetooth",no_argument,  NULL, 'n' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -2808,6 +2816,9 @@ int main(int argc, char **argv)
 			break;
 		case 'd':
 			DaysBetweenDataDownload = 14;
+			break;
+		case 'n':
+			UseBluetooth = false;
 			break;
 		case 'p':
 			bt_ScanType = 0;
@@ -2931,432 +2942,461 @@ int main(int argc, char **argv)
 		}
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	int BlueToothDevice_ID;
-	if (ControllerAddress.empty())
-		BlueToothDevice_ID = hci_get_route(NULL);
-	else
-		BlueToothDevice_ID = hci_devid(ControllerAddress.c_str());
-	if (BlueToothDevice_ID < 0)
-		std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
-	else
+	if (UseBluetooth)
 	{
-		// Set up CTR-C signal handler
-		typedef void(*SignalHandlerPointer)(int);
-		SignalHandlerPointer previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
-		SignalHandlerPointer previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
-
-		// 2022-12-26: I came across information tha signal() is bad and I shoudl be using sigaction() instead
-		// example of signal() https://www.gnu.org/software/libc/manual/html_node/Basic-Signal-Handling.html#Basic-Signal-Handling
-		// example of sigaction() https://www.gnu.org/software/libc/manual/html_node/Sigaction-Function-Example.html
-		//struct sigaction new_action, old_action;
-		//new_action.sa_handler = SignalHandlerSIGINT;
-		//sigemptyset(&new_action.sa_mask);
-		//new_action.sa_flags = 0;
-		//sigaction(SIGINT, NULL, &old_action);
-
-		int BlueToothDevice_Handle = hci_open_dev(BlueToothDevice_ID);
-		if (BlueToothDevice_Handle < 0)
-			std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
+		int BlueToothDevice_ID;
+		if (ControllerAddress.empty())
+			BlueToothDevice_ID = hci_get_route(NULL);
+		else
+			BlueToothDevice_ID = hci_devid(ControllerAddress.c_str());
+		if (BlueToothDevice_ID < 0)
+			std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
 		else
 		{
-			int on = 1; // Nonblocking on = 1, off = 0;
-			if (ioctl(BlueToothDevice_Handle, FIONBIO, (char*)&on) < 0)
-				std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
+			// Set up CTR-C signal handler
+			typedef void(*SignalHandlerPointer)(int);
+			SignalHandlerPointer previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
+			SignalHandlerPointer previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
+
+			// 2022-12-26: I came across information tha signal() is bad and I shoudl be using sigaction() instead
+			// example of signal() https://www.gnu.org/software/libc/manual/html_node/Basic-Signal-Handling.html#Basic-Signal-Handling
+			// example of sigaction() https://www.gnu.org/software/libc/manual/html_node/Sigaction-Function-Example.html
+			//struct sigaction new_action, old_action;
+			//new_action.sa_handler = SignalHandlerSIGINT;
+			//sigemptyset(&new_action.sa_mask);
+			//new_action.sa_flags = 0;
+			//sigaction(SIGINT, NULL, &old_action);
+
+			int BlueToothDevice_Handle = hci_open_dev(BlueToothDevice_ID);
+			if (BlueToothDevice_Handle < 0)
+				std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 			else
 			{
-				char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
-				hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, bt_TimeOut);
+				int on = 1; // Nonblocking on = 1, off = 0;
+				if (ioctl(BlueToothDevice_Handle, FIONBIO, (char*)&on) < 0)
+					std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
+				else
+				{
+					char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
+					hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, bt_TimeOut);
 
-				if (ConsoleVerbosity > 0)
-				{
-					if (!ControllerAddress.empty())
-						std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
-					std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
-					if (BT_WhiteList.empty())
-						std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter" << std::endl;
-					else
+					if (ConsoleVerbosity > 0)
 					{
-						std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
-						for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
-							std::cout << " [" << ba2string(*iter) << "]";
-						std::cout << std::endl;
-					}
-				}
-				auto btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
-				if (btRVal >= 0)
-				{
-					// Save the current HCI filter (Host Controller Interface)
-					struct hci_filter original_filter;
-					socklen_t olen = sizeof(original_filter);
-					if (0 == getsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, &olen))
-					{
-						// Create and set the new filter
-						struct hci_filter new_filter;
-						hci_filter_clear(&new_filter);
-						hci_filter_set_ptype(HCI_EVENT_PKT, &new_filter);
-						hci_filter_set_event(EVT_LE_META_EVENT, &new_filter);
-						if (setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter)) < 0)
-							std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
+						if (!ControllerAddress.empty())
+							std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
+						std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
+						if (BT_WhiteList.empty())
+							std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter" << std::endl;
 						else
 						{
-							bRun = true;
-							time_t TimeStart(0), TimeSVG(0), TimeAdvertisment(0);
-							time(&TimeStart);
-							while (bRun)
-							{
-								unsigned char buf[HCI_MAX_EVENT_SIZE];
-
-								// This select() call coming up will sit and wait until until the socket read would return something that's not EAGAIN/EWOULDBLOCK
-								// But first we need to set a timeout -- we need to do this every time before we call select()
-								struct timeval select_timeout = { 60, 0 };	// 60 second timeout, 0 microseconds
-								// and reset the value of check_set, since that's what will tell us what descriptors were ready
-								// Set up the file descriptor set that select() will use
-								fd_set check_set;
-								FD_ZERO(&check_set);
-								FD_SET(BlueToothDevice_Handle, &check_set);
-								// This will block until either a read is ready (i.e. won’t return EWOULDBLOCK) -1 on error, 0 on timeout, otherwise number of FDs changed
-								if (0 < select(BlueToothDevice_Handle + 1, &check_set, NULL, NULL, &select_timeout))	// returns number of handles ready to read. 0 or negative indicate other than good data to read.
-								{
-									// We got data ready to read, check and make sure it's the right descriptor, just as a sanity check (it shouldn't be possible ot get anything else)
-									if (FD_ISSET(BlueToothDevice_Handle, &check_set))
-									{
-										// okay, if we made it this far, we can read our descriptor, and shouldn't get EAGAIN. Ideally, the right way to process this is 'read in a loop
-										// until you get EAGAIN and then go back to select()', but worst case is that you don't read everything availableand select() immediately returns, so not
-										// a *huge* deal just doing one read and then back to select, here.
-										ssize_t bufDataLen = read(BlueToothDevice_Handle, buf, sizeof(buf));
-										if (bufDataLen > HCI_MAX_EVENT_SIZE)
-											std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
-										if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
-										{
-											if (ConsoleVerbosity > 3)
-												std::cout << "[" << getTimeISO8601() << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
-											std::ostringstream ConsoleOutLine;
-											ConsoleOutLine << "[" << getTimeISO8601() << "]" << std::setw(3) << bufDataLen;
-
-											// At this point I should have an HCI Event in buf (hci_event_hdr)
-											evt_le_meta_event* meta = (evt_le_meta_event*)(buf + (HCI_EVENT_HDR_SIZE + 1));
-											if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
-											{
-												time(&TimeAdvertisment);
-												const le_advertising_info* const info = (le_advertising_info*)(meta->data + 1);
-												bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
-												char addr[19] = { 0 };
-												ba2str(&info->bdaddr, addr);
-												ConsoleOutLine << " [" << addr << "]";
-												std::string localName;
-												if (ConsoleVerbosity > 2)
-												{
-													ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
-													ConsoleOutLine << " (evt_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->evt_type);
-												}
-												if (ConsoleVerbosity > 8)
-												{
-													std::cout << "[                   ]";
-													for (auto index = 0; index < bufDataLen; index++)
-														std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
-													std::cout << std::endl;
-													std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length (bytes following)" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
-													std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
-													std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
-													std::cout << "[                   ] |  |  ^------------------------------------> ?? length (bytes following)" << std::endl;
-													std::cout << "[                   ] |  ^---------------------------------------> hci_event_hdr.plen = EVT_LE_META_EVENT = 3E" << std::endl;
-													std::cout << "[                   ] ^------------------------------------------> hci_event_hdr.evt = HCI_EVENT_PKT = 04" << std::endl;
-												}
-												if (info->length > 0)
-												{
-													int current_offset = 0;
-													bool data_error = false;
-													Govee_Temp localTemp;
-													while (!data_error && current_offset < info->length)
-													{
-														size_t data_len = info->data[current_offset];
-														if (data_len + 1 > info->length)
-														{
-															if (ConsoleVerbosity > 0)
-																std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
-															data_error = true;
-														}
-														else
-														{
-															switch (*(info->data + current_offset + 1))
-															{
-															case 0x01:	// Flags
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Flags) ";
-																	//for (uint8_t index = 0x80; index > 0; index >> 1)
-																	//	ConsoleOutLine << (index & *(info->data + current_offset + 2));
-																	//ConsoleOutLine << ((index & *(info->data + current_offset + 2)) ? "1" : "0");
-																	if (ConsoleVerbosity > 3)
-																	{
-																		if (*(info->data + current_offset + 2) & 0x01)
-																			ConsoleOutLine << "[LE Limited Discoverable Mode]";
-																		if (*(info->data + current_offset + 2) & 0x02)
-																			ConsoleOutLine << "[LE General Discoverable Mode]";
-																		if (*(info->data + current_offset + 2) & 0x04)
-																			ConsoleOutLine << "[LE General Discoverable Mode]";
-																		if (*(info->data + current_offset + 2) & 0x08)
-																			ConsoleOutLine << "[Simultaneous LE and BR/EDR (Controller)]";
-																		if (*(info->data + current_offset + 2) & 0x10)
-																			ConsoleOutLine << "[Simultaneous LE and BR/EDR (Host)]";
-																		if (*(info->data + current_offset + 2) & 0x20)
-																			ConsoleOutLine << "[??]";
-																		if (*(info->data + current_offset + 2) & 0x40)
-																			ConsoleOutLine << "[??]";
-																		if (*(info->data + current_offset + 2) & 0x80)
-																			ConsoleOutLine << "[??]";
-																	}
-																	else
-																		for (auto index = 1; index < *(info->data + current_offset); index++)
-																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x02:	// Incomplete List of 16-bit Service Class UUID
-															case 0x03:	// Complete List of 16-bit Service Class UUIDs
-																localTemp.SetModel((unsigned short*)(&((info->data + current_offset + 1)[1])));
-															case 0x04:	// Incomplete List of 32-bit Service Class UUIDs
-															case 0x05:	// Complete List of 32-bit Service Class UUID
-															case 0x06:	// Incomplete List of 128-bit Service Class UUIDs
-															case 0x07:	// Complete List of 128-bit Service Class UUID
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (UUID) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x08:	// Shortened Local Name
-															case 0x09:	// Complete Local Name
-																localName.clear();
-																for (auto index = 1; index < *(info->data + current_offset); index++)
-																	localName.push_back(char((info->data + current_offset + 1)[index]));
-																localTemp.SetModel(localName);
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Name) " << localName;
-																}
-																break;
-															case 0x0A:	// Tx Power Level
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Tx Power) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x16:	// Service Data or Service Data - 16-bit UUID
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Service Data) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0x19:	// Appearance
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Appearance) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																break;
-															case 0xFF:	// Manufacturer Specific Data
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Manu) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																{
-																	if (localTemp.ReadMSG((info->data + current_offset)))
-																	{
-																		ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																		if ((localTemp.GetModel() == ThermometerType::H5181) || (localTemp.GetModel() == ThermometerType::H5183))
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																		else if (localTemp.GetModel() == ThermometerType::H5182)
-																		{
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 2) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 3) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																		}
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
-																		if (localTemp.GetHumidity() != 0)
-																			ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
-																		ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
-																		switch (localTemp.GetModel())
-																		{
-																		case ThermometerType::H5074:
-																			ConsoleOutLine << " (GVH5074)";
-																			break;
-																		case ThermometerType::H5075:
-																			ConsoleOutLine << " (GVH5075)";
-																			break;
-																		case ThermometerType::H5100:
-																			ConsoleOutLine << " (GVH5100)";
-																			break;
-																		case ThermometerType::H5174:
-																			ConsoleOutLine << " (GVH5174)";
-																			break;
-																		case ThermometerType::H5177:
-																			ConsoleOutLine << " (GVH5177)";
-																			break;
-																		case ThermometerType::H5179:
-																			ConsoleOutLine << " (GVH5179)";
-																			break;
-																		case ThermometerType::H5183:
-																			ConsoleOutLine << " (GVH5183)";
-																			break;
-																		case ThermometerType::H5182:
-																			ConsoleOutLine << " (GVH5182)";
-																			break;
-																		case ThermometerType::H5181:
-																			ConsoleOutLine << " (GVH5181)";
-																			break;
-																		default:
-																			ConsoleOutLine << " (ThermometerType::Unknown)";
-																		}
-																		std::queue<Govee_Temp> foo;
-																		auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
-																		ret.first->second.push(localTemp);
-																		AddressInGoveeSet = true;
-																		UpdateMRTGData(info->bdaddr, localTemp);
-																		GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
-																	}
-																	else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
-																		ConsoleOutLine << iBeacon(info->data + current_offset);
-																}
-																break;
-															default:
-																if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
-																{
-																	ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-															}
-															current_offset += data_len + 1;
-														}
-													}
-												}
-												if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
-													std::cout << ConsoleOutLine.str() << std::endl;
-												if ((DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
-												{
-													int BatteryToRecord = 0;
-													auto RecentTemperature = GoveeTemperatures.find(info->bdaddr);
-													if (RecentTemperature != GoveeTemperatures.end())
-														BatteryToRecord = RecentTemperature->second.front().GetBattery();
-													time_t LastDownloadTime = 0;
-													auto RecentDownload = GoveeLastDownload.find(info->bdaddr);
-													if (RecentDownload != GoveeLastDownload.end())
-														LastDownloadTime = RecentDownload->second;
-													time_t TimeNow;
-													time(&TimeNow);
-													static time_t LastDownloadAttemptTime = TimeNow;
-													if (difftime(TimeNow, LastDownloadAttemptTime) > (60 * 5)) // Only attempt a download if it's been longer than 5 minutes since the last attempt
-													{
-														LastDownloadAttemptTime = TimeNow;
-														// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-														if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
-														{
-															bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
-															time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
-															if (DownloadTime > 0)
-															{
-																if (RecentDownload != GoveeLastDownload.end())
-																	RecentDownload->second = DownloadTime;
-																else
-																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
-															}
-															bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
-														}
-													}
-												}
-											}
-											else
-											{
-												if (ConsoleVerbosity > 2)
-												{
-													std::cout << "[-------------------]";
-													for (auto index = 0; index < bufDataLen; index++)
-														std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
-													std::cout << std::endl;
-												}
-											}
-										}
-										else if (bRun && (errno == EAGAIN))
-										{
-											// EAGAIN : Resource temporarily unavailable (may be the same value as EWOULDBLOCK) (POSIX.1-2001).
-											std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
-											usleep(100);
-										}
-										else if (errno == EINTR)
-										{
-											// EINTR : Interrupted function call (POSIX.1-2001); see signal(7).
-											std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
-											bRun = false;
-										}
-									}
-								}
-								time_t TimeNow;
-								time(&TimeNow);
-								if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
-								{
-									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
-									TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-									WriteAllSVG();
-								}
-								if (difftime(TimeNow, TimeStart) > LogFileTime)
-								{
-									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
-									TimeStart = TimeNow;
-									GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
-									MonitorLoggedData();
-								}
-								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
-								{
-									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
-									btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
-								}
-							}
-							setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
+							std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+							for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
+								std::cout << " [" << ba2string(*iter) << "]";
+							std::cout << std::endl;
 						}
 					}
-					btRVal = bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+					auto btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+					if (btRVal >= 0)
+					{
+						// Save the current HCI filter (Host Controller Interface)
+						struct hci_filter original_filter;
+						socklen_t olen = sizeof(original_filter);
+						if (0 == getsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, &olen))
+						{
+							// Create and set the new filter
+							struct hci_filter new_filter;
+							hci_filter_clear(&new_filter);
+							hci_filter_set_ptype(HCI_EVENT_PKT, &new_filter);
+							hci_filter_set_event(EVT_LE_META_EVENT, &new_filter);
+							if (setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &new_filter, sizeof(new_filter)) < 0)
+								std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
+							else
+							{
+								bRun = true;
+								time_t TimeStart(0), TimeSVG(0), TimeAdvertisment(0);
+								time(&TimeStart);
+								while (bRun)
+								{
+									unsigned char buf[HCI_MAX_EVENT_SIZE];
+
+									// This select() call coming up will sit and wait until until the socket read would return something that's not EAGAIN/EWOULDBLOCK
+									// But first we need to set a timeout -- we need to do this every time before we call select()
+									struct timeval select_timeout = { 60, 0 };	// 60 second timeout, 0 microseconds
+									// and reset the value of check_set, since that's what will tell us what descriptors were ready
+									// Set up the file descriptor set that select() will use
+									fd_set check_set;
+									FD_ZERO(&check_set);
+									FD_SET(BlueToothDevice_Handle, &check_set);
+									// This will block until either a read is ready (i.e. won’t return EWOULDBLOCK) -1 on error, 0 on timeout, otherwise number of FDs changed
+									if (0 < select(BlueToothDevice_Handle + 1, &check_set, NULL, NULL, &select_timeout))	// returns number of handles ready to read. 0 or negative indicate other than good data to read.
+									{
+										// We got data ready to read, check and make sure it's the right descriptor, just as a sanity check (it shouldn't be possible ot get anything else)
+										if (FD_ISSET(BlueToothDevice_Handle, &check_set))
+										{
+											// okay, if we made it this far, we can read our descriptor, and shouldn't get EAGAIN. Ideally, the right way to process this is 'read in a loop
+											// until you get EAGAIN and then go back to select()', but worst case is that you don't read everything availableand select() immediately returns, so not
+											// a *huge* deal just doing one read and then back to select, here.
+											ssize_t bufDataLen = read(BlueToothDevice_Handle, buf, sizeof(buf));
+											if (bufDataLen > HCI_MAX_EVENT_SIZE)
+												std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
+											if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
+											{
+												if (ConsoleVerbosity > 3)
+													std::cout << "[" << getTimeISO8601() << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
+												std::ostringstream ConsoleOutLine;
+												ConsoleOutLine << "[" << getTimeISO8601() << "]" << std::setw(3) << bufDataLen;
+
+												// At this point I should have an HCI Event in buf (hci_event_hdr)
+												evt_le_meta_event* meta = (evt_le_meta_event*)(buf + (HCI_EVENT_HDR_SIZE + 1));
+												if (meta->subevent == EVT_LE_ADVERTISING_REPORT)
+												{
+													time(&TimeAdvertisment);
+													const le_advertising_info* const info = (le_advertising_info*)(meta->data + 1);
+													bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+													char addr[19] = { 0 };
+													ba2str(&info->bdaddr, addr);
+													ConsoleOutLine << " [" << addr << "]";
+													std::string localName;
+													if (ConsoleVerbosity > 2)
+													{
+														ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
+														ConsoleOutLine << " (evt_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->evt_type);
+													}
+													if (ConsoleVerbosity > 8)
+													{
+														std::cout << "[                   ]";
+														for (auto index = 0; index < bufDataLen; index++)
+															std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
+														std::cout << std::endl;
+														std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length (bytes following)" << std::endl;
+														std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr" << std::endl;
+														std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
+														std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
+														std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
+														std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
+														std::cout << "[                   ] |  |  ^------------------------------------> ?? length (bytes following)" << std::endl;
+														std::cout << "[                   ] |  ^---------------------------------------> hci_event_hdr.plen = EVT_LE_META_EVENT = 3E" << std::endl;
+														std::cout << "[                   ] ^------------------------------------------> hci_event_hdr.evt = HCI_EVENT_PKT = 04" << std::endl;
+													}
+													if (info->length > 0)
+													{
+														int current_offset = 0;
+														bool data_error = false;
+														Govee_Temp localTemp;
+														while (!data_error && current_offset < info->length)
+														{
+															size_t data_len = info->data[current_offset];
+															if (data_len + 1 > info->length)
+															{
+																if (ConsoleVerbosity > 0)
+																	std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
+																data_error = true;
+															}
+															else
+															{
+																switch (*(info->data + current_offset + 1))
+																{
+																case 0x01:	// Flags
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Flags) ";
+																		//for (uint8_t index = 0x80; index > 0; index >> 1)
+																		//	ConsoleOutLine << (index & *(info->data + current_offset + 2));
+																		//ConsoleOutLine << ((index & *(info->data + current_offset + 2)) ? "1" : "0");
+																		if (ConsoleVerbosity > 3)
+																		{
+																			if (*(info->data + current_offset + 2) & 0x01)
+																				ConsoleOutLine << "[LE Limited Discoverable Mode]";
+																			if (*(info->data + current_offset + 2) & 0x02)
+																				ConsoleOutLine << "[LE General Discoverable Mode]";
+																			if (*(info->data + current_offset + 2) & 0x04)
+																				ConsoleOutLine << "[LE General Discoverable Mode]";
+																			if (*(info->data + current_offset + 2) & 0x08)
+																				ConsoleOutLine << "[Simultaneous LE and BR/EDR (Controller)]";
+																			if (*(info->data + current_offset + 2) & 0x10)
+																				ConsoleOutLine << "[Simultaneous LE and BR/EDR (Host)]";
+																			if (*(info->data + current_offset + 2) & 0x20)
+																				ConsoleOutLine << "[??]";
+																			if (*(info->data + current_offset + 2) & 0x40)
+																				ConsoleOutLine << "[??]";
+																			if (*(info->data + current_offset + 2) & 0x80)
+																				ConsoleOutLine << "[??]";
+																		}
+																		else
+																			for (auto index = 1; index < *(info->data + current_offset); index++)
+																				ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x02:	// Incomplete List of 16-bit Service Class UUID
+																case 0x03:	// Complete List of 16-bit Service Class UUIDs
+																	localTemp.SetModel((unsigned short*)(&((info->data + current_offset + 1)[1])));
+																case 0x04:	// Incomplete List of 32-bit Service Class UUIDs
+																case 0x05:	// Complete List of 32-bit Service Class UUID
+																case 0x06:	// Incomplete List of 128-bit Service Class UUIDs
+																case 0x07:	// Complete List of 128-bit Service Class UUID
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (UUID) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x08:	// Shortened Local Name
+																case 0x09:	// Complete Local Name
+																	localName.clear();
+																	for (auto index = 1; index < *(info->data + current_offset); index++)
+																		localName.push_back(char((info->data + current_offset + 1)[index]));
+																	localTemp.SetModel(localName);
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Name) " << localName;
+																	}
+																	break;
+																case 0x0A:	// Tx Power Level
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Tx Power) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x16:	// Service Data or Service Data - 16-bit UUID
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Service Data) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0x19:	// Appearance
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Appearance) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	break;
+																case 0xFF:	// Manufacturer Specific Data
+																	if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Manu) ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	{
+																		if (localTemp.ReadMSG((info->data + current_offset)))
+																		{
+																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																			if ((localTemp.GetModel() == ThermometerType::H5181) || (localTemp.GetModel() == ThermometerType::H5183))
+																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																			else if (localTemp.GetModel() == ThermometerType::H5182)
+																			{
+																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 2) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 3) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																			}
+																			//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
+																			//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
+																			if (localTemp.GetHumidity() != 0)
+																				ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
+																			ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
+																			switch (localTemp.GetModel())
+																			{
+																			case ThermometerType::H5074:
+																				ConsoleOutLine << " (GVH5074)";
+																				break;
+																			case ThermometerType::H5075:
+																				ConsoleOutLine << " (GVH5075)";
+																				break;
+																			case ThermometerType::H5100:
+																				ConsoleOutLine << " (GVH5100)";
+																				break;
+																			case ThermometerType::H5174:
+																				ConsoleOutLine << " (GVH5174)";
+																				break;
+																			case ThermometerType::H5177:
+																				ConsoleOutLine << " (GVH5177)";
+																				break;
+																			case ThermometerType::H5179:
+																				ConsoleOutLine << " (GVH5179)";
+																				break;
+																			case ThermometerType::H5183:
+																				ConsoleOutLine << " (GVH5183)";
+																				break;
+																			case ThermometerType::H5182:
+																				ConsoleOutLine << " (GVH5182)";
+																				break;
+																			case ThermometerType::H5181:
+																				ConsoleOutLine << " (GVH5181)";
+																				break;
+																			default:
+																				ConsoleOutLine << " (ThermometerType::Unknown)";
+																			}
+																			std::queue<Govee_Temp> foo;
+																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
+																			ret.first->second.push(localTemp);
+																			AddressInGoveeSet = true;
+																			UpdateMRTGData(info->bdaddr, localTemp);
+																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
+																		}
+																		else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																			ConsoleOutLine << iBeacon(info->data + current_offset);
+																	}
+																	break;
+																default:
+																	if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
+																	{
+																		ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																}
+																current_offset += data_len + 1;
+															}
+														}
+													}
+													if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
+														std::cout << ConsoleOutLine.str() << std::endl;
+													if ((DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
+													{
+														int BatteryToRecord = 0;
+														auto RecentTemperature = GoveeTemperatures.find(info->bdaddr);
+														if (RecentTemperature != GoveeTemperatures.end())
+															BatteryToRecord = RecentTemperature->second.front().GetBattery();
+														time_t LastDownloadTime = 0;
+														auto RecentDownload = GoveeLastDownload.find(info->bdaddr);
+														if (RecentDownload != GoveeLastDownload.end())
+															LastDownloadTime = RecentDownload->second;
+														time_t TimeNow;
+														time(&TimeNow);
+														static time_t LastDownloadAttemptTime = TimeNow;
+														if (difftime(TimeNow, LastDownloadAttemptTime) > (60 * 5)) // Only attempt a download if it's been longer than 5 minutes since the last attempt
+														{
+															LastDownloadAttemptTime = TimeNow;
+															// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+															if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+															{
+																bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+																time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
+																if (DownloadTime > 0)
+																{
+																	if (RecentDownload != GoveeLastDownload.end())
+																		RecentDownload->second = DownloadTime;
+																	else
+																		GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
+																}
+																bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+															}
+														}
+													}
+												}
+												else
+												{
+													if (ConsoleVerbosity > 2)
+													{
+														std::cout << "[-------------------]";
+														for (auto index = 0; index < bufDataLen; index++)
+															std::cout << " " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(buf[index]);
+														std::cout << std::endl;
+													}
+												}
+											}
+											else if (bRun && (errno == EAGAIN))
+											{
+												// EAGAIN : Resource temporarily unavailable (may be the same value as EWOULDBLOCK) (POSIX.1-2001).
+												std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
+												usleep(100);
+											}
+											else if (errno == EINTR)
+											{
+												// EINTR : Interrupted function call (POSIX.1-2001); see signal(7).
+												std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
+												bRun = false;
+											}
+										}
+									}
+									time_t TimeNow;
+									time(&TimeNow);
+									if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
+									{
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
+										TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
+										WriteAllSVG();
+									}
+									if (difftime(TimeNow, TimeStart) > LogFileTime)
+									{
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
+										TimeStart = TimeNow;
+										GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+										MonitorLoggedData();
+									}
+									if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
+									{
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+										btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+									}
+								}
+								setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
+							}
+						}
+						btRVal = bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+					}
+				}
+				hci_close_dev(BlueToothDevice_Handle);
+			}
+			signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
+			signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
+
+			GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
+
+			if (ConsoleVerbosity > 0)
+			{
+				// dump contents of accumulated map (should now be empty because all the data was flushed to log files)
+				for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
+				{
+					if (!it->second.empty())
+					{
+						char addr[19] = { 0 };
+						ba2str(&it->first, addr);
+						std::cout << "[" << addr << "]" << std::endl;
+					}
+					while (!it->second.empty())
+					{
+						std::cout << it->second.front().WriteTXT() << std::endl;
+						it->second.pop();
+					}
 				}
 			}
-			hci_close_dev(BlueToothDevice_Handle);
 		}
+	}
+	else if ((!UseBluetooth) && (!LogDirectory.empty()) && (!SVGDirectory.empty()))
+	{
+		auto previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
+		auto previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
+		auto previousAlarmHandler = signal(SIGALRM, SignalHandlerSIGALRM);	// Install Alarm signal handler
+		bRun = true;
+		while (bRun)
+		{
+			sigset_t set;
+			sigemptyset(&set);
+			sigaddset(&set, SIGALRM);
+			sigaddset(&set, SIGINT);
+			sigaddset(&set, SIGHUP);
+			alarm(5 * 60);
+			int sig = 0;
+			int s = sigwait(&set, &sig);
+			if (sig == SIGALRM)
+			{
+				MonitorLoggedData(LogFileTime * 2);
+				WriteAllSVG();
+			}
+		}
+		signal(SIGALRM, previousAlarmHandler);	// Restore original Alarm signal handler
 		signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
 		signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
-
-		GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
-
-		if (ConsoleVerbosity > 0)
-		{
-			// dump contents of accumulated map (should now be empty because all the data was flushed to log files)
-			for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
-			{
-				if (!it->second.empty())
-				{
-					char addr[19] = { 0 };
-					ba2str(&it->first, addr);
-					std::cout << "[" << addr << "]" << std::endl;
-				}
-				while (!it->second.empty())
-				{
-					std::cout << it->second.front().WriteTXT() << std::endl;
-					it->second.pop();
-				}
-			}
-		}
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	std::cerr << ProgramVersionString << " (exiting)" << std::endl;
