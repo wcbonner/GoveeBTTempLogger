@@ -2873,7 +2873,7 @@ int main(int argc, char **argv)
 	if (ConsoleVerbosity > 0)
 	{
 		std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << std::endl;
-		if (ConsoleVerbosity > 2)
+		if (ConsoleVerbosity > 1)
 		{
 			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
 			std::cout << "[                   ]      svg: " << SVGDirectory << std::endl;
@@ -2884,6 +2884,8 @@ int main(int argc, char **argv)
 			std::cout << "[                   ]     time: " << LogFileTime << std::endl;
 			std::cout << "[                   ]  average: " << MinutesAverage << std::endl;
 			std::cout << "[                   ] download: " << DaysBetweenDataDownload << std::endl;
+			std::cout << "[                   ]  passive: " << std::boolalpha << (bt_ScanType == 0) << std::endl;
+			std::cout << "[                   ] no-bluetooth: " << std::boolalpha << !UseBluetooth << std::endl;
 		}
 	}
 	else
@@ -2891,59 +2893,59 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	tzset();
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	if (!SVGDirectory.empty())
-	{
-		if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
-		{
-			std::ostringstream TitleMapFilename;
-			TitleMapFilename << SVGDirectory;
-			TitleMapFilename << "/gvh-titlemap.txt";
-			SVGTitleMapFilename = TitleMapFilename.str();
-		}
-		ReadTitleMap(SVGTitleMapFilename);
-		ReadLoggedData();
-		WriteAllSVG();
-	}
-	///////////////////////////////////////////////////////////////////////////////////////////////
-	// Read Persistence Data about when the last connection and download of data was done as opposed to listening for advertisments
-	// We don't want to connect too often because it uses more battery on the device, but it's nice to have a more consistent 
-	// timeline of data occasionally.
-	if (!LogDirectory.empty())
-	{
-		std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
-		std::ifstream TheFile(filename);
-		if (TheFile.is_open())
-		{
-			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
-			else
-				std::cerr << "Reading: " << filename.string() << std::endl;
-			std::string TheLine;
-			while (std::getline(TheFile, TheLine))
-			{
-				// rudimentary line checking. It's at least as long as the BT Address and has a Tab character
-				if ((TheLine.size() > 18) &&
-					(TheLine.find("\t") != std::string::npos))
-				{
-					char buffer[256];
-					if (TheLine.size() < sizeof(buffer))
-					{
-						TheLine.copy(buffer, TheLine.size());
-						buffer[TheLine.size()] = '\0';
-						std::string theAddress(strtok(buffer, "\t"));
-						std::string theDate(strtok(NULL, "\t"));
-						bdaddr_t TheBlueToothAddress({0});
-						str2ba(theAddress.c_str(), &TheBlueToothAddress);
-						GoveeLastDownload.insert(std::make_pair(TheBlueToothAddress, ISO8601totime(theDate)));
-					}
-				}
-			}
-			TheFile.close();
-		}
-	}
-	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (UseBluetooth)
 	{
+		if (!SVGDirectory.empty())
+		{
+			if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
+			{
+				std::ostringstream TitleMapFilename;
+				TitleMapFilename << SVGDirectory;
+				TitleMapFilename << "/gvh-titlemap.txt";
+				SVGTitleMapFilename = TitleMapFilename.str();
+			}
+			ReadTitleMap(SVGTitleMapFilename);
+			ReadLoggedData();
+			WriteAllSVG();
+		}
+		///////////////////////////////////////////////////////////////////////////////////////////////
+		// Read Persistence Data about when the last connection and download of data was done as opposed to listening for advertisments
+		// We don't want to connect too often because it uses more battery on the device, but it's nice to have a more consistent 
+		// timeline of data occasionally.
+		if (!LogDirectory.empty())
+		{
+			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
+			std::ifstream TheFile(filename);
+			if (TheFile.is_open())
+			{
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
+				else
+					std::cerr << "Reading: " << filename.string() << std::endl;
+				std::string TheLine;
+				while (std::getline(TheFile, TheLine))
+				{
+					// rudimentary line checking. It's at least as long as the BT Address and has a Tab character
+					if ((TheLine.size() > 18) &&
+						(TheLine.find("\t") != std::string::npos))
+					{
+						char buffer[256];
+						if (TheLine.size() < sizeof(buffer))
+						{
+							TheLine.copy(buffer, TheLine.size());
+							buffer[TheLine.size()] = '\0';
+							std::string theAddress(strtok(buffer, "\t"));
+							std::string theDate(strtok(NULL, "\t"));
+							bdaddr_t TheBlueToothAddress({0});
+							str2ba(theAddress.c_str(), &TheBlueToothAddress);
+							GoveeLastDownload.insert(std::make_pair(TheBlueToothAddress, ISO8601totime(theDate)));
+						}
+					}
+				}
+				TheFile.close();
+			}
+		}
+		///////////////////////////////////////////////////////////////////////////////////////////////
 		int BlueToothDevice_ID;
 		if (ControllerAddress.empty())
 			BlueToothDevice_ID = hci_get_route(NULL);
@@ -3378,6 +3380,16 @@ int main(int argc, char **argv)
 			std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
 		else
 			std::cerr << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
+
+		if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
+		{
+			std::ostringstream TitleMapFilename;
+			TitleMapFilename << SVGDirectory;
+			TitleMapFilename << "/gvh-titlemap.txt";
+			SVGTitleMapFilename = TitleMapFilename.str();
+		}
+		ReadTitleMap(SVGTitleMapFilename);
+		ReadLoggedData();
 
 		auto previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
 		auto previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
