@@ -5,11 +5,11 @@ uuid.o: uuid.c uuid.h
 
 GoveeBTTempLogger/usr/local/bin/goveebttemplogger: goveebttemplogger.cpp uuid.o
 	mkdir -p $(shell dirname $@)
-	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth
+	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth -lstdc++fs
 	sudo setcap 'cap_net_raw,cap_net_admin+eip' $@
 
 GoveeBTTempLogger/usr/local/bin/gvh-organizelogs: gvh-organizelogs.cpp
-	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth
+	$(CXX) -Wno-psabi -O3 $(CXXFLAGS) $? -o$@ -lbluetooth -lstdc++fs
 
 deb: GoveeBTTempLogger/usr/local/bin/goveebttemplogger GoveeBTTempLogger/usr/local/bin/gvh-organizelogs GoveeBTTempLogger/DEBIAN/control GoveeBTTempLogger/usr/local/lib/systemd/system/goveebttemplogger.service
 	# Set architecture for the resulting .deb to the actually built architecture
