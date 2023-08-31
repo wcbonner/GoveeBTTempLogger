@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230830-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230830-2 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -3256,19 +3256,24 @@ int main(int argc, char **argv)
 														LastDownloadTime = RecentDownload->second;
 													time_t TimeNow;
 													time(&TimeNow);
-													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+													static time_t LastDownloadAttemptTime = TimeNow;
+													if (difftime(TimeNow, LastDownloadAttemptTime) > (60 * 5)) // Only attempt a download if it's been longer than 5 minutes since the last attempt
 													{
-														bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
-														time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
-														if (DownloadTime > 0)
+														LastDownloadAttemptTime = TimeNow;
+														// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+														if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 														{
-															if (RecentDownload != GoveeLastDownload.end())
-																RecentDownload->second = DownloadTime;
-															else
-																GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
+															bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+															time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
+															if (DownloadTime > 0)
+															{
+																if (RecentDownload != GoveeLastDownload.end())
+																	RecentDownload->second = DownloadTime;
+																else
+																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
+															}
+															bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 														}
-														bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 													}
 												}
 											}
