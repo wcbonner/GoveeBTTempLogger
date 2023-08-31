@@ -3374,6 +3374,11 @@ int main(int argc, char **argv)
 	}
 	else if ((!UseBluetooth) && (!LogDirectory.empty()) && (!SVGDirectory.empty()))
 	{
+		if (ConsoleVerbosity > 0)
+			std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
+		else
+			std::cerr << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
+
 		auto previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
 		auto previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 		auto previousAlarmHandler = signal(SIGALRM, SignalHandlerSIGALRM);	// Install Alarm signal handler
@@ -3386,10 +3391,14 @@ int main(int argc, char **argv)
 			sigaddset(&set, SIGINT);
 			sigaddset(&set, SIGHUP);
 			alarm(5 * 60);
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "] Alarm Set" << std::endl;
 			int sig = 0;
 			int s = sigwait(&set, &sig);
 			if (sig == SIGALRM)
 			{
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] Alarm Recieved" << std::endl;
 				MonitorLoggedData(LogFileTime * 2);
 				WriteAllSVG();
 			}
