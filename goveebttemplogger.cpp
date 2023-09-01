@@ -727,7 +727,7 @@ bdaddr_t string2ba(const std::string& a) { std::string ssBTAddress(a); if (ssBTA
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
-const std::string GVHLastDownloadFileName("gvh-lastdownload.txt");
+const std::filesystem::path GVHLastDownloadFileName("gvh-lastdownload.txt");
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -1686,8 +1686,8 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 		std::set<std::string> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
-				if (dir_entry.path() != GVHLastDownloadFileName)
-					if (dir_entry.path() != SVGTitleMapFilename)
+				if (dir_entry.path().filename() != GVHLastDownloadFileName.filename())
+					if (dir_entry.path().filename() != SVGTitleMapFilename.filename())
 						if (dir_entry.path().extension() == ".txt")
 							if (dir_entry.path().stem().string().substr(0, 3) == "gvh")
 							{
