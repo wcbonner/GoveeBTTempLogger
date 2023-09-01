@@ -10,7 +10,11 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date, Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
 ### Minor update 2022-12-17
-Added the option --index to create an html index file based on the existing log files.
+Added the option --index to create an html index file based on the existing log files. Example command to create index: 
+
+```sh
+sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index index.html
+```
 
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.

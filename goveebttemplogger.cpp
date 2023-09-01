@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230831-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230901-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -1689,7 +1689,7 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 				if (dir_entry.path() != GVHLastDownloadFileName)
 					if (dir_entry.path() != SVGTitleMapFilename)
 						if (dir_entry.path().extension() == ".txt")
-							if (dir_entry.path().string().substr(0, 3) == "gvh")
+							if (dir_entry.path().stem().string().substr(0, 3) == "gvh")
 							{
 								std::string ssBTAddress(dir_entry.path().stem().string().substr(4, 12));
 								files.insert(ssBTAddress);
