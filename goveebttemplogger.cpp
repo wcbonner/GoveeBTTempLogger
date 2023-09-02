@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230901-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230902-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -374,6 +374,10 @@ Govee_Temp::Govee_Temp(const std::string & data)
 			time(&timeNow);
 			if (Time <= timeNow) // Only validate data from the past.
 				Averages = 1;
+			// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
+			// h5103 Temperature Range = 0C to 50C
+			if (Temperature[0] < -20)
+				Averages = 0; // invalidate the data
 		}
 	}
 }
