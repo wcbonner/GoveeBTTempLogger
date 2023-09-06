@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230902-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230906-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -2114,9 +2114,18 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			else
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Scanning Started. ScanInterval(" << double(bt_ScanInterval)*0.625 << " msec) ScanWindow(" << double(bt_ScanWindow)*0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+					std::cout << "[" << getTimeISO8601() << "] Scanning Started. ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
 				else
-					std::cerr << ProgramVersionString << " (listening for Bluetooth Low Energy Advertisements) ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+				{
+					time_t TimeNow;
+					time(&TimeNow);
+					static time_t LastScanEnableMessage = TimeNow;
+					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
+					{
+						LastScanEnableMessage = TimeNow;
+						std::cerr << ProgramVersionString << " (listening for Bluetooth Low Energy Advertisements) ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+					}
+				}
 			}
 		}
 	}
@@ -3275,24 +3284,19 @@ int main(int argc, char **argv)
 															LastDownloadTime = RecentDownload->second;
 														time_t TimeNow;
 														time(&TimeNow);
-														static time_t LastDownloadAttemptTime = TimeNow;
-														if (difftime(TimeNow, LastDownloadAttemptTime) > (60 * 5)) // Only attempt a download if it's been longer than 5 minutes since the last attempt
+														// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+														if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 														{
-															LastDownloadAttemptTime = TimeNow;
-															// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-															if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+															bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
+															time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
+															if (DownloadTime > 0)
 															{
-																bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList);
-																time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
-																if (DownloadTime > 0)
-																{
-																	if (RecentDownload != GoveeLastDownload.end())
-																		RecentDownload->second = DownloadTime;
-																	else
-																		GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
-																}
-																bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+																if (RecentDownload != GoveeLastDownload.end())
+																	RecentDownload->second = DownloadTime;
+																else
+																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
 															}
+															bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 														}
 													}
 												}
