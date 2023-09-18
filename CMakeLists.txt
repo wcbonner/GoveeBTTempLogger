@@ -18,7 +18,7 @@ endif()
 
 project ("goveebttemplogger"
     VERSION 2.20230918.1
-    DESCRIPTION "Govee H5074, H5075, H5100, H5174, H5177, H5179, H5181, H5182, and H5183 Bluetooth Low Energy Temperature and Humidity Logger"
+    DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
 
@@ -52,7 +52,7 @@ target_include_directories(goveebttemplogger PUBLIC
 
 # TODO: Add tests and install targets if needed.
 
-install(TARGETS goveebttemplogger
+install(TARGETS goveebttemplogger gvh-organizelogs
     DESTINATION bin
     RUNTIME DESTINATION "/usr/local/bin/"
     LIBRARY DESTINATION "/usr/local/lib/"
@@ -69,7 +69,7 @@ include(InstallRequiredSystemLibraries)
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_DEBIAN_PACKAGE_RELEASE ${CMAKE_PROJECT_VERSION_PATCH})
-set(CPACK_DEBIAN_PACKAGE_DEPENDS curl,influxdb)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS libbluetooth3)
 set(CPACK_DEBIAN_PACKAGE_SECTION custom)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/GoveeBTTempLogger/DEBIAN/postinst" "${CMAKE_CURRENT_SOURCE_DIR}/GoveeBTTempLogger/DEBIAN/prerm" "${CMAKE_CURRENT_SOURCE_DIR}/GoveeBTTempLogger/DEBIAN/postrm")
 include(CPack)
