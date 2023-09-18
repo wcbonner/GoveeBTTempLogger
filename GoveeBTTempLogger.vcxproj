@@ -92,6 +92,8 @@
     <ClCompile Include="uuid.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="CMakePresets.json" />
+    <None Include="goveebttemplogger-version.h.in" />
     <None Include="GoveeBTTempLogger\DEBIAN\control" />
     <None Include="GoveeBTTempLogger\DEBIAN\postinst" />
     <None Include="GoveeBTTempLogger\DEBIAN\postrm" />
@@ -108,6 +110,7 @@
   <ItemGroup>
     <Text Include="BTData\btsnoop-details.txt" />
     <Text Include="BTData\btsnoop_hci.log" />
+    <Text Include="CMakeLists.txt" />
     <Text Include="gvh-titlemap.txt" />
   </ItemGroup>
   <ItemGroup>
