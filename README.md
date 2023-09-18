@@ -54,17 +54,18 @@ If the --svg option is not added to the command line, the program should continu
  
 #### Ubuntu/Debian/Raspbian
 
-Note: be sure to clone this repository.
+##### Build Process changed from using make with a makefile to cmake 2023-09-18
+This seems to better build the debian package with the correct installed size, dependencies, and md5sums details. I'm still learning CMake so there may be regular updates for a while.
 
 ```sh
-git clone https://github.com/wcbonner/GoveeBTTempLogger.git
-cd GoveeBTTempLogger
 sudo apt install bluetooth bluez libbluetooth-dev dpkg-dev
-make deb
-sudo make install-deb
+git clone https://github.com/wcbonner/GoveeBTTempLogger.git
+cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
+cmake --build GoveeBTTempLogger/build
+pushd GoveeBTTempLogger/build && cpack . && popd
 ```
 
-This will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
+The install package will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
 
 The following environment variables control the service:

@@ -17,7 +17,7 @@ if (POLICY CMP0141)
 endif()
 
 project ("goveebttemplogger"
-    VERSION 2.20230918.1
+    VERSION 2.20230918.2
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -25,7 +25,7 @@ project ("goveebttemplogger"
 configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
 
 # Add source to this project's executable.
-add_executable (goveebttemplogger "goveebttemplogger.cpp" "uuid.c" "uuid.h")
+add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h uuid.c uuid.h)
 target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
 
 add_custom_command(TARGET goveebttemplogger POST_BUILD
@@ -34,7 +34,7 @@ add_custom_command(TARGET goveebttemplogger POST_BUILD
     COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
 )
 
-add_executable(gvh-organizelogs "gvh-organizelogs.cpp")
+add_executable(gvh-organizelogs gvh-organizelogs.cpp)
 target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -58,7 +58,7 @@ install(TARGETS goveebttemplogger gvh-organizelogs
     LIBRARY DESTINATION "/usr/local/lib/"
 )
 
-install(FILES "GoveeBTTempLogger/usr/local/lib/systemd/system/goveebttemplogger.service"
+install(FILES goveebttemplogger.service
     DESTINATION "/usr/local/lib/systemd/system"
     COMPONENT "goveebttemplogger"
 )
@@ -69,7 +69,8 @@ include(InstallRequiredSystemLibraries)
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 set(CPACK_DEBIAN_PACKAGE_RELEASE ${CMAKE_PROJECT_VERSION_PATCH})
-set(CPACK_DEBIAN_PACKAGE_DEPENDS libbluetooth3)
 set(CPACK_DEBIAN_PACKAGE_SECTION custom)
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/GoveeBTTempLogger/DEBIAN/postinst" "${CMAKE_CURRENT_SOURCE_DIR}/GoveeBTTempLogger/DEBIAN/prerm" "${CMAKE_CURRENT_SOURCE_DIR}/GoveeBTTempLogger/DEBIAN/postrm")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/postinst" "${CMAKE_CURRENT_SOURCE_DIR}/prerm" "${CMAKE_CURRENT_SOURCE_DIR}/postrm")
+set(CPACK_STRIP_FILES YES)
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS YES)
 include(CPack)
