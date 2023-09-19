@@ -32,18 +32,22 @@ jobs:
           sudo apt-get -qq update
           sudo apt-get -qq install \
             libbluetooth-dev \
-            make \
+            cmake \
             ${{ matrix.compiler == 'LLVM' && 'clang' || 'g++ gcc' }}
+
+      - name: Configure
+        run: cmake -S . -B build
 
       - name: Build
         run: |
-          make
+          cmake --build build
 
-      - name: Make & Install `deb` file
-        run: |
-          make deb && sudo make install-deb
+      - name: Make `deb` file
+        working-directory: build
+        run: cpack .
 
       - name: Run `goveebttemplogger --help`
+        working-directory: build
         run: |
           goveebttemplogger --help
 
