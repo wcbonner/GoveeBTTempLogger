@@ -74,7 +74,7 @@ jobs:
           execute_process(
             COMMAND chmod +x ninja
             COMMAND chmod +x ${cmake_dir}/cmake
-            COMMAND apt install libbluetooth-dev
+            COMMAND sudo apt install libbluetooth-dev
           )
         endif()
 
