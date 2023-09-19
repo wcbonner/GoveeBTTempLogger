@@ -102,7 +102,6 @@
     <None Include="gvh-E35ECC215C0F-year.svg" />
     <None Include="index.html" />
     <None Include="LICENSE" />
-    <None Include="makefile" />
     <None Include="mrtg.conf" />
     <None Include="README.md" />
   </ItemGroup>

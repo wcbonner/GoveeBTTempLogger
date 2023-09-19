@@ -87,7 +87,7 @@
 #include "uuid.h"
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230918-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230919-1 Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -414,10 +414,12 @@ std::string Govee_Temp::WriteCache(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << timeToExcelDate(Time);
-
+	return(ssValue.str());
 }
 bool Govee_Temp::ReadCache(const std::string& data)
 {
+	bool rval = false;
+	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
 {
