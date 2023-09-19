@@ -21,18 +21,12 @@ jobs:
 
     - name: Download Ninja and CMake
       id: cmake_and_ninja
-      shell: cmake -P {0}
+      shell: sudo apt install -y cmake ninja-build libbluetooth-dev
       run: |
         set(ninja_version "1.9.0")
         set(cmake_version "3.16.2")
         
         message(STATUS "Using host CMake version: ${CMAKE_VERSION}")
-
-        if (NOT "${{ runner.os }}" STREQUAL "Windows")
-          execute_process(
-            COMMAND sudo apt install -y cmake ninja-build libbluetooth-dev
-          )
-        endif()
 
     - name: Configure
       shell: cmake -P {0}
