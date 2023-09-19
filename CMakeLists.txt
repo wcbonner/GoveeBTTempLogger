@@ -25,7 +25,7 @@ project ("goveebttemplogger"
 configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
 
 # Add source to this project's executable.
-add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h uuid.c uuid.h)
+add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h)
 target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
 
 add_custom_command(TARGET goveebttemplogger POST_BUILD
