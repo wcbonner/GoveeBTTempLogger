@@ -39,17 +39,15 @@ jobs:
         run: cmake -S . -B build
 
       - name: Build
-        run: |
-          cmake --build build
+        run: cmake --build build
+
+      - name: Run `goveebttemplogger --help`
+        working-directory: build
+        run: ./goveebttemplogger --help
 
       - name: Make `deb` file
         working-directory: build
         run: cpack .
-
-      - name: Run `goveebttemplogger --help`
-        working-directory: build
-        run: |
-          goveebttemplogger --help
 
       - name: Upload `deb` file
         uses: actions/upload-artifact@v3
