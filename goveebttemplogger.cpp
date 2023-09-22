@@ -87,12 +87,12 @@
 #include "uuid.h"
 
 #if __has_include("goveebttemplogger-version.h")
-# include "goveebttemplogger-version.h"
+#include "goveebttemplogger-version.h"
 #else
-#define GoveeBTTempLogger_VERSION "2.20230922.1 (non-CMake)"
+#define GoveeBTTempLogger_VERSION "(non-CMake)"
 #endif
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version " GoveeBTTempLogger_VERSION " " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version " GoveeBTTempLogger_VERSION " Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
