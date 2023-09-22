@@ -41,9 +41,9 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Run `goveebttemplogger --help`
+      - name: Test
         working-directory: build
-        run: ./goveebttemplogger --help
+        run: ctest --verbose
 
       - name: Make `deb` file
         working-directory: build
