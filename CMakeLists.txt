@@ -38,11 +38,11 @@ add_executable(gvh-organizelogs gvh-organizelogs.cpp)
 target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 20)
+  set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET gvh-organizelogs PROPERTY CXX_STANDARD 20)
+  set_property(TARGET gvh-organizelogs PROPERTY CXX_STANDARD 17)
 endif()
 
 target_include_directories(goveebttemplogger PUBLIC

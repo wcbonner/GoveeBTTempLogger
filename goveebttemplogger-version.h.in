@@ -1,4 +1,4 @@
 #pragma once
-#define QUOTE(x) #x
-#define STR(x) QUOTE(x)
-#define GoveeBTTempLogger_VERSION STR(@CMAKE_PROJECT_VERSION@)
+#define My_QUOTE(x) #x
+#define My_STR(x) My_QUOTE(x)
+#define GoveeBTTempLogger_VERSION My_STR(@CMAKE_PROJECT_VERSION@)

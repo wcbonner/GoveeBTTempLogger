@@ -75,6 +75,7 @@
 #include <queue>
 #include <set>
 #include <sstream>
+#include <string>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -86,11 +87,13 @@
 #include "att-types.h"
 #include "uuid.h"
 
+/////////////////////////////////////////////////////////////////////////////
 #if __has_include("goveebttemplogger-version.h")
 #include "goveebttemplogger-version.h"
-#else
-#define GoveeBTTempLogger_VERSION "(non-CMake)"
 #endif
+#ifndef GoveeBTTempLogger_VERSION
+#define GoveeBTTempLogger_VERSION "(non-CMake)"
+#endif // !GoveeBTTempLogger_VERSION
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogger Version " GoveeBTTempLogger_VERSION " Built on: " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
