@@ -16,8 +16,8 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project ("goveebttemplogger"
-    VERSION 2.20230922.3
+project (GoveeBTTempLogger
+    VERSION 2.20230922.7
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -28,24 +28,29 @@ configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
 add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h)
 target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
 
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
+endif()
+
+target_include_directories(goveebttemplogger PUBLIC
+                           "${PROJECT_BINARY_DIR}"
+                           ${EXTRA_INCLUDES}
+                           )
+
 add_custom_command(TARGET goveebttemplogger POST_BUILD
     COMMAND sudo setcap 'cap_net_raw,cap_net_admin+eip' $<TARGET_FILE:goveebttemplogger>
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
 )
 
-add_executable(gvh-organizelogs gvh-organizelogs.cpp)
+add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h)
 target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
-
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
-endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET gvh-organizelogs PROPERTY CXX_STANDARD 17)
 endif()
 
-target_include_directories(goveebttemplogger PUBLIC
+target_include_directories(gvh-organizelogs PUBLIC
                            "${PROJECT_BINARY_DIR}"
                            ${EXTRA_INCLUDES}
                            )
