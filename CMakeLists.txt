@@ -17,7 +17,7 @@ if (POLICY CMP0141)
 endif()
 
 project ("goveebttemplogger"
-    VERSION 2.20230919.1
+    VERSION 2.20230922.1
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )

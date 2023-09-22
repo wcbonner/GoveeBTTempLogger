@@ -86,8 +86,13 @@
 #include "att-types.h"
 #include "uuid.h"
 
+#if __has_include("goveebttemplogger-version.h")
+# include "goveebttemplogger-version.h"
+#else
+#define GoveeBTTempLogger_VERSION "2.20230922.1 (non-CMake)"
+#endif
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogger Version 2.20230919-1 Built on: " __DATE__ " at " __TIME__);
+static const std::string ProgramVersionString("GoveeBTTempLogger Version " GoveeBTTempLogger_VERSION " " __DATE__ " at " __TIME__);
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t & TheTime, const bool LocalTime = false)
 {
@@ -2149,6 +2154,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	// https://par.nsf.gov/servlets/purl/10275622
 	// https://e2e.ti.com/support/wireless-connectivity/bluetooth-group/bluetooth/f/bluetooth-forum/616269/cc2640r2f-q1-how-scan-interval-window-work-during-scanning-duration
 	// https://www.scirp.org/journal/paperinformation.aspx?paperid=106311
+	// https://microchipdeveloper.com/wireless:ble-link-layer-discovery has a nice description of Passive Scanning vs Active Scanning
 	int btRVal = 0;
 	uint8_t bt_ScanFilterPolicy = 0x00; // Scan Filter Policy: Accept all advertisements, except directed advertisements not addressed to this device (0x00)
 	if (enable)
