@@ -17,7 +17,7 @@ if (POLICY CMP0141)
 endif()
 
 project ("goveebttemplogger"
-    VERSION 2.20230922.2
+    VERSION 2.20230922.3
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -51,6 +51,9 @@ target_include_directories(goveebttemplogger PUBLIC
                            )
 
 # TODO: Add tests and install targets if needed.
+include(CTest)
+add_test(NAME goveebttemplogger COMMAND goveebttemplogger --help)
+add_test(NAME gvh-organizelogs COMMAND gvh-organizelogs --help)
 
 install(TARGETS goveebttemplogger gvh-organizelogs
     DESTINATION bin
