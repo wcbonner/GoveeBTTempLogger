@@ -53,7 +53,14 @@
 #include <utime.h>
 
 /////////////////////////////////////////////////////////////////////////////
-static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version 1.20230717-3 Built on: " __DATE__ " at " __TIME__);
+#if __has_include("goveebttemplogger-version.h")
+#include "goveebttemplogger-version.h"
+#endif
+#ifndef GoveeBTTempLogger_VERSION
+#define GoveeBTTempLogger_VERSION "(non-CMake)"
+#endif // !GoveeBTTempLogger_VERSION
+/////////////////////////////////////////////////////////////////////////////
+static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version " GoveeBTTempLogger_VERSION " Built on: " __DATE__ " at " __TIME__);
 std::filesystem::path LogDirectory;
 std::filesystem::path BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
