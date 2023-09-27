@@ -422,11 +422,52 @@ std::string Govee_Temp::WriteCache(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << timeToExcelDate(Time);
+	for (auto a : Temperature)
+		ssValue << "\t" << a;
+	for (auto a : TemperatureMin)
+		ssValue << "\t" << a;
+	for (auto a : TemperatureMax)
+		ssValue << "\t" << a;
+	ssValue << "\t" << Humidity;
+	ssValue << "\t" << HumidityMin;
+	ssValue << "\t" << HumidityMax;
+	ssValue << "\t" << Battery;
+	//TODO: Write Model
+//	ssValue << "\t" << Model;
 	return(ssValue.str());
 }
 bool Govee_Temp::ReadCache(const std::string& data)
 {
 	bool rval = false;
+	char buffer[512];
+	data.copy(buffer, data.size());
+	buffer[data.size()] = '\0';
+	std::string theDate(strtok(buffer, "\t"));
+	Time = ISO8601totime(theDate);
+	for (auto a : Temperature)
+	{
+		std::string theTemp(strtok(NULL, "\t"));
+		a = std::atof(theTemp.c_str());
+	}
+	for (auto a : TemperatureMin)
+	{
+		std::string theTemp(strtok(NULL, "\t"));
+		a = std::atof(theTemp.c_str());
+	}
+	for (auto a : TemperatureMax)
+	{
+		std::string theTemp(strtok(NULL, "\t"));
+		a = std::atof(theTemp.c_str());
+	}
+	std::string theHumidity(strtok(NULL, "\t"));
+	Humidity = std::atof(theHumidity.c_str());
+	std::string theHumidityMin(strtok(NULL, "\t"));
+	HumidityMin = std::atof(theHumidityMin.c_str());
+	std::string theHumidityMax(strtok(NULL, "\t"));
+	HumidityMax = std::atof(theHumidityMax.c_str());
+	std::string theBattery(strtok(NULL, "\t"));
+	Battery = std::atoi(theBattery.c_str());
+	// TODO: Read Model
 	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
@@ -1059,6 +1100,7 @@ bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMR
 					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << MRTGCacheFile.string() << std::endl;
 				else
 					std::cerr << "Writing: " << MRTGCacheFile.string() << std::endl;
+				CacheFile << "Cache: " << ba2string(a) << " " << ProgramVersionString << std::endl;
 				for (auto i : GoveeMRTGLog)
 					CacheFile << i.WriteCache() << std::endl;
 				CacheFile.close();
@@ -1098,17 +1140,25 @@ void ReadCacheDirectory(void)
 				std::ifstream TheFile(*files.begin());
 				if (TheFile.is_open())
 				{
-					FakeMRTGFile.clear();
 					if (ConsoleVerbosity > 0)
 						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << files.begin()->string() << std::endl;
 					else
 						std::cerr << "Reading: " << files.begin()->string() << std::endl;
 					std::string TheLine;
-					while (std::getline(TheFile, TheLine))
+					if (std::getline(TheFile, TheLine))
 					{
-						Govee_Temp value;
-						value.ReadCache(TheLine);
-						FakeMRTGFile.push_back(value);
+						// every Cache File should have a start line with the name Cache, the Bluetooth Address, and the creator version. 
+						// I should check to make sure the version is compatible
+						if (0 == TheLine.substr(0, 6).compare("Cache:"))
+						{
+							FakeMRTGFile.clear();
+							while (std::getline(TheFile, TheLine))
+							{
+								Govee_Temp value;
+								value.ReadCache(TheLine);
+								FakeMRTGFile.push_back(value);
+							}
+						}
 					}
 					TheFile.close();
 				}
