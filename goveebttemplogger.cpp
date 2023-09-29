@@ -1738,7 +1738,6 @@ void ReadLoggedData(void)
 	const std::regex LogFileRegex("gvh-[0-F]{12}-[0-9]{4}-[0-9]{2}\.txt");
 	if (!LogDirectory.empty())
 	{
-		ReadCacheDirectory(); // if cache directory is configured, read it before reading all the raw data
 		if (ConsoleVerbosity > 1)
 			std::cout << "[" << getTimeISO8601() << "] ReadLoggedData: " << LogDirectory << std::endl;
 		std::deque<std::filesystem::path> files;
@@ -3111,6 +3110,7 @@ int main(int argc, char **argv)
 				SVGTitleMapFilename = TitleMapFilename.str();
 			}
 			ReadTitleMap(SVGTitleMapFilename);
+			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
 			WriteAllSVG();
 		}
@@ -3533,6 +3533,7 @@ int main(int argc, char **argv)
 											std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 										TimeStart = TimeNow;
 										GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+										GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 										MonitorLoggedData();
 									}
 									if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
@@ -3591,6 +3592,7 @@ int main(int argc, char **argv)
 			SVGTitleMapFilename = TitleMapFilename.str();
 		}
 		ReadTitleMap(SVGTitleMapFilename);
+		ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 		ReadLoggedData();
 
 		auto previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
