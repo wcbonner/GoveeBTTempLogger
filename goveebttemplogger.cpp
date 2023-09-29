@@ -1700,10 +1700,6 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 }
 void ReadLoggedData(const std::filesystem::path& filename)
 {
-	if (ConsoleVerbosity > 0)
-		std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
-	else
-		std::cerr << "Reading: " << filename.string() << std::endl;
 	std::string ssBTAddress;
 	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
 	auto pos = filename.stem().string().find("gvh-");
@@ -1731,6 +1727,10 @@ void ReadLoggedData(const std::filesystem::path& filename)
 
 	if (bReadFile)
 	{
+		if (ConsoleVerbosity > 0)
+			std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
+		else
+			std::cerr << "Reading: " << filename.string() << std::endl;
 		std::ifstream TheFile(filename);
 		if (TheFile.is_open())
 		{
