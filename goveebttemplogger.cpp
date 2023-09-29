@@ -1129,7 +1129,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 }
 void ReadCacheDirectory(void)
 {
-	const std::regex CacheFileRegex("gvh-[[:xdigit:]]{12}-cache\.txt");
+	const std::regex CacheFileRegex("gvh-[[:xdigit:]]{12}-cache.txt");
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1715,27 +1715,44 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		ssBTAddress.insert(index, ":");
 	bdaddr_t TheBlueToothAddress;
 	str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
-	std::ifstream TheFile(filename);
-	if (TheFile.is_open())
+
+	// Only read the file if it's newer than what we may have cached
+	bool bReadFile = true;
+	struct stat64 FileStat;
+	FileStat.st_mtim.tv_sec = 0;
+	if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 	{
-		std::vector<std::string> SortableFile;
-		std::string TheLine;
-		while (std::getline(TheFile, TheLine))
-			SortableFile.push_back(TheLine);
-		TheFile.close();
-		sort(SortableFile.begin(), SortableFile.end());
-		for (auto iter = SortableFile.begin(); iter != SortableFile.end(); iter++)
+		auto it = GoveeMRTGLogs.find(TheBlueToothAddress);
+		if (it != GoveeMRTGLogs.end())
+			if (!it->second.empty())
+				if (FileStat.st_mtim.tv_sec < (it->second.begin()->Time))	// only read the file if it more recent than existing data
+					bReadFile = false;
+	}
+
+	if (bReadFile)
+	{
+		std::ifstream TheFile(filename);
+		if (TheFile.is_open())
 		{
-			Govee_Temp TheValue(*iter);
-			if (TheValue.IsValid())
-				UpdateMRTGData(TheBlueToothAddress, TheValue);
+			std::vector<std::string> SortableFile;
+			std::string TheLine;
+			while (std::getline(TheFile, TheLine))
+				SortableFile.push_back(TheLine);
+			TheFile.close();
+			sort(SortableFile.begin(), SortableFile.end());
+			for (auto iter = SortableFile.begin(); iter != SortableFile.end(); iter++)
+			{
+				Govee_Temp TheValue(*iter);
+				if (TheValue.IsValid())
+					UpdateMRTGData(TheBlueToothAddress, TheValue);
+			}
 		}
 	}
 }
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
-	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}\.txt");
+	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1863,7 +1880,7 @@ void WriteAllSVG()
 }
 void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesystem::path SVGIndexFilename)
 {
-	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}\.txt");
+	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 0)
