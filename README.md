@@ -68,22 +68,42 @@ pushd GoveeBTTempLogger/build && cpack . && popd
 The install package will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
 
-The following environment variables control the service:
+There are several `ExecStartPre` lines to confirm the directories used exist. To use different directories, both this location and the parameter on the ExecStart line need to be changed.
 
-* `VERBOSITY` controlls the verbosity level; default: `0`
-* `LOGDIR` directory the TSV files are written to; default: `/var/log/goveebttemplogger`
-* `TIME` Sets the frequency data is written to the logs; default: `60`
-* `SVGARGS` controlls options for writing SVG files; default: `--svg /var/www/html/goveebttemplogger/ --battery 8 --minmax 8`
-* `EXTRAARGS` can be used to pass extra arguments; default is unset (empty)
-
-As an example, to disable SVG files, increase verbosity, and change the directory the TSV files are written to, use 
-`sudo systemctl edit goveebttemplogger.service` and enter the following file in the editor:
+The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
 
 ```
 [Service]
-Environment="VERBOSITY=1"
-Environment="LOGDIR=/opt/govee/data"
-Environment="SVGARGS="
+Type=simple
+Restart=always
+RestartSec=5
+ExecStartPre=/bin/mkdir -p /var/log/goveebttemplogger
+ExecStartPre=/bin/mkdir -p /var/www/html/goveebttemplogger
+ExecStartPre=/bin/mkdir -p /var/cache/goveebttemplogger
+ExecStart=/usr/local/bin/goveebttemplogger \
+    --verbose 0 \
+    --log /var/log/goveebttemplogger \
+    --time 60 \
+    --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
+    --cache /var/cache/goveebttemplogger \
+    --download
+KillSignal=SIGINT
+```
+
+As an example, to disable SVG files, increase verbosity, and change the directory the TSV files are written to, use 
+`sudo systemctl edit --full goveebttemplogger.service` and enter the following file in the editor:
+```
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStartPre=/bin/mkdir -p /var/log/gvh
+ExecStart=/usr/local/bin/goveebttemplogger \
+    --verbose 1 \
+    --log /var/log/gvh \
+    --time 60 \
+    --download
+KillSignal=SIGINT
 ```
 
 Then use `sudo systemctl restart goveebttemplogger` to restart GoveeBTTempLogger.

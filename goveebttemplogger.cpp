@@ -932,15 +932,22 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 		{
 			if (!it->second.empty()) // Only open the log file if there are entries to add
 			{
-				std::ofstream LogFile(GenerateLogFileName(it->first), std::ios_base::out | std::ios_base::app | std::ios_base::ate);
+				std::filesystem::path filename(GenerateLogFileName(it->first));
+				std::ofstream LogFile(filename, std::ios_base::out | std::ios_base::app | std::ios_base::ate);
 				if (LogFile.is_open())
 				{
+					time_t MostRecentData(0);
 					while (!it->second.empty())
 					{
 						LogFile << it->second.front().WriteTXT() << std::endl;
+						MostRecentData = std::max(it->second.front().Time, MostRecentData);
 						it->second.pop();
 					}
 					LogFile.close();
+					struct utimbuf Log_ut;
+					Log_ut.actime = MostRecentData;
+					Log_ut.modtime = MostRecentData;
+					utime(filename.c_str(), &Log_ut);
 					rval = true;
 				}
 			}
@@ -2993,82 +3000,82 @@ int main(int argc, char **argv)
 		case 0: /* getopt_long() flag */
 			break;
 		case '?':
-		case 'h':
+		case 'h':	// --help
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
-		case 'l':
+		case 'l':	// --log
 			TempPath = std::string(optarg);
 			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
 				TempPath = TempPath.parent_path();
 			if (ValidateDirectory(TempPath))
 				LogDirectory = TempPath;
 			break;
-		case 't':
+		case 't':	// --time
 			try { LogFileTime = std::stoi(optarg); }
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
-		case 'v':
+		case 'v':	// --verbose
 			try { ConsoleVerbosity = std::stoi(optarg); }
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
-		case 'm':
+		case 'm':	// --mrtg
 			MRTGAddress = std::string(optarg);
 			break;
-		case 'o':
+		case 'o':	// --only
 			if (0 == str2ba(optarg, &OnlyFilterAddress))
 				BT_WhiteList.insert(OnlyFilterAddress);
 			break;
-		case 'C':
+		case 'C':	// --controller
 			ControllerAddress = std::string(optarg);
 			break;
-		case 'a':
+		case 'a':	// --average
 			try { MinutesAverage = std::stoi(optarg); }
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
-		case 'f':
+		case 'f':	// --cache
 			TempPath = std::string(optarg);
 			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
 				TempPath = TempPath.parent_path();
 			if (ValidateDirectory(TempPath))
 				CacheDirectory = TempPath;
 			break;
-		case 'd':
+		case 'd':	// --download
 			DaysBetweenDataDownload = 14;
 			break;
-		case 'n':
+		case 'n':	// --no-bluetooth
 			UseBluetooth = false;
 			break;
-		case 'p':
+		case 'p':	// --passive
 			bt_ScanType = 0;
 			break;
-		case 's':
+		case 's':	// --svg
 			TempPath = std::string(optarg);
 			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
 				TempPath = TempPath.parent_path();
 			if (ValidateDirectory(TempPath))
 				SVGDirectory = TempPath;
 			break;
-		case 'i':
+		case 'i':	// --index
 			TempPath = std::string(optarg);
 			SVGIndexFilename = TempPath;
 			break;
-		case 'T':
+		case 'T':	// --titlemap
 			TempPath = std::string(optarg);
 			if (ReadTitleMap(TempPath))
 				SVGTitleMapFilename = TempPath;
 			break;
-		case 'c':
+		case 'c':	// --celsius
 			SVGFahrenheit = false;
 			break;
-		case 'b':
+		case 'b':	// --battery
 			try { SVGBattery = std::stoi(optarg); }
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
 			break;
-		case 'x':
+		case 'x':	// --minmax
 			try { SVGMinMax = std::stoi(optarg); }
 			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
 			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
@@ -3459,10 +3466,10 @@ int main(int argc, char **argv)
 																			}
 																			std::queue<Govee_Temp> foo;
 																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
-																			ret.first->second.push(localTemp);
+																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 																			AddressInGoveeSet = true;
-																			UpdateMRTGData(info->bdaddr, localTemp);
-																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));
+																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
+																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																		}
 																		else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																			ConsoleOutLine << iBeacon(info->data + current_offset);
