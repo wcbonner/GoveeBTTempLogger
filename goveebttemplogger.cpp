@@ -24,8 +24,8 @@
 /////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
-// GoveeBTTempLogger is designed as a project to run on a Raspberry Pi with 
-// Bluetooth Low Energy support. It listens for advertisments from Govee 
+// GoveeBTTempLogger is designed as a project to run on a Raspberry Pi with
+// Bluetooth Low Energy support. It listens for advertisments from Govee
 // https://www.govee.com/product/thermometers-hygrometers/indoor-thermometers-hygrometers
 // Currently the H5074, GVH5075, and GVH5177 are decoded and logged.
 // Each unit has its data logged to it's own file, with a new file created daily.
@@ -925,6 +925,8 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	bool rval = false;
 	if (!LogDirectory.empty())
 	{
+		if (ConsoleVerbosity > 1)
+			std::cout << "[" << getTimeISO8601() << "] GenerateLogFile: " << LogDirectory << std::endl;
 		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
 		{
 			if (!it->second.empty()) // Only open the log file if there are entries to add
@@ -980,7 +982,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	}
 	else
 	{
-		// clear the queued data if LogDirectory not specified 
+		// clear the queued data if LogDirectory not specified
 		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
 		{
 			while (!it->second.empty())
@@ -1065,7 +1067,7 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
-std::map<bdaddr_t, std::string> GoveeBluetoothTitles; 
+std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
 /////////////////////////////////////////////////////////////////////////////
 std::filesystem::path GenerateCacheFileName(const bdaddr_t& a)
 {
@@ -1073,9 +1075,9 @@ std::filesystem::path GenerateCacheFileName(const bdaddr_t& a)
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
 	std::ostringstream OutputFilename;
-	OutputFilename << "gvh-cache-";
+	OutputFilename << "gvh-";
 	OutputFilename << btAddress;
-	OutputFilename << ".txt";
+	OutputFilename << "-cache.txt";
 	std::filesystem::path CacheFileName(CacheDirectory / OutputFilename.str());
 	return(CacheFileName);
 }
@@ -1093,6 +1095,8 @@ bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMR
 				bCacheOldOrNonexistant = false;
 		if (bCacheOldOrNonexistant)
 		{
+			if (ConsoleVerbosity > 1)
+				std::cout << "[" << getTimeISO8601() << "] GenerateCacheFile: " << MRTGCacheFile << std::endl;
 			std::ofstream CacheFile(MRTGCacheFile, std::ios_base::out | std::ios_base::trunc);
 			if (CacheFile.is_open())
 			{
@@ -1114,22 +1118,34 @@ bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMR
 	}
 	return(rval);
 }
+void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTemperatureMap)
+{
+	if (!CacheDirectory.empty())
+	{
+		if (ConsoleVerbosity > 1)
+			std::cout << "[" << getTimeISO8601() << "] GenerateCacheFile: " << CacheDirectory << std::endl;
+		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
+			GenerateCacheFile(it->first, it->second);
+	}
+}
 void ReadCacheDirectory(void)
 {
 	if (!CacheDirectory.empty())
 	{
+		if (ConsoleVerbosity > 1)
+			std::cout << "[" << getTimeISO8601() << "] ReadCacheDirectory: " << CacheDirectory << std::endl;
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ CacheDirectory })
 			if (dir_entry.is_regular_file())
 				if (dir_entry.path().extension() == ".txt")
-					if (dir_entry.path().stem().string().substr(0, 10) == "gvh-cache-")
+					if (dir_entry.path().stem().string().find("cache") != std::string::npos)
 						files.push_back(dir_entry);
 		if (!files.empty())
 		{
 			sort(files.begin(), files.end());
 			while (!files.empty())
 			{
-				auto ssBTAddress = files.begin()->stem().string().substr(10, 12);	// new filename format (2023-04-03)
+				auto ssBTAddress = files.begin()->stem().string().substr(4, 12);	// new cache filename format (2023-09-28)
 				for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
 					ssBTAddress.insert(index, ":");
 				bdaddr_t TheBlueToothAddress;
@@ -1648,7 +1664,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 			DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
 		if (DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year)
 		{
-			if (ConsoleVerbosity > 1)
+			if (ConsoleVerbosity > 2)
 				std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
 			// shuffle all the year samples toward the end
 			std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
@@ -1659,7 +1675,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
 			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
 		{
-			if (ConsoleVerbosity > 1)
+			if (ConsoleVerbosity > 2)
 				std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 			// shuffle all the month samples toward the end
 			std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
@@ -1671,7 +1687,7 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
 			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::week))
 		{
-			if (ConsoleVerbosity > 1)
+			if (ConsoleVerbosity > 2)
 				std::cout << "[" << getTimeISO8601() << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 			// shuffle all the month samples toward the end
 			std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
@@ -1722,6 +1738,9 @@ void ReadLoggedData(void)
 {
 	if (!LogDirectory.empty())
 	{
+		ReadCacheDirectory(); // if cache directory is configured, read it before reading all the raw data
+		if (ConsoleVerbosity > 1)
+			std::cout << "[" << getTimeISO8601() << "] ReadLoggedData: " << LogDirectory << std::endl;
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
@@ -2193,11 +2212,11 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	//const uint16_t bt_ScanInterval(96);	// Scan Interval: 96 (60 msec) (how long to wait between scans).
 	//const uint16_t bt_ScanWindow(48);	// Scan Window: 48 (30 msec) (how long to scan)
 	// Interval and Window are in steps of 0.625ms
-	// Apple's foreground mode of 30 ms scanWindow with 40 ms scanInterval means that for a base 
-	// advertising interval of 1022.5 ms that you see the device within 1 second about 3/4ths of 
-	// the time and always within 2 seconds, assuming no RF interference obscuring the advertising 
-	// packet. In background mode with a 30 ms scanWindow and 300 ms scanInterval, the median time 
-	// becomes 5 seconds and the usual maximum becomes 19 seconds though with very bad luck of the 
+	// Apple's foreground mode of 30 ms scanWindow with 40 ms scanInterval means that for a base
+	// advertising interval of 1022.5 ms that you see the device within 1 second about 3/4ths of
+	// the time and always within 2 seconds, assuming no RF interference obscuring the advertising
+	// packet. In background mode with a 30 ms scanWindow and 300 ms scanInterval, the median time
+	// becomes 5 seconds and the usual maximum becomes 19 seconds though with very bad luck of the
 	// random shifts it could be a little longer.
 	const uint16_t bt_ScanInterval(64);	// Scan Interval: 64 (40 msec) (how long to wait between scans).
 	const uint16_t bt_ScanWindow(48);	// Scan Window: 48 (30 msec) (how long to scan)
@@ -2254,7 +2273,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			bt_ScanFilterPolicy = 0x01; // Scan Filter Policy: Accept only advertisements from devices in the White List. Ignore directed advertisements not addressed to this device (0x01)
 		}
 		btRVal = hci_le_set_scan_parameters(BlueToothDevice_Handle, bt_ScanType, htobs(bt_ScanInterval), htobs(bt_ScanWindow), LE_RANDOM_ADDRESS, bt_ScanFilterPolicy, bt_TimeOut);
-		// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error, 
+		// It's been reported that on Linux version 5.19.0-28-generic (x86_64) the bluetooth scanning produces an error,
 		// This custom code setting extended scan parameters is an attempt to work around the issue (2023-02-06)
 		if (btRVal < 0)
 			// If the standard scan parameters commands fails, try the extended command.
@@ -2501,7 +2520,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										buf[0] = BT_ATT_OP_ERROR_RSP;
 									else
 									{
-										// TODO: Here I need to interpret the buffer, figure out what the maximum handle is, and increase the starting handle 										
+										// TODO: Here I need to interpret the buffer, figure out what the maximum handle is, and increase the starting handle
 										buf[0] = BT_ATT_OP_ERROR_RSP; // Since I'm not interpreting this response right now, I'm assigning the buffer that moves us to the next feature.
 									}
 								}
@@ -2599,7 +2618,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						}
 
 						#ifdef BT_GET_INFORMATION
-						// Loop Through Govee services, request information on the handles. 
+						// Loop Through Govee services, request information on the handles.
 						// I'm not storing or doing anything with this information right now, but the android app does it, so I'm repeating the sequence.
 						buf[0] = 0;
 						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
@@ -2728,7 +2747,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 
 						//WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0x33,0x01,0x3d,0xee,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xe0} });
 						//WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0x33,0x01,0x70,0x81,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xc2} });
-						// The following while loop attempts to read from the non-blocking socket. 
+						// The following while loop attempts to read from the non-blocking socket.
 						// As long as the read call simply times out, we sleep for 100 microseconds and try again.
 							//WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x0035, {0xaa,0x0e,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa4} });
 							//WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, 0x0035, {0xaa,0x0e,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa4} });
@@ -2756,7 +2775,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						// Value: 0002016377015f8fffffffffffffffffffffffff
 						// Then there was a notification on handle 0x002d
 						// Value: ee010a53000000000000000000000000000000b6
-						// There were 2644 Notification packets on Handle 31, 
+						// There were 2644 Notification packets on Handle 31,
 						int RetryCount(4);
 						int NotificationCount(0);
 						bool bDownloadInProgress(true);
@@ -2766,7 +2785,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							if (!WritePacketQueue.empty())
 							{
 								if (ConsoleVerbosity > 1)
-								{								
+								{
 									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
 									std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 									for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
@@ -3097,7 +3116,7 @@ int main(int argc, char **argv)
 				SVGTitleMapFilename = TitleMapFilename.str();
 			}
 			ReadTitleMap(SVGTitleMapFilename);
-			ReadLoggedData();
+			ReadLoggedData(); // only read the logged data if creating SVG files
 			WriteAllSVG();
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
@@ -3540,6 +3559,7 @@ int main(int argc, char **argv)
 			signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
 
 			GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
+			GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 
 			if (ConsoleVerbosity > 0)
 			{
