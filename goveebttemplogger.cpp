@@ -73,6 +73,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <queue>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -421,7 +422,7 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 std::string Govee_Temp::WriteCache(void) const
 {
 	std::ostringstream ssValue;
-	ssValue << timeToExcelDate(Time);
+	ssValue << Time;
 	for (auto a : Temperature)
 		ssValue << "\t" << a;
 	for (auto a : TemperatureMin)
@@ -443,7 +444,7 @@ bool Govee_Temp::ReadCache(const std::string& data)
 	data.copy(buffer, data.size());
 	buffer[data.size()] = '\0';
 	std::string theDate(strtok(buffer, "\t"));
-	Time = ISO8601totime(theDate);
+	Time = std::atoi(theDate.c_str());
 	for (auto a : Temperature)
 	{
 		std::string theTemp(strtok(NULL, "\t"));
@@ -1095,8 +1096,6 @@ bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMR
 				bCacheOldOrNonexistant = false;
 		if (bCacheOldOrNonexistant)
 		{
-			if (ConsoleVerbosity > 1)
-				std::cout << "[" << getTimeISO8601() << "] GenerateCacheFile: " << MRTGCacheFile << std::endl;
 			std::ofstream CacheFile(MRTGCacheFile, std::ios_base::out | std::ios_base::trunc);
 			if (CacheFile.is_open())
 			{
@@ -1130,6 +1129,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 }
 void ReadCacheDirectory(void)
 {
+	const std::regex CacheFileRegex("gvh-[0-F]{12}-cache\.txt");
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1137,9 +1137,8 @@ void ReadCacheDirectory(void)
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ CacheDirectory })
 			if (dir_entry.is_regular_file())
-				if (dir_entry.path().extension() == ".txt")
-					if (dir_entry.path().stem().string().find("cache") != std::string::npos)
-						files.push_back(dir_entry);
+				if (std::regex_match(dir_entry.path().filename().string(), CacheFileRegex))
+					files.push_back(dir_entry);
 		if (!files.empty())
 		{
 			sort(files.begin(), files.end());
@@ -1736,6 +1735,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
+	const std::regex LogFileRegex("gvh-[0-F]{12}-[0-9]{4}-[0-9]{2}\.txt");
 	if (!LogDirectory.empty())
 	{
 		ReadCacheDirectory(); // if cache directory is configured, read it before reading all the raw data
@@ -1744,11 +1744,8 @@ void ReadLoggedData(void)
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
-				if (dir_entry.path().filename() != GVHLastDownloadFileName)
-					if (dir_entry.path() != SVGTitleMapFilename)
-						if (dir_entry.path().extension() == ".txt")
-							if (dir_entry.path().stem().string().substr(0, 3) == "gvh")
-								files.push_back(dir_entry);
+				if (std::regex_match(dir_entry.path().filename().string(), LogFileRegex))
+					files.push_back(dir_entry);
 		if (!files.empty())
 		{
 			sort(files.begin(), files.end());
@@ -1867,6 +1864,7 @@ void WriteAllSVG()
 }
 void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesystem::path SVGIndexFilename)
 {
+	const std::regex LogFileRegex("gvh-[0-F]{12}-[0-9]{4}-[0-9]{2}\.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 0)
@@ -1874,14 +1872,11 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 		std::set<std::string> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
-				if (dir_entry.path().filename() != GVHLastDownloadFileName.filename())
-					if (dir_entry.path().filename() != SVGTitleMapFilename.filename())
-						if (dir_entry.path().extension() == ".txt")
-							if (dir_entry.path().stem().string().substr(0, 3) == "gvh")
-							{
-								std::string ssBTAddress(dir_entry.path().stem().string().substr(4, 12));
-								files.insert(ssBTAddress);
-							}
+				if (std::regex_match(dir_entry.path().filename().string(), LogFileRegex))
+					{
+						std::string ssBTAddress(dir_entry.path().stem().string().substr(4, 12));
+						files.insert(ssBTAddress);
+					}
 		if (!files.empty())
 		{
 			std::ofstream SVGIndexFile(SVGIndexFilename);
@@ -3130,9 +3125,9 @@ int main(int argc, char **argv)
 			if (TheFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
+					std::cout << "[" << getTimeISO8601() << "] Reading LastDownload: " << filename.string() << std::endl;
 				else
-					std::cerr << "Reading: " << filename.string() << std::endl;
+					std::cerr << "Reading LastDownload: " << filename.string() << std::endl;
 				std::string TheLine;
 				while (std::getline(TheFile, TheLine))
 				{
