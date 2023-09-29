@@ -10,13 +10,16 @@ StartLimitIntervalSec=33
 Type=simple
 Restart=always
 RestartSec=5
-Environment="VERBOSITY=0"
-Environment="LOGDIR=/var/log/goveebttemplogger"
-Environment="TIME=60"
-Environment="SVGARGS=--svg /var/www/html/goveebttemplogger/ --battery 8 --minmax 8 --titlemap /var/www/html/goveebttemplogger/gvh-titlemap.txt"
-Environment="EXTRAARGS=--download"
-ExecStartPre=/bin/mkdir -p ${LOGDIR}
-ExecStart=/usr/local/bin/goveebttemplogger -v ${VERBOSITY} --log ${LOGDIR} --time ${TIME} $SVGARGS $EXTRAARGS
+ExecStartPre=/bin/mkdir -p /var/log/goveebttemplogger
+ExecStartPre=/bin/mkdir -p /var/www/html/goveebttemplogger
+ExecStartPre=/bin/mkdir -p /var/cache/goveebttemplogger
+ExecStart=/usr/local/bin/goveebttemplogger \
+    --verbose 0 \
+    --log /var/log/goveebttemplogger \
+    --time 60 \
+    --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
+    --cache /var/cache/goveebttemplogger \
+    --download
 KillSignal=SIGINT
 
 [Install]

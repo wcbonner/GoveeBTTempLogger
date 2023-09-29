@@ -1129,7 +1129,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 }
 void ReadCacheDirectory(void)
 {
-	const std::regex CacheFileRegex("gvh-[0-F]{12}-cache\.txt");
+	const std::regex CacheFileRegex("gvh-[[:xdigit:]]{12}-cache\.txt");
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1735,7 +1735,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
-	const std::regex LogFileRegex("gvh-[0-F]{12}-[0-9]{4}-[0-9]{2}\.txt");
+	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}\.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1863,7 +1863,7 @@ void WriteAllSVG()
 }
 void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesystem::path SVGIndexFilename)
 {
-	const std::regex LogFileRegex("gvh-[0-F]{12}-[0-9]{4}-[0-9]{2}\.txt");
+	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}\.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 0)
