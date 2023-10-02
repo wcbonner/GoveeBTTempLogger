@@ -45,6 +45,7 @@
 #include <locale>
 #include <map>
 #include <queue>
+#include <regex>
 #include <sstream>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -303,14 +304,16 @@ static void usage(int argc, char** argv)
 	std::cout << "  Options:" << std::endl;
 	std::cout << "    -h | --help          Print this message" << std::endl;
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
+	std::cout << "    -f | --file name     Single log file to process [" <<  "]" << std::endl;
 	std::cout << "    -b | --backup name   Backup Directory [" << BackupDirectory << "]" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:b:";
+static const char short_options[] = "hl:f:b:";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
-		{ "backup",    required_argument, NULL, 'b' },
+		{ "file",   required_argument, NULL, 'f' },
+		{ "backup", required_argument, NULL, 'b' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -359,16 +362,12 @@ int main(int argc, char** argv)
 		usage(argc, argv);
 	else
 	{
-		const std::filesystem::path GVHLastDownloadFileName("gvh-lastdownload.txt");
-		const std::filesystem::path SVGTitleMapFilename("gvh-titlemap.txt");
+		const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
-				if (dir_entry.path().filename() != GVHLastDownloadFileName.filename())
-					if (dir_entry.path().filename() != SVGTitleMapFilename.filename())
-						if (dir_entry.path().extension() == ".txt")
-							if (dir_entry.path().stem().string().substr(0, 3) == "gvh")
-								files.push_back(dir_entry);
+				if (std::regex_match(dir_entry.path().filename().string(), LogFileRegex))
+					files.push_back(dir_entry);
 
 		if (!files.empty())
 		{

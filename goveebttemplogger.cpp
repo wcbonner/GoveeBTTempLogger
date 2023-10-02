@@ -3119,12 +3119,7 @@ int main(int argc, char **argv)
 		if (!SVGDirectory.empty())
 		{
 			if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
-			{
-				std::ostringstream TitleMapFilename;
-				TitleMapFilename << SVGDirectory;
-				TitleMapFilename << "/gvh-titlemap.txt";
-				SVGTitleMapFilename = TitleMapFilename.str();
-			}
+				SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 			ReadTitleMap(SVGTitleMapFilename);
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
