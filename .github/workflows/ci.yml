@@ -53,4 +53,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ubuntu-${{ matrix.image_tag }} ${{ matrix.compiler }}
-          path: GoveeBTTempLogger.deb
+          path: build/goveebttemplogger_*.deb
