@@ -433,6 +433,7 @@ std::string Govee_Temp::WriteCache(void) const
 	ssValue << "\t" << HumidityMin;
 	ssValue << "\t" << HumidityMax;
 	ssValue << "\t" << Battery;
+	ssValue << "\t" << Averages;
 	//TODO: Write Model
 //	ssValue << "\t" << Model;
 	return(ssValue.str());
@@ -440,34 +441,25 @@ std::string Govee_Temp::WriteCache(void) const
 bool Govee_Temp::ReadCache(const std::string& data)
 {
 	bool rval = false;
-	char buffer[512];
-	data.copy(buffer, data.size());
-	buffer[data.size()] = '\0';
-	std::string theDate(strtok(buffer, "\t"));
-	Time = std::atoi(theDate.c_str());
-	for (auto a : Temperature)
-	{
-		std::string theTemp(strtok(NULL, "\t"));
-		a = std::atof(theTemp.c_str());
-	}
-	for (auto a : TemperatureMin)
-	{
-		std::string theTemp(strtok(NULL, "\t"));
-		a = std::atof(theTemp.c_str());
-	}
-	for (auto a : TemperatureMax)
-	{
-		std::string theTemp(strtok(NULL, "\t"));
-		a = std::atof(theTemp.c_str());
-	}
-	std::string theHumidity(strtok(NULL, "\t"));
-	Humidity = std::atof(theHumidity.c_str());
-	std::string theHumidityMin(strtok(NULL, "\t"));
-	HumidityMin = std::atof(theHumidityMin.c_str());
-	std::string theHumidityMax(strtok(NULL, "\t"));
-	HumidityMax = std::atof(theHumidityMax.c_str());
-	std::string theBattery(strtok(NULL, "\t"));
-	Battery = std::atoi(theBattery.c_str());
+	std::istringstream ssValue(data);
+	ssValue >> Time;
+	for (auto a = 0; a < sizeof(Temperature) / sizeof(double); a++)
+		ssValue >> Temperature[a];
+	for (auto a = 0; a < sizeof(TemperatureMin) / sizeof(double); a++)
+		ssValue >> TemperatureMin[a];
+	for (auto a = 0; a < sizeof(TemperatureMax) / sizeof(double); a++)
+		ssValue >> TemperatureMax[a];
+	//for (auto a : Temperature)
+	//	ssValue >> a;
+	//for (auto a : TemperatureMin)
+	//	ssValue >> a;
+	//for (auto a : TemperatureMax)
+	//	ssValue >> a;
+	ssValue >> Humidity;
+	ssValue >> HumidityMin;
+	ssValue >> HumidityMax;
+	ssValue >> Battery;
+	ssValue >> Averages;
 	// TODO: Read Model
 	return(rval);
 }
@@ -1342,7 +1334,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 		struct stat64 SVGStat;
 		SVGStat.st_mtim.tv_sec = 0;
 		if (-1 == stat64(SVGFileName.c_str(), &SVGStat))
-			if (ConsoleVerbosity > 0)
+			if (ConsoleVerbosity > 3)
 				perror(SVGFileName.c_str());
 				//std::cout << "[" << getTimeISO8601() << "] stat returned error on : " << SVGFileName << std::endl;
 		if (TheValues.begin()->Time > SVGStat.st_mtim.tv_sec)	// only write the file if we have new data
@@ -3136,6 +3128,7 @@ int main(int argc, char **argv)
 			ReadTitleMap(SVGTitleMapFilename);
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
+			GenerateCacheFile(GoveeMRTGLogs); // update cache files if any new data was in logs
 			WriteAllSVG();
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
