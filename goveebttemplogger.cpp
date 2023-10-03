@@ -1128,7 +1128,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 }
 void ReadCacheDirectory(void)
 {
-	const std::regex CacheFileRegex("gvh-[[:xdigit:]]{12}-cache.txt");
+	const std::regex CacheFileRegex("^gvh-[[:xdigit:]]{12}-cache.txt");
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1143,14 +1143,6 @@ void ReadCacheDirectory(void)
 			sort(files.begin(), files.end());
 			while (!files.empty())
 			{
-				auto ssBTAddress = files.begin()->stem().string().substr(4, 12);	// new cache filename format (2023-09-28)
-				for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
-					ssBTAddress.insert(index, ":");
-				bdaddr_t TheBlueToothAddress;
-				str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
-				std::vector<Govee_Temp> foo;
-				auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, foo));
-				std::vector<Govee_Temp>& FakeMRTGFile = ret.first->second;
 				std::ifstream TheFile(*files.begin());
 				if (TheFile.is_open())
 				{
@@ -1161,17 +1153,23 @@ void ReadCacheDirectory(void)
 					std::string TheLine;
 					if (std::getline(TheFile, TheLine))
 					{
+						const std::regex CacheFirstLineRegex("^Cache: ((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}.*");
 						// every Cache File should have a start line with the name Cache, the Bluetooth Address, and the creator version. 
 						// I should check to make sure the version is compatible
-						if (0 == TheLine.substr(0, 6).compare("Cache:"))
+						if (std::regex_match(TheLine, CacheFirstLineRegex))
 						{
-							FakeMRTGFile.clear();
+							bdaddr_t TheBlueToothAddress;
+							str2ba(TheLine.substr(7, 17).c_str(), &TheBlueToothAddress);
+							std::vector<Govee_Temp> FakeMRTGFile;
+							FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
 							while (std::getline(TheFile, TheLine))
 							{
 								Govee_Temp value;
 								value.ReadCache(TheLine);
 								FakeMRTGFile.push_back(value);
 							}
+							if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
+								GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, FakeMRTGFile));
 						}
 					}
 					TheFile.close();
