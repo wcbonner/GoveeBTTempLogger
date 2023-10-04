@@ -90,7 +90,7 @@ ExecStart=/usr/local/bin/goveebttemplogger \
 KillSignal=SIGINT
 ```
 
-As an example, to disable SVG files, increase verbosity, and change the directory the TSV files are written to, use 
+As an example, to disable SVG files, increase verbosity, and change the directory the log files are written to, use 
 `sudo systemctl edit --full goveebttemplogger.service` and enter the following file in the editor:
 ```
 [Service]
