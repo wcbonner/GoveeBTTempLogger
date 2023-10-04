@@ -1158,18 +1158,23 @@ void ReadCacheDirectory(void)
 						// I should check to make sure the version is compatible
 						if (std::regex_match(TheLine, CacheFirstLineRegex))
 						{
-							bdaddr_t TheBlueToothAddress;
-							str2ba(TheLine.substr(7, 17).c_str(), &TheBlueToothAddress);
-							std::vector<Govee_Temp> FakeMRTGFile;
-							FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
-							while (std::getline(TheFile, TheLine))
+							const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
+							auto btaddress_begin = std::sregex_iterator(TheLine.begin(), TheLine.end(), BluetoothAddressRegex);
+							if (btaddress_begin != std::sregex_iterator()) // double check that address was properly found
 							{
-								Govee_Temp value;
-								value.ReadCache(TheLine);
-								FakeMRTGFile.push_back(value);
+								bdaddr_t TheBlueToothAddress;
+								str2ba(btaddress_begin->str().c_str(), &TheBlueToothAddress);
+								std::vector<Govee_Temp> FakeMRTGFile;
+								FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
+								while (std::getline(TheFile, TheLine))
+								{
+									Govee_Temp value;
+									value.ReadCache(TheLine);
+									FakeMRTGFile.push_back(value);
+								}
+								if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
+									GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, FakeMRTGFile));
 							}
-							if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
-								GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, FakeMRTGFile));
 						}
 					}
 					TheFile.close();
@@ -1708,6 +1713,16 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		ssBTAddress.insert(index, ":");
 	bdaddr_t TheBlueToothAddress;
 	str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
+
+	//const std::regex BluetoothAddressRegex("[[:xdigit:]]{12}");
+	//auto btaddress_begin = std::sregex_iterator(filename.stem().string().begin(), filename.stem().string().end(), BluetoothAddressRegex);
+	//if (btaddress_begin != std::sregex_iterator()) // double check that address was properly found
+	//{
+	//	std::string ssBTAddress(btaddress_begin->str());
+	//	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
+	//		ssBTAddress.insert(index, ":");
+	//	bdaddr_t TheBlueToothAddress;
+	//	str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
 
 	// Only read the file if it's newer than what we may have cached
 	bool bReadFile = true;
