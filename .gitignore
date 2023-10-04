@@ -260,3 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 /gvh-backup
+/__par_compile_fail
