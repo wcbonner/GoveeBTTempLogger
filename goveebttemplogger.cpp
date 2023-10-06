@@ -1155,15 +1155,15 @@ void ReadCacheDirectory(void)
 					{
 						const std::regex CacheFirstLineRegex("^Cache: ((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}.*");
 						// every Cache File should have a start line with the name Cache, the Bluetooth Address, and the creator version. 
-						// I should check to make sure the version is compatible
+						// TODO: check to make sure the version is compatible
 						if (std::regex_match(TheLine, CacheFirstLineRegex))
 						{
 							const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
-							auto btaddress_begin = std::sregex_iterator(TheLine.begin(), TheLine.end(), BluetoothAddressRegex);
-							if (btaddress_begin != std::sregex_iterator()) // double check that address was properly found
+							std::smatch BluetoothAddress;
+							if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 							{
-								bdaddr_t TheBlueToothAddress;
-								str2ba(btaddress_begin->str().c_str(), &TheBlueToothAddress);
+								bdaddr_t TheBlueToothAddress({ 0 });
+								str2ba(BluetoothAddress.str().c_str(), &TheBlueToothAddress);
 								std::vector<Govee_Temp> FakeMRTGFile;
 								FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
 								while (std::getline(TheFile, TheLine))
@@ -1702,61 +1702,51 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 }
 void ReadLoggedData(const std::filesystem::path& filename)
 {
-	std::string ssBTAddress;
-	// TODO: make sure the filename looks like my standard filename gvh507x_A4C13813AE36-2020-09.txt
-	auto pos = filename.stem().string().find("gvh-");
-	if (pos != std::string::npos)
-		ssBTAddress = filename.stem().string().substr(4, 12);	// new filename format (2023-04-03)
-	else
-		ssBTAddress = filename.stem().string().substr(9, 12);	// old filname format
-	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
-		ssBTAddress.insert(index, ":");
-	bdaddr_t TheBlueToothAddress;
-	str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
-
-	//const std::regex BluetoothAddressRegex("[[:xdigit:]]{12}");
-	//auto btaddress_begin = std::sregex_iterator(filename.stem().string().begin(), filename.stem().string().end(), BluetoothAddressRegex);
-	//if (btaddress_begin != std::sregex_iterator()) // double check that address was properly found
-	//{
-	//	std::string ssBTAddress(btaddress_begin->str());
-	//	for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
-	//		ssBTAddress.insert(index, ":");
-	//	bdaddr_t TheBlueToothAddress;
-	//	str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
-
-	// Only read the file if it's newer than what we may have cached
-	bool bReadFile = true;
-	struct stat64 FileStat;
-	FileStat.st_mtim.tv_sec = 0;
-	if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
+	const std::regex BluetoothAddressRegex("[[:xdigit:]]{12}");
+	std::smatch BluetoothAddressInFilename;
+	std::string Stem(filename.stem().string());
+	if (std::regex_search(Stem, BluetoothAddressInFilename, BluetoothAddressRegex))
 	{
-		auto it = GoveeMRTGLogs.find(TheBlueToothAddress);
-		if (it != GoveeMRTGLogs.end())
-			if (!it->second.empty())
-				if (FileStat.st_mtim.tv_sec < (it->second.begin()->Time))	// only read the file if it more recent than existing data
-					bReadFile = false;
-	}
+		std::string ssBTAddress(BluetoothAddressInFilename.str());
+		for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
+			ssBTAddress.insert(index, ":");
+		bdaddr_t TheBlueToothAddress({ 0 });
+		str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
 
-	if (bReadFile)
-	{
-		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
-		else
-			std::cerr << "Reading: " << filename.string() << std::endl;
-		std::ifstream TheFile(filename);
-		if (TheFile.is_open())
+		// Only read the file if it's newer than what we may have cached
+		bool bReadFile = true;
+		struct stat64 FileStat;
+		FileStat.st_mtim.tv_sec = 0;
+		if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 		{
-			std::vector<std::string> SortableFile;
-			std::string TheLine;
-			while (std::getline(TheFile, TheLine))
-				SortableFile.push_back(TheLine);
-			TheFile.close();
-			sort(SortableFile.begin(), SortableFile.end());
-			for (auto iter = SortableFile.begin(); iter != SortableFile.end(); iter++)
+			auto it = GoveeMRTGLogs.find(TheBlueToothAddress);
+			if (it != GoveeMRTGLogs.end())
+				if (!it->second.empty())
+					if (FileStat.st_mtim.tv_sec < (it->second.begin()->Time))	// only read the file if it more recent than existing data
+						bReadFile = false;
+		}
+
+		if (bReadFile)
+		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
+			else
+				std::cerr << "Reading: " << filename.string() << std::endl;
+			std::ifstream TheFile(filename);
+			if (TheFile.is_open())
 			{
-				Govee_Temp TheValue(*iter);
-				if (TheValue.IsValid())
-					UpdateMRTGData(TheBlueToothAddress, TheValue);
+				std::vector<std::string> SortableFile;
+				std::string TheLine;
+				while (std::getline(TheFile, TheLine))
+					SortableFile.push_back(TheLine);
+				TheFile.close();
+				sort(SortableFile.begin(), SortableFile.end());
+				for (auto iter = SortableFile.begin(); iter != SortableFile.end(); iter++)
+				{
+					Govee_Temp TheValue(*iter);
+					if (TheValue.IsValid())
+						UpdateMRTGData(TheBlueToothAddress, TheValue);
+				}
 			}
 		}
 	}
@@ -1822,22 +1812,21 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 					std::cerr << "Reading: " << TitleMapFilename.string() << std::endl;
 				std::string TheLine;
 
-				static const std::string addressFormat("01:02:03:04:05:06");
 				while (std::getline(TheFile, TheLine))
 				{
-					const std::string delimiters(" \t");
-					auto i = TheLine.find_first_of(delimiters);
-					if (i == std::string::npos || i != addressFormat.size())
-						// No delimited mapping or not the correct length for a Bluetooth address.
-						continue;
-
-					std::string theAddress = TheLine.substr(0, i);
-					i = TheLine.find_first_not_of(delimiters, i);
-					std::string theTitle = (i == std::string::npos) ? "" : TheLine.substr(i);
-
-					bdaddr_t TheBlueToothAddress;
-					str2ba(theAddress.c_str(), &TheBlueToothAddress);
-					GoveeBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
+					const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
+					std::smatch BluetoothAddress;
+					if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
+					{
+						bdaddr_t TheBlueToothAddress({ 0 });
+						str2ba(BluetoothAddress.str().c_str(), &TheBlueToothAddress);
+						
+						const std::string delimiters(" \t");
+						auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+						std::string theTitle = (i == std::string::npos) ? "" : TheLine.substr(i);
+						GoveeBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
+					}
 				}
 				TheFile.close();
 			}
@@ -1902,8 +1891,11 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 			if (dir_entry.is_regular_file())
 				if (std::regex_match(dir_entry.path().filename().string(), LogFileRegex))
 					{
-						std::string ssBTAddress(dir_entry.path().stem().string().substr(4, 12));
-						files.insert(ssBTAddress);
+						const std::regex BluetoothAddressRegex("[[:xdigit:]]{12}");
+						std::smatch BluetoothAddressInFilename;
+						std::string Stem(dir_entry.path().stem().string());
+						if (std::regex_search(Stem, BluetoothAddressInFilename, BluetoothAddressRegex))
+							files.insert(BluetoothAddressInFilename.str());
 					}
 		if (!files.empty())
 		{
@@ -3156,21 +3148,18 @@ int main(int argc, char **argv)
 				std::string TheLine;
 				while (std::getline(TheFile, TheLine))
 				{
-					// rudimentary line checking. It's at least as long as the BT Address and has a Tab character
-					if ((TheLine.size() > 18) &&
-						(TheLine.find("\t") != std::string::npos))
+					// rudimentary line checking. It has a BT Address and has a Tab character
+					const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
+					std::smatch BluetoothAddress;
+					if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 					{
-						char buffer[256];
-						if (TheLine.size() < sizeof(buffer))
-						{
-							TheLine.copy(buffer, TheLine.size());
-							buffer[TheLine.size()] = '\0';
-							std::string theAddress(strtok(buffer, "\t"));
-							std::string theDate(strtok(NULL, "\t"));
-							bdaddr_t TheBlueToothAddress({0});
-							str2ba(theAddress.c_str(), &TheBlueToothAddress);
-							GoveeLastDownload.insert(std::make_pair(TheBlueToothAddress, ISO8601totime(theDate)));
-						}
+						bdaddr_t TheBlueToothAddress({ 0 });
+						str2ba(BluetoothAddress.str().c_str(), &TheBlueToothAddress);
+						const std::string delimiters(" \t");
+						auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+						if (i != std::string::npos)
+							GoveeLastDownload.insert(std::make_pair(TheBlueToothAddress, ISO8601totime(TheLine.substr(i))));
 					}
 				}
 				TheFile.close();
