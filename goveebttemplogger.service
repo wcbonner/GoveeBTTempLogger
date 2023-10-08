@@ -10,9 +10,9 @@ StartLimitIntervalSec=33
 Type=simple
 Restart=always
 RestartSec=5
-ExecStartPre=/bin/mkdir -p /var/log/goveebttemplogger
-ExecStartPre=/bin/mkdir -p /var/www/html/goveebttemplogger
-ExecStartPre=/bin/mkdir -p /var/cache/goveebttemplogger
+ExecStartPre=/bin/mkdir --parents /var/log/goveebttemplogger
+ExecStartPre=/bin/mkdir --parents /var/www/html/goveebttemplogger
+ExecStartPre=/bin/mkdir --parents /var/cache/goveebttemplogger
 ExecStart=/usr/local/bin/goveebttemplogger \
     --verbose 0 \
     --log /var/log/goveebttemplogger \
