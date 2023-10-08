@@ -443,18 +443,12 @@ bool Govee_Temp::ReadCache(const std::string& data)
 	bool rval = false;
 	std::istringstream ssValue(data);
 	ssValue >> Time;
-	for (auto a = 0; a < sizeof(Temperature) / sizeof(double); a++)
-		ssValue >> Temperature[a];
-	for (auto a = 0; a < sizeof(TemperatureMin) / sizeof(double); a++)
-		ssValue >> TemperatureMin[a];
-	for (auto a = 0; a < sizeof(TemperatureMax) / sizeof(double); a++)
-		ssValue >> TemperatureMax[a];
-	//for (auto a : Temperature)
-	//	ssValue >> a;
-	//for (auto a : TemperatureMin)
-	//	ssValue >> a;
-	//for (auto a : TemperatureMax)
-	//	ssValue >> a;
+	for (auto & a : Temperature)
+		ssValue >> a;
+	for (auto & a : TemperatureMin)
+		ssValue >> a;
+	for (auto & a : TemperatureMax)
+		ssValue >> a;
 	ssValue >> Humidity;
 	ssValue >> HumidityMin;
 	ssValue >> HumidityMax;
@@ -2233,8 +2227,19 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	// packet. In background mode with a 30 ms scanWindow and 300 ms scanInterval, the median time
 	// becomes 5 seconds and the usual maximum becomes 19 seconds though with very bad luck of the
 	// random shifts it could be a little longer.
-	const uint16_t bt_ScanInterval(64);	// Scan Interval: 64 (40 msec) (how long to wait between scans).
-	const uint16_t bt_ScanWindow(48);	// Scan Window: 48 (30 msec) (how long to scan)
+	//const uint16_t bt_ScanInterval(64);	// Scan Interval: 64 (40 msec) (how long to wait between scans).
+	//const uint16_t bt_ScanWindow(48);	// Scan Window: 48 (30 msec) (how long to scan)
+	// 2023-10-08 I'm still having problems recieving data from many of my h5074 devices, so am trying a set of scan parameters that I'll cycle through each time I enable scanning
+	static std::vector<std::pair<uint16_t, uint16_t>> ScanParameterList;	// Pair corresponding to ScanInterval and ScanWindow
+	if (ScanParameterList.empty())
+	{
+		ScanParameterList.push_back(std::make_pair(18, 18));
+		ScanParameterList.push_back(std::make_pair(8000, 800));
+		ScanParameterList.push_back(std::make_pair(8000, 8000));
+		ScanParameterList.push_back(std::make_pair(8000, 3200));
+		ScanParameterList.push_back(std::make_pair(64, 48));
+		ScanParameterList.push_back(std::make_pair(96, 48));
+	}
 	const uint8_t bt_ScanFilterDuplicates(0x00);	// Set this once, to make sure I'm consistent through the file.
 	// https://development.libelium.com/ble-networking-guide/scanning-ble-devices
 	// https://electronics.stackexchange.com/questions/82098/ble-scan-interval-and-window
@@ -2248,6 +2253,10 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	{
 		time_t TimeNow;
 		time(&TimeNow);
+		static auto ScanParameters = ScanParameterList.begin();
+		auto bt_ScanInterval(ScanParameters->first);
+		auto bt_ScanWindow(ScanParameters->second);
+
 		static time_t LastScanEnableMessage = TimeNow;
 		bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList); // call this routine recursively to disable any existing scanning
 		if (!BT_WhiteList.empty())
@@ -2331,6 +2340,8 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 				}
 			}
 		}
+		if (++ScanParameters == ScanParameterList.end())
+			ScanParameters = ScanParameterList.begin();
 	}
 	else
 	{
