@@ -1921,10 +1921,10 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 					std::cout << "[" << getTimeISO8601() << "] Writing:";
 				for (auto ssBTAddress = files.begin(); ssBTAddress != files.end(); ssBTAddress++)
 				{
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"Graph\" src=\"gvh-" << *ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
 					SVGIndexFile << std::endl;
 					if (ConsoleVerbosity > 0)
 						std::cout << " " << *ssBTAddress;
