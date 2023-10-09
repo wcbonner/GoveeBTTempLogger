@@ -3285,7 +3285,8 @@ int main(int argc, char **argv)
 												{
 													time(&TimeAdvertisment);
 													const le_advertising_info* const info = (le_advertising_info*)(meta->data + 1);
-													bool AddressInGoveeSet = (GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+													bool AddressInGoveeSet(GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+													bool TemperatureInAdvertisment(false);
 													char addr[19] = { 0 };
 													ba2str(&info->bdaddr, addr);
 													ConsoleOutLine << " [" << addr << "]";
@@ -3417,8 +3418,9 @@ int main(int argc, char **argv)
 																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
 																	}
 																	{
-																		if (localTemp.ReadMSG((info->data + current_offset)))
+																		if (localTemp.ReadMSG((info->data + current_offset)))	// This line decodes temperature from advertisment
 																		{
+																			TemperatureInAdvertisment = true;
 																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
 																			if ((localTemp.GetModel() == ThermometerType::H5181) || (localTemp.GetModel() == ThermometerType::H5183))
 																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
@@ -3490,7 +3492,7 @@ int main(int argc, char **argv)
 													}
 													if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
 														std::cout << ConsoleOutLine.str() << std::endl;
-													if ((DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
+													if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
 													{
 														int BatteryToRecord = 0;
 														auto RecentTemperature = GoveeTemperatures.find(info->bdaddr);
