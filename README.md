@@ -58,7 +58,7 @@ If the --svg option is not added to the command line, the program should continu
 This seems to better build the debian package with the correct installed size, dependencies, and md5sums details. I'm still learning CMake so there may be regular updates for a while.
 
 ```sh
-sudo apt install bluetooth bluez libbluetooth-dev dpkg-dev
+sudo apt install build-essential cmake git libbluetooth-dev
 git clone https://github.com/wcbonner/GoveeBTTempLogger.git
 cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
 cmake --build GoveeBTTempLogger/build
