@@ -339,62 +339,55 @@ protected:
 };
 Govee_Temp::Govee_Temp(const std::string & data)
 {
-	std::string TheLine(data);
+	std::istringstream TheLine(data);
 	// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
-	for (auto pos = TheLine.find('\000'); pos != std::string::npos; pos = TheLine.find('\000'))
-		TheLine.erase(pos);
-	char buffer[256];
-	if (!TheLine.empty() && (TheLine.size() < sizeof(buffer)))
+	while (TheLine.peek() == '\000')
+		TheLine.get();
+	std::string theDay;
+	TheLine >> theDay;
+	std::string theHour;
+	TheLine >> theHour;
+	std::string theDate(theDay + " " + theHour);
+	Time = ISO8601totime(theDate);
+	TheLine >> Temperature[0];
+	TemperatureMin[0] = TemperatureMax[0] = Temperature[0];
+	TheLine >> Humidity;
+	HumidityMin = HumidityMax = Humidity;
+	TheLine >> Battery;
+	if (!TheLine.eof())
 	{
-		// minor garbage check looking for corrupt data with no tab characters
-		if (TheLine.find('\t') != std::string::npos)
+		int theModel(0);
+		TheLine >> theModel;
+		switch (theModel)
 		{
-			TheLine.copy(buffer, TheLine.size());
-			buffer[TheLine.size()] = '\0';
-			std::string theDate(strtok(buffer, "\t"));
-			Time = ISO8601totime(theDate);
-			std::string theTemp(strtok(NULL, "\t"));
-			TemperatureMax[0] = TemperatureMin[0] = Temperature[0] = std::atof(theTemp.c_str());
-			std::string theHumidity(strtok(NULL, "\t"));
-			Humidity = HumidityMin = HumidityMax = std::atof(theHumidity.c_str());
-			std::string theBattery(strtok(NULL, "\t"));
-			Battery = std::atoi(theBattery.c_str());
-			char* theModel = strtok(NULL, "\t");
-			if (theModel != NULL)
-			{
-				switch (std::atoi(theModel))
-				{
-				case 5181:
-					Model = ThermometerType::H5181;
-					break;
-				case 5182:
-					Model = ThermometerType::H5182;
-					break;
-				case 5183:
-					Model = ThermometerType::H5183;
-					break;
-				default:
-					Model = ThermometerType::Unknown;
-				}
-				auto index = 1;
-				char* nextTemp = strtok(NULL, "\t");
-				while ((nextTemp != NULL) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
-				{
-					TemperatureMax[index] = TemperatureMin[index] = Temperature[index] = std::atof(nextTemp);
-					nextTemp = strtok(NULL, "\t");
-					index++;
-				}
-			}
-			time_t timeNow(0);
-			time(&timeNow);
-			if (Time <= timeNow) // Only validate data from the past.
-				Averages = 1;
-			// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
-			// h5103 Temperature Range = 0C to 50C
-			if (Temperature[0] < -20)
-				Averages = 0; // invalidate the data
+		case 5181:
+			Model = ThermometerType::H5181;
+			break;
+		case 5182:
+			Model = ThermometerType::H5182;
+			break;
+		case 5183:
+			Model = ThermometerType::H5183;
+			break;
+		default:
+			Model = ThermometerType::Unknown;
+		}
+		auto index = 1;
+		while ((!TheLine.eof()) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
+		{
+			TheLine >> Temperature[index];
+			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];
+			index++;
 		}
 	}
+	time_t timeNow(0);
+	time(&timeNow);
+	if (Time <= timeNow) // Only validate data from the past.
+		Averages = 1;
+	// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
+	// h5103 Temperature Range = 0C to 50C
+	if (Temperature[0] < -20)
+		Averages = 0; // invalidate the data
 }
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
