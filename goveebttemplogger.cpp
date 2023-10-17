@@ -48,6 +48,9 @@
 // https://unix.stackexchange.com/questions/96106/bluetooth-le-scan-as-non-root
 // https://docs.microsoft.com/en-us/cpp/linux/configure-a-linux-project?view=vs-2017
 // https://reelyactive.github.io/diy/best-practices-ble-identifiers/
+// https://github.com/pauloborges/bluez/blob/master/doc/mgmt-api.txt
+// https://gist.github.com/mironovdm/cb7f47e8d898e9a3977fc888d990e8a9
+// https://www.argenox.com/library/bluetooth-low-energy/using-raspberry-pi-ble/
 //
 
 #include <algorithm>
@@ -1080,14 +1083,10 @@ bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMR
 	bool rval(false);
 	if (!GoveeMRTGLog.empty())
 	{
-		bool bCacheOldOrNonexistant(true);
 		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(a));
-		struct stat64 FileStat;
-		FileStat.st_mtim.tv_sec = 0;
-		if (0 == stat64(MRTGCacheFile.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
-			if ((FileStat.st_mtim.tv_sec > GoveeMRTGLog[0].Time - (60 * 60)))	// only write the file if data is at least one hour more recent than cached data
-				bCacheOldOrNonexistant = false;
-		if (bCacheOldOrNonexistant)
+		struct stat64 Stat({ 0 });	// Zero the stat64 structure when it's allocated
+		stat64(MRTGCacheFile.c_str(), &Stat);	// This shouldn't change Stat if the file doesn't exist.
+		if (difftime(GoveeMRTGLog[0].Time, Stat.st_mtim.tv_sec) > 60 * 60) // If Cache File has data older than 60 minutes, write it
 		{
 			std::ofstream CacheFile(MRTGCacheFile, std::ios_base::out | std::ios_base::trunc);
 			if (CacheFile.is_open())
@@ -1328,12 +1327,10 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 	const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 	if (!TheValues.empty())
 	{
-		struct stat64 SVGStat;
-		SVGStat.st_mtim.tv_sec = 0;
+		struct stat64 SVGStat({0});	// Zero the stat64 structure on allocation
 		if (-1 == stat64(SVGFileName.c_str(), &SVGStat))
 			if (ConsoleVerbosity > 3)
-				perror(SVGFileName.c_str());
-				//std::cout << "[" << getTimeISO8601() << "] stat returned error on : " << SVGFileName << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] " << std::strerror(errno) << ": " << SVGFileName << std::endl;
 		if (TheValues.begin()->Time > SVGStat.st_mtim.tv_sec)	// only write the file if we have new data
 		{
 			std::ofstream SVGFile(SVGFileName);
@@ -1917,17 +1914,26 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 				SVGIndexFile << "<body>" << std::endl;
 				SVGIndexFile << "\t<div>" << std::endl;
 				SVGIndexFile << std::endl;
+
+				SVGIndexFile << "\t<div>" << std::endl;
+				for (auto & ssBTAddress : files)
+					SVGIndexFile << "\t<a href=\"#" << ssBTAddress << "\">" << ssBTAddress << "</a>" << std::endl;
+				SVGIndexFile << "\t</div>" << std::endl;
+				SVGIndexFile << std::endl;
+
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601() << "] Writing:";
-				for (auto ssBTAddress = files.begin(); ssBTAddress != files.end(); ssBTAddress++)
+				for (auto & ssBTAddress : files)
 				{
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
-					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << *ssBTAddress << "\" src=\"gvh-" << *ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div id=\"" << ssBTAddress << "\">" << std::endl; 
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << ssBTAddress << "\" src=\"gvh-" << ssBTAddress << "-day.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << ssBTAddress << "\" src=\"gvh-" << ssBTAddress << "-week.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << ssBTAddress << "\" src=\"gvh-" << ssBTAddress << "-month.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t<div class=\"image\"><img alt=\"" << ssBTAddress << "\" src=\"gvh-" << ssBTAddress << "-year.svg\" width=\"500\" height=\"135\"></div>" << std::endl;
+					SVGIndexFile << "\t</div>" << std::endl;
 					SVGIndexFile << std::endl;
 					if (ConsoleVerbosity > 0)
-						std::cout << " " << *ssBTAddress;
+						std::cout << " " << ssBTAddress;
 				}
 				if (ConsoleVerbosity > 0)
 					std::cout << std::endl;
