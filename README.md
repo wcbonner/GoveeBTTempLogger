@@ -7,7 +7,7 @@ Each of these devices currently cost less than $15 on Amazon and use BLE for com
 
 GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, targeting ARM processor running on Linux. I'm using a Raspberry Pi 4 as my linux host. I've verified the same code works on a Raspbery Pi ZeroW and a Raspberry Pi 3b.
 
-GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date, Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
+GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
 ### Issue related to Pi Zero 2 W 2023-09-01
 There seems to be a problem with Bluetooth on the Raspberry Pi Zero 2 W and Raspbian GNU/Linux 11 (bullseye) where BTLE Scanning doesn't start. It's reported to work on the same hardware if running Raspbian GNU/Linux 10 (buster) https://github.com/wcbonner/GoveeBTTempLogger/issues/50 Any suggestions for a solution are appreciated. 
