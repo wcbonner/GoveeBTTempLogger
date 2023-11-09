@@ -3185,10 +3185,12 @@ int main(int argc, char **argv)
 			std::cerr << "[                   ] Error: Bluetooth device not found" << std::endl;
 		else
 		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[                   ] BlueToothDevice_ID: " << BlueToothDevice_ID << std::endl;
 			// Set up CTR-C signal handler
 			typedef void(*SignalHandlerPointer)(int);
-			SignalHandlerPointer previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
-			SignalHandlerPointer previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
+			SignalHandlerPointer previousHandlerSIGINT = std::signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
+			SignalHandlerPointer previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 
 			// 2022-12-26: I came across information tha signal() is bad and I shoudl be using sigaction() instead
 			// example of signal() https://www.gnu.org/software/libc/manual/html_node/Basic-Signal-Handling.html#Basic-Signal-Handling
@@ -3577,8 +3579,8 @@ int main(int argc, char **argv)
 				}
 				hci_close_dev(BlueToothDevice_Handle);
 			}
-			signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
-			signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
+			std::signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
+			std::signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
 
 			GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
 			GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
@@ -3621,9 +3623,9 @@ int main(int argc, char **argv)
 		ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 		ReadLoggedData();
 
-		auto previousHandlerSIGINT = signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
-		auto previousHandlerSIGHUP = signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
-		auto previousAlarmHandler = signal(SIGALRM, SignalHandlerSIGALRM);	// Install Alarm signal handler
+		auto previousHandlerSIGINT = std::signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
+		auto previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
+		auto previousAlarmHandler = std::signal(SIGALRM, SignalHandlerSIGALRM);	// Install Alarm signal handler
 		bRun = true;
 		while (bRun)
 		{
@@ -3645,9 +3647,9 @@ int main(int argc, char **argv)
 				WriteAllSVG();
 			}
 		}
-		signal(SIGALRM, previousAlarmHandler);	// Restore original Alarm signal handler
-		signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
-		signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
+		std::signal(SIGALRM, previousAlarmHandler);	// Restore original Alarm signal handler
+		std::signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
+		std::signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	std::cerr << ProgramVersionString << " (exiting)" << std::endl;
