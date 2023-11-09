@@ -3206,6 +3206,51 @@ int main(int argc, char **argv)
 				std::cerr << "[                   ] Error: Cannot open device: " << strerror(errno) << std::endl;
 			else
 			{
+				// (2023-11-09) I'm resetting, downing, and upping the device in an attempt to have the device always in the same state as if I'd powered off the pi.
+				// Reset HCI device
+				if (ioctl(BlueToothDevice_Handle, HCIDEVRESET, BlueToothDevice_ID) < 0)
+				{
+					if (ConsoleVerbosity > 0)
+						std::cout << "[                   ] Error: Reset failed device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+					else
+						std::cerr << "Error: Reset failed device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+				}
+				else
+					if (ConsoleVerbosity > 0)
+						std::cout << "[                   ] Reset device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+
+				// Stop HCI device
+				if (ioctl(BlueToothDevice_Handle, HCIDEVDOWN, BlueToothDevice_ID) < 0)
+				{
+					if (ConsoleVerbosity > 0)
+						std::cout << "[                   ] Error: Cannot down device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+					else
+						std::cerr << "Error: Cannot down device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+				}
+				else
+					if (ConsoleVerbosity > 0)
+						std::cout << "[                   ] DOWN device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+
+				// Start HCI device
+				if (ioctl(BlueToothDevice_Handle, HCIDEVUP, BlueToothDevice_ID) < 0)
+				{
+					if (errno == EALREADY)
+					{
+						if (ConsoleVerbosity > 0)
+							std::cout << "[                   ] Already UP device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+						else
+							std::cerr << "Already UP device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+					}
+					else
+						if (ConsoleVerbosity > 0)
+							std::cout << "[                   ] Error: Cannot init device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+						else
+							std::cerr << "Error: Cannot init device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+				}
+				else
+					if (ConsoleVerbosity > 0)
+						std::cout << "[                   ] UP device: hci" << BlueToothDevice_ID << ". " << strerror(errno) << "(" << errno << ")" << std::endl;
+
 				int on = 1; // Nonblocking on = 1, off = 0;
 				if (ioctl(BlueToothDevice_Handle, FIONBIO, (char*)&on) < 0)
 					std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
