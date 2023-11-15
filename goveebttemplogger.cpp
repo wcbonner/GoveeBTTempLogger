@@ -3207,6 +3207,7 @@ int main(int argc, char **argv)
 			else
 			{
 				// (2023-11-09) I'm resetting, downing, and upping the device in an attempt to have the device always in the same state as if I'd powered off the pi.
+				// see this code for source https://kernel.googlesource.com/pub/scm/bluetooth/bluez/+/utils-2.3/tools/hciconfig.c
 				// Reset HCI device
 				if (ioctl(BlueToothDevice_Handle, HCIDEVRESET, BlueToothDevice_ID) < 0)
 				{
