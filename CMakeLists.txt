@@ -20,8 +20,29 @@ if (POLICY CMP0115)
   cmake_policy(SET CMP0115 NEW)
 endif()
 
+# I'm printing a bunch of stuff in an attempt to figure out if I can recognize building on a Raspberry Pi and only run the POST_BUILD command on the Pi.
+message(STATUS "CMAKE_INSTALL_PREFIX=`${CMAKE_INSTALL_PREFIX}`")
+cmake_host_system_information(RESULT MY_OS_NAME QUERY OS_NAME)
+message(STATUS "OS_NAME=`${MY_OS_NAME}`")
+cmake_host_system_information(RESULT MY_OS_RELEASE QUERY OS_RELEASE)
+message(STATUS "OS_RELEASE=`${MY_OS_RELEASE}`")
+cmake_host_system_information(RESULT MY_OS_VERSION QUERY OS_VERSION)
+message(STATUS "OS_VERSION=`${MY_OS_VERSION}`")
+cmake_host_system_information(RESULT MY_OS_PLATFORM QUERY OS_PLATFORM)
+message(STATUS "OS_PLATFORM=`${MY_OS_PLATFORM}`")
+cmake_host_system_information(RESULT MY_PROCESSOR_DESCRIPTION QUERY PROCESSOR_DESCRIPTION)
+message(STATUS "PROCESSOR_DESCRIPTION=`${MY_PROCESSOR_DESCRIPTION}`")
+if (CMAKE_VERSION VERSION_GREATER 3.22)
+    cmake_host_system_information(RESULT PRETTY_NAME QUERY DISTRIB_PRETTY_NAME)
+    message(STATUS "${PRETTY_NAME}")
+    cmake_host_system_information(RESULT DISTRO QUERY DISTRIB_INFO)
+    foreach(VAR IN LISTS DISTRO)
+        message(STATUS "${VAR}=`${${VAR}}`")
+    endforeach()
+endif()
+
 project (GoveeBTTempLogger
-    VERSION 2.20231109.2
+    VERSION 2.20231126.5
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -66,12 +87,12 @@ add_test(NAME gvh-organizelogs COMMAND gvh-organizelogs --help)
 
 install(TARGETS goveebttemplogger gvh-organizelogs
     DESTINATION bin
-    RUNTIME DESTINATION "/usr/local/bin/"
-    LIBRARY DESTINATION "/usr/local/lib/"
+    RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
 )
 
 install(FILES goveebttemplogger.service
-    DESTINATION "/usr/local/lib/systemd/system"
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
     COMPONENT "goveebttemplogger"
 )
 
