@@ -3119,7 +3119,7 @@ int main(int argc, char **argv)
 			std::cout << "[                   ] titlemap: " << SVGTitleMapFilename << std::endl;
 			std::cout << "[                   ]     time: " << LogFileTime << std::endl;
 			std::cout << "[                   ]  average: " << MinutesAverage << std::endl;
-			std::cout << "[                   ] download: " << DaysBetweenDataDownload << std::endl;
+			std::cout << "[                   ] download: " << DaysBetweenDataDownload << " (days betwen data download)" << std::endl;
 			std::cout << "[                   ]  passive: " << std::boolalpha << (bt_ScanType == 0) << std::endl;
 			std::cout << "[                   ] no-bluetooth: " << std::boolalpha << !UseBluetooth << std::endl;
 		}
