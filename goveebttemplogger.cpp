@@ -254,6 +254,29 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 	return 0;
 }
 #endif // !BT_HCI_CMD_LE_SET_EXT_SCAN_ENABLE
+#ifndef BT_HCI_CMD_LE_SET_RANDOM_ADDRESS
+// 2023-11-29 Added this function to fix problem with Raspberry Pi Zero 2 W Issue https://github.com/wcbonner/GoveeBTTempLogger/issues/50
+int hci_le_set_random_address(int dd, int to)
+{
+	le_set_random_address_cp scan_cp;	//TODO: this should be initialized, right now I'm letting it use random data from the stack.
+	uint8_t status;
+	struct hci_request rq;
+	memset(&rq, 0, sizeof(rq));
+	rq.ogf = OGF_LE_CTL;
+	rq.ocf = OCF_LE_SET_RANDOM_ADDRESS;
+	rq.cparam = &scan_cp;
+	rq.clen = sizeof(scan_cp);
+	rq.rparam = &status;
+	rq.rlen = 1;
+	if (hci_send_req(dd, &rq, to) < 0)
+		return -1;
+	if (status) {
+		errno = EIO;
+		return -1;
+	}
+	return 0;
+}
+#endif // BT_HCI_CMD_LE_SET_RANDOM_ADDRESS
 /////////////////////////////////////////////////////////////////////////////
 int ConsoleVerbosity(1);
 bool UseBluetooth(true);
@@ -3257,6 +3280,7 @@ int main(int argc, char **argv)
 					std::cerr << "[                   ] Error: Could set device to non-blocking: " << strerror(errno) << std::endl;
 				else
 				{
+					hci_le_set_random_address(BlueToothDevice_Handle, bt_TimeOut);	// 2023-11-29 Added this command to fix problem with Raspberry Pi Zero 2 W Issue #50
 					char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
 					hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, bt_TimeOut);
 
