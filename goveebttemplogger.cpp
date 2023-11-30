@@ -258,7 +258,10 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 // 2023-11-29 Added this function to fix problem with Raspberry Pi Zero 2 W Issue https://github.com/wcbonner/GoveeBTTempLogger/issues/50
 int hci_le_set_random_address(int dd, int to)
 {
-	le_set_random_address_cp scan_cp;	//TODO: this should be initialized, right now I'm letting it use random data from the stack.
+	le_set_random_address_cp scan_cp{ 0 };
+	srand(time(NULL) + getpid());
+	for (auto b : scan_cp.bdaddr.b)
+		b = rand() % 256;
 	uint8_t status;
 	struct hci_request rq;
 	memset(&rq, 0, sizeof(rq));
