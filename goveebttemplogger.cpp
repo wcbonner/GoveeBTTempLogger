@@ -260,7 +260,7 @@ int hci_le_set_random_address(int dd, int to)
 {
 	le_set_random_address_cp scan_cp{ 0 };
 	srand(time(NULL) + getpid());
-	for (auto b : scan_cp.bdaddr.b)
+	for (auto & b : scan_cp.bdaddr.b)
 		b = rand() % 256;
 	uint8_t status;
 	struct hci_request rq;
