@@ -9,9 +9,6 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
-### Issue related to Pi Zero 2 W 2023-09-01
-There seems to be a problem with Bluetooth on the Raspberry Pi Zero 2 W and Raspbian GNU/Linux 11 (bullseye) where BTLE Scanning doesn't start. It's reported to work on the same hardware if running Raspbian GNU/Linux 10 (buster) https://github.com/wcbonner/GoveeBTTempLogger/issues/50 Any suggestions for a solution are appreciated. 
-
 ### Minor update 2022-12-17
 Added the option --index to create an html index file based on the existing log files. This option creates an index file and exits without running any of the bluetooth code. It can be run without affecting a running instance of the program listening to Bluetooth advertisments. Example command to create index: 
 
