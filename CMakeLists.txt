@@ -42,7 +42,7 @@ if (CMAKE_VERSION VERSION_GREATER 3.22)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20231201.0
+    VERSION 2.20231201.1
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )

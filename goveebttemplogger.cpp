@@ -76,6 +76,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <queue>
+#include <random>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -259,9 +260,9 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 int hci_le_set_random_address(int dd, int to)
 {
 	le_set_random_address_cp scan_cp{ 0 };
-	srand(time(NULL) + getpid());
+	std::default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());	// 2023-12-01 switch to c++ std library <random>
 	for (auto & b : scan_cp.bdaddr.b)
-		b = rand() % 256;
+		b = generator() % 256;
 	uint8_t status;
 	struct hci_request rq;
 	memset(&rq, 0, sizeof(rq));
