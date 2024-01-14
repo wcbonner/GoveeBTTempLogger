@@ -93,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakePresets.json" />
+    <None Include="DeviceImages\README.md" />
     <None Include="goveebttemplogger-version.h.in" />
     <None Include="postinst" />
     <None Include="postrm" />
