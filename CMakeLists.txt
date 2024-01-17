@@ -42,7 +42,7 @@ if (CMAKE_VERSION VERSION_GREATER 3.22)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20231205.0
+    VERSION 2.20240117.0
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -62,11 +62,13 @@ target_include_directories(goveebttemplogger PUBLIC
                            ${EXTRA_INCLUDES}
                            )
 
-add_custom_command(TARGET goveebttemplogger POST_BUILD
-    COMMAND sudo setcap 'cap_net_raw,cap_net_admin+eip' $<TARGET_FILE:goveebttemplogger>
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
-)
+if(EXISTS "/etc/rpi-issue")
+	add_custom_command(TARGET goveebttemplogger POST_BUILD
+	    COMMAND sudo setcap 'cap_net_raw,cap_net_admin+eip' $<TARGET_FILE:goveebttemplogger>
+	    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+	    COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
+	)
+endif()
 
 add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h)
 target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
