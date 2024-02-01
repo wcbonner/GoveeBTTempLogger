@@ -9,7 +9,7 @@ StartLimitIntervalSec=33
 [Service]
 Type=simple
 Restart=always
-RestartSec=5
+RestartSec=30
 ExecStartPre=/bin/mkdir --parents /var/log/goveebttemplogger
 ExecStartPre=/bin/mkdir --parents /var/www/html/goveebttemplogger
 ExecStartPre=/bin/mkdir --parents /var/cache/goveebttemplogger
