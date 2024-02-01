@@ -101,53 +101,6 @@ std::string getTimeRFC1123(void)
 }
 time_t ISO8601totime(const std::string& ISOTime)
 {
-	struct tm UTC;
-	UTC.tm_year = atol(ISOTime.substr(0, 4).c_str()) - 1900;
-	UTC.tm_mon = atol(ISOTime.substr(5, 2).c_str()) - 1;
-	UTC.tm_mday = atol(ISOTime.substr(8, 2).c_str());
-	UTC.tm_hour = atol(ISOTime.substr(11, 2).c_str());
-	UTC.tm_min = atol(ISOTime.substr(14, 2).c_str());
-	UTC.tm_sec = atol(ISOTime.substr(17, 2).c_str());
-#ifdef _MSC_VER
-	_tzset();
-	int hours = 0;
-	if (0 != _get_daylight(&hours))
-		hours = 0;
-	long SecondsFromUTC = 0;
-	if (0 != _get_timezone(&SecondsFromUTC))
-		SecondsFromUTC = 0;
-	long dstbias = 0;
-	if (0 != _get_dstbias(&dstbias))
-		dstbias = 0;
-	UTC.tm_isdst = hours;
-#endif
-	time_t timer = mktime(&UTC);
-#ifdef _MSC_VER
-	timer -= SecondsFromUTC;
-	timer -= hours * dstbias;
-#endif
-	return(timer);
-}
-/////////////////////////////////////////////////////////////////////////////
-std::wstring getwTimeISO8601(const bool LocalTime)
-{
-	std::string isostring(getTimeISO8601(LocalTime));
-	std::wstring rval;
-	rval.assign(isostring.begin(), isostring.end());
-
-	return(rval);
-}
-/////////////////////////////////////////////////////////////////////////////
-//std::string timeToISO8601(const CTime & TheTime)
-//{
-//	time_t TheOtherTime;
-//	//mktime(
-//	//TheTime.
-//	return(timeToISO8601(TheOtherTime));
-//}
-#ifdef OLD_CODE
-time_t ISO8601totime(const std::string& ISOTime)
-{
 	time_t timer(0);
 	if (ISOTime.length() >= 19)
 	{
@@ -189,4 +142,19 @@ time_t ISO8601totime(const std::string& ISOTime)
 	return(timer);
 }
 /////////////////////////////////////////////////////////////////////////////
-#endif // OLD_CODE
+std::wstring getwTimeISO8601(const bool LocalTime)
+{
+	std::string isostring(getTimeISO8601(LocalTime));
+	std::wstring rval;
+	rval.assign(isostring.begin(), isostring.end());
+
+	return(rval);
+}
+/////////////////////////////////////////////////////////////////////////////
+//std::string timeToISO8601(const CTime & TheTime)
+//{
+//	time_t TheOtherTime;
+//	//mktime(
+//	//TheTime.
+//	return(timeToISO8601(TheOtherTime));
+//}
