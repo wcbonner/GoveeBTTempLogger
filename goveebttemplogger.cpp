@@ -883,14 +883,14 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 		if (!PersistenceData.empty())
 		{
 			if (ConsoleVerbosity > 0)
-				for (auto iter = PersistenceData.begin(); iter != PersistenceData.end(); iter++)
-					std::cout << "[-------------------] [" << ba2string(iter->first) << "] " << timeToISO8601(iter->second) << std::endl;
+				for (auto & iter : PersistenceData)
+					std::cout << "[-------------------] [" << ba2string(iter.first) << "] " << timeToISO8601(iter.second) << std::endl;
 			// If PersistenceData has updated information, write new data to file
 			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
 			time_t MostRecentDownload(0);
-			for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
-				if (MostRecentDownload < it->second)
-					MostRecentDownload = it->second;
+			for (auto & it : PersistenceData)
+				if (MostRecentDownload < it.second)
+					MostRecentDownload = it.second;
 			bool NewData(true);
 			struct stat64 StatBuffer;
 			StatBuffer.st_mtim.tv_sec = 0;
@@ -905,8 +905,8 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				std::ofstream PersistenceFile(filename, std::ios_base::out | std::ios_base::trunc);
 				if (PersistenceFile.is_open())
 				{
-					for (auto it = PersistenceData.begin(); it != PersistenceData.end(); ++it)
-						PersistenceFile << ba2string(it->first) << "\t" << timeToISO8601(it->second) << std::endl;
+					for (auto & it : PersistenceData)
+						PersistenceFile << ba2string(it.first) << "\t" << timeToISO8601(it.second) << std::endl;
 					PersistenceFile.close();
 					struct utimbuf Persistut;
 					Persistut.actime = MostRecentDownload;
