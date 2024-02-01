@@ -225,6 +225,7 @@ enum class ThermometerType
 	H5074 = 5074, 
 	H5075 = 5075, 
 	H5100 = 5100,
+	H5105 = 5105,
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
@@ -403,6 +404,8 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 		Model = ThermometerType::H5177;
 	else if (0 == Name.substr(0, 8).compare("GVH5100_"))
 		Model = ThermometerType::H5100;
+	else if (0 == Name.substr(0, 8).compare("GVH5105_"))
+		Model = ThermometerType::H5105;
 	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
 		Model = ThermometerType::H5174;
 	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
