@@ -50,7 +50,7 @@ project (GoveeBTTempLogger
 configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
 
 # Add source to this project's executable.
-add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h)
+add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h WimISO8601.cpp WimISO8601.h)
 target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
