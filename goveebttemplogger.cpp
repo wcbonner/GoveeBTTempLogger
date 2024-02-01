@@ -3441,6 +3441,9 @@ int main(int argc, char **argv)
 																			case ThermometerType::H5100:
 																				ConsoleOutLine << " (GVH5100)";
 																				break;
+																			case ThermometerType::H5105:
+																				ConsoleOutLine << " (GVH5105)";
+																				break;
 																			case ThermometerType::H5174:
 																				ConsoleOutLine << " (GVH5174)";
 																				break;
