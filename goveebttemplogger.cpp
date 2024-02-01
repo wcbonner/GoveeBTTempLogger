@@ -89,7 +89,7 @@
 #include <unistd.h> // For close()
 #include <utime.h>
 #include <vector>
-#include "WimISO8601.h"
+#include "wimiso8601.h"
 #include "att-types.h"
 #include "uuid.h"
 

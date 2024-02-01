@@ -42,7 +42,7 @@ if (CMAKE_VERSION VERSION_GREATER 3.22)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20240131.0
+    VERSION 2.20240201.0
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -50,7 +50,7 @@ project (GoveeBTTempLogger
 configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
 
 # Add source to this project's executable.
-add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h WimISO8601.cpp WimISO8601.h)
+add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h wimiso8601.cpp wimiso8601.h)
 target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -70,7 +70,7 @@ if(EXISTS "/etc/rpi-issue")
 	)
 endif()
 
-add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h)
+add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h wimiso8601.cpp wimiso8601.h)
 target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
