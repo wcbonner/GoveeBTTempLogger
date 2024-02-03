@@ -2338,7 +2338,29 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			15000);	// A 15 second timeout gives me a better chance of success
 		if (ConsoleVerbosity > 0)
 			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
-		#ifdef BT_READ_REMOTE_FEATURES
+		if ((iRet != 0) && (handle == 0))
+		{
+			// the H5100 device used Random Device Address for its connection when I captured data.
+			iRet = hci_le_create_conn(
+				BlueToothDevice_Handle,
+				96, // interval, Scan Interval: 96 (60 msec)
+				48, // window, Scan Window: 48 (30 msec)
+				0x00, // initiator_filter, Initiator Filter Policy: Use Peer Address (0x00)
+				0x01, // Peer Address Type: Random Device Address (0x01)
+				GoveeBTAddress, // BD_ADDR: c2:35:33:30:25:50 (c2:35:33:30:25:50)
+				0x01, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
+				24, // min_interval, Connection Interval Min: 24 (30 msec)
+				40, // max_interval, Connection Interval Max: 40 (50 msec)
+				0, // latency, Connection Latency: 0 (number events)
+				2000, // supervision_timeout, Supervision Timeout: 2000 (20 sec)
+				0, // min_ce_length, Min CE Length: 0 (0 msec)
+				0, // max_ce_length, Max CE Length: 0 (0 msec)
+				&handle,
+				15000);	// A 15 second timeout gives me a better chance of success
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+	}
+#ifdef BT_READ_REMOTE_FEATURES
 		if ((iRet == 0) && (handle != 0))
 		{
 			// Bluetooth HCI Command - LE Read Remote Features
