@@ -2234,17 +2234,17 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			}
 			else
 			{
-				if (ConsoleVerbosity > 0)
+				if (ConsoleVerbosity > 1)
 					std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
 				for (auto & iter : BT_WhiteList)
 				{
 					const bdaddr_t FilterAddress(iter);
 					bool bRandomAddress = (FilterAddress.b[5] >> 4 == 0xC || FilterAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
 					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, (bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), bt_TimeOut);
-					if (ConsoleVerbosity > 0)
+					if (ConsoleVerbosity > 1)
 						std::cout << " [" << ba2string(FilterAddress) << "]";
 				}
-				if (ConsoleVerbosity > 0)
+				if (ConsoleVerbosity > 1)
 					std::cout << std::endl;
 			}
 			bt_ScanFilterPolicy = 0x01; // Scan Filter Policy: Accept only advertisements from devices in the White List. Ignore directed advertisements not addressed to this device (0x01)
@@ -2327,14 +2327,15 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	{
 		// Bluetooth HCI Command - LE Create Connection (BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f))
 		uint16_t handle = 0;
+		bool bRandomAddress = (GoveeBTAddress.b[5] >> 4 == 0xC || GoveeBTAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
 		int iRet = hci_le_create_conn(
 			BlueToothDevice_Handle,
 			96, // interval, Scan Interval: 96 (60 msec)
 			48, // window, Scan Window: 48 (30 msec)
 			0x00, // initiator_filter, Initiator Filter Policy: Use Peer Address (0x00)
-			0x00, // peer_bdaddr_type, Peer Address Type: Public Device Address (0x00)
+			(bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), // peer_bdaddr_type, Peer Address Type: Public Device Address (0x00)
 			GoveeBTAddress, // BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)
-			0x01, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
+			LE_RANDOM_ADDRESS, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
 			24, // min_interval, Connection Interval Min: 24 (30 msec)
 			40, // max_interval, Connection Interval Max: 40 (50 msec)
 			0, // latency, Connection Latency: 0 (number events)
@@ -2344,30 +2345,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			&handle,
 			15000);	// A 15 second timeout gives me a better chance of success
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ") Peer Address Type: Public Device Address (0x00)" << std::endl;
-		if ((iRet != 0) && (handle == 0))
-		{
-			// the H5100 device used Random Device Address for its connection when I captured data.
-			iRet = hci_le_create_conn(
-				BlueToothDevice_Handle,
-				96, // interval, Scan Interval: 96 (60 msec)
-				48, // window, Scan Window: 48 (30 msec)
-				0x00, // initiator_filter, Initiator Filter Policy: Use Peer Address (0x00)
-				0x01, // Peer Address Type: Random Device Address (0x01)
-				GoveeBTAddress, // BD_ADDR: c2:35:33:30:25:50 (c2:35:33:30:25:50)
-				0x01, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
-				24, // min_interval, Connection Interval Min: 24 (30 msec)
-				40, // max_interval, Connection Interval Max: 40 (50 msec)
-				0, // latency, Connection Latency: 0 (number events)
-				2000, // supervision_timeout, Supervision Timeout: 2000 (20 sec)
-				0, // min_ce_length, Min CE Length: 0 (0 msec)
-				0, // max_ce_length, Max CE Length: 0 (0 msec)
-				&handle,
-				15000);	// A 15 second timeout gives me a better chance of success
-			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ") Peer Address Type: Random Device Address (0x01)" << std::endl;
-	}
-#ifdef BT_READ_REMOTE_FEATURES
+			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+		#ifdef BT_READ_REMOTE_FEATURES
 		if ((iRet == 0) && (handle != 0))
 		{
 			// Bluetooth HCI Command - LE Read Remote Features
@@ -2440,7 +2419,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 					memset(&dstaddr, 0, sizeof(dstaddr));
 					dstaddr.l2_family = AF_BLUETOOTH;
 					dstaddr.l2_cid = htobs(ATT_CID);
-					dstaddr.l2_bdaddr_type = BDADDR_LE_PUBLIC;
+					dstaddr.l2_bdaddr_type = bRandomAddress ? BDADDR_LE_RANDOM : BDADDR_LE_PUBLIC;
 					bacpy(&dstaddr.l2_bdaddr, &GoveeBTAddress);
 					if (connect(l2cap_socket, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
 					{

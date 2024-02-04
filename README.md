@@ -166,6 +166,9 @@ It has taken me a long time to get around to downloading data from the devices d
 #### 2024-01-14 H5105 support
 It appears that the H5105 broadcast data is automatically recognized as a Govee thermometer and data stored, but downloading is not working. The H5105 has a pairing button on the top of the device. I've noticed that the H5100 device does not seem to be downloading historical data either. They may use the same protocol, different from the older thermometers.
 
+##### 2024-02-03 H5100 and H5105 Device Support
+I've made a couple of hacks to get the two devices I have at my location to work. The H5100 device I have has a bluetooth address that starts with a C, the H5105 device starts with a D. The realy big issue is that to communicate with them, the protocol must declare that it's talking with LE_RANDOM_ADDRESS as opposed to LE_PUBLIC_ADDRESS that the other devices I've used require. This also comes into play if a bluetooth filter is configured to only listen to certain devices. I don't understand this setup as according to what I've read, if the most significant bits of the 48 bit bluetooth address are set to one, that defines the address as RANDOM, which would mean that a C, D, E, or F in the leading digit of the address should all require RANDOM. 
+
 I have run into problems recognizing advertisments. This has led to too much time experimenting with the method of scanning for bluetooth advertisments, primarily with the settings of ScanWindow and ScanInterval, but also with the difference between active scanning and passive scanning. 
 ### Passive Scanning
 In this mode that program is doing excactly what you'd expect, listening for advertisments.
@@ -201,15 +204,58 @@ Connections on bluetooth devices are all based on handles and UUIDs. There are s
 **12205f53-4b43-4f52-5f49-4c4c45544e49** is the 128 bit UUID of the service characteristic that I write to enable download of data. It looks like the primary UUID except that the first two bytes are different. **INTELLI_ROCKS_**.  (**_SKCOR_ILLETNI**)
 
 Most of the devices hold 20 days of history. The GVH5177 and GVH5174 devices hald a month of data.
+
 ```
-Feb 23 13:52:39 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:DC:CC:3D] 2023-02-03 13:52:00 2023-02-23 13:52:00 (28800)
-Feb 23 13:53:07 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:EC:0B:03] 2023-02-03 13:51:00 2023-02-23 13:52:00 (28801)
-Feb 23 13:53:40 WimPi4 goveebttemplogger[28158]: Download from device: [E3:5E:CC:21:5C:0F] 2023-02-03 13:53:00 2023-02-23 13:53:00 (28800)
-Feb 23 13:54:25 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:0D:3B:10] 2023-01-24 13:50:00 2023-02-23 13:53:00 (43203)
-Feb 23 13:55:28 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:D5:A3:3B] 2023-02-03 13:54:00 2023-02-23 13:54:00 (28800)
-Feb 23 13:56:14 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:65:A2:6A] 2023-02-03 13:52:00 2023-02-23 13:55:00 (28803)
-Feb 23 13:57:05 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:05:C7:A1] 2023-02-03 13:53:00 2023-02-23 13:56:00 (28803)
-Feb 23 13:58:00 WimPi4 goveebttemplogger[28158]: Download from device: [A4:C1:38:13:AE:36] 2023-02-03 13:54:00 2023-02-23 13:57:00 (28803)
+Download from device: [A4:C1:38:DC:CC:3D] 2023-02-03 13:52:00 2023-02-23 13:52:00 (28800)
+Download from device: [A4:C1:38:EC:0B:03] 2023-02-03 13:51:00 2023-02-23 13:52:00 (28801)
+Download from device: [E3:5E:CC:21:5C:0F] 2023-02-03 13:53:00 2023-02-23 13:53:00 (28800)
+Download from device: [A4:C1:38:0D:3B:10] 2023-01-24 13:50:00 2023-02-23 13:53:00 (43203)
+Download from device: [A4:C1:38:D5:A3:3B] 2023-02-03 13:54:00 2023-02-23 13:54:00 (28800)
+Download from device: [A4:C1:38:65:A2:6A] 2023-02-03 13:52:00 2023-02-23 13:55:00 (28803)
+Download from device: [A4:C1:38:05:C7:A1] 2023-02-03 13:53:00 2023-02-23 13:56:00 (28803)
+Download from device: [A4:C1:38:13:AE:36] 2023-02-03 13:54:00 2023-02-23 13:57:00 (28803)
+Download from device: [C2:35:33:30:25:50] 2024-01-15 22:19:00 2024-02-03 20:01:00 (27222)
+Download from device: [D0:35:33:33:44:03] 2024-01-14 20:00:00 2024-02-03 20:00:00 (28800)
+```
+
+```
+[2024-02-04T04:01:41] 46 [C2:35:33:30:25:50] (Flags) 06 (Name) GVH5100_2550 (UUID) 88EC (Manu) 010001010276EF55 (Temp) 16.1519°C (Humidity) 51.9% (Battery) 85% (GVH5100)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 00fe0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 03ff0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02ff0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 00ff0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 01ff0000-0000-0000-0000-00000000f002
+[2024-02-04T04:03:05] [C2:35:33:30:25:50] Download from device. 2024-01-15 22:19:00 2024-02-03 20:01:00 (27222)
+
+[2024-02-04T04:00:25] 46 [D0:35:33:33:44:03] (Flags) 06 (Name) GVH5105_4403 (UUID) 88EC (Manu) 0100010102868262 (Temp) 16.5506°C (Humidity) 50.6% (Battery) 98% (GVH5105)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 57485f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 00fe0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 03ff0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02ff0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 00ff0000-0000-0000-0000-00000000f002
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 01ff0000-0000-0000-0000-00000000f002
+[2024-02-04T04:01:31] [D0:35:33:33:44:03] Download from device. 2024-01-14 20:00:00 2024-02-03 20:00:00 (28800)
 ```
 
 ## BTData directory contains Data Dumps
