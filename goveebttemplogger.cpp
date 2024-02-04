@@ -2207,7 +2207,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 		bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList); // call this routine recursively to disable any existing scanning
 		if (!BT_WhiteList.empty())
 		{
-			const bdaddr_t TestAddress = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+			const bdaddr_t TestAddress = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }; // BDADDR_ALL;
 			if (TestAddress == *BT_WhiteList.begin()) // if first element in whitelist is FFFFFFFFFF
 			{
 				if (ConsoleVerbosity > 0)
@@ -2215,15 +2215,16 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 				else
 					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
 						std::cerr << "BlueTooth Address Filter:";
-				for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
+				for (auto & iter : GoveeMRTGLogs)
 				{
-					const bdaddr_t TheAddress = it->first;
-					hci_le_add_white_list(BlueToothDevice_Handle, &TheAddress, LE_PUBLIC_ADDRESS, bt_TimeOut);
+					const bdaddr_t FilterAddress(iter.first);
+					bool bRandomAddress = (FilterAddress.b[5] >> 4 == 0xC || FilterAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
+					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, (bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), bt_TimeOut);
 					if (ConsoleVerbosity > 0)
-						std::cout << " [" << ba2string(TheAddress) << "]";
+						std::cout << " [" << ba2string(FilterAddress) << "]";
 					else
 						if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
-							std::cerr << " [" << ba2string(TheAddress) << "]";
+							std::cerr << " [" << ba2string(FilterAddress) << "]";
 				}
 				if (ConsoleVerbosity > 0)
 					std::cout << std::endl;
@@ -2233,12 +2234,18 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			}
 			else
 			{
-				for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
+				if (ConsoleVerbosity > 0)
+					std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+				for (auto & iter : BT_WhiteList)
 				{
-					bdaddr_t FilterAddress = { 0 };
-					FilterAddress = *iter;
-					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, LE_PUBLIC_ADDRESS, bt_TimeOut);
+					const bdaddr_t FilterAddress(iter);
+					bool bRandomAddress = (FilterAddress.b[5] >> 4 == 0xC || FilterAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
+					hci_le_add_white_list(BlueToothDevice_Handle, &FilterAddress, (bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), bt_TimeOut);
+					if (ConsoleVerbosity > 0)
+						std::cout << " [" << ba2string(FilterAddress) << "]";
 				}
+				if (ConsoleVerbosity > 0)
+					std::cout << std::endl;
 			}
 			bt_ScanFilterPolicy = 0x01; // Scan Filter Policy: Accept only advertisements from devices in the White List. Ignore directed advertisements not addressed to this device (0x01)
 		}
