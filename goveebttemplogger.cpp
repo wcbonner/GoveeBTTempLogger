@@ -2337,7 +2337,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			&handle,
 			15000);	// A 15 second timeout gives me a better chance of success
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ") Peer Address Type: Public Device Address (0x00)" << std::endl;
 		if ((iRet != 0) && (handle == 0))
 		{
 			// the H5100 device used Random Device Address for its connection when I captured data.
@@ -2358,7 +2358,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 				&handle,
 				15000);	// A 15 second timeout gives me a better chance of success
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ") Peer Address Type: Random Device Address (0x01)" << std::endl;
 	}
 #ifdef BT_READ_REMOTE_FEATURES
 		if ((iRet == 0) && (handle != 0))
