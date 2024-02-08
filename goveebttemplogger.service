@@ -18,8 +18,7 @@ ExecStart=/usr/local/bin/goveebttemplogger \
     --log /var/log/goveebttemplogger \
     --time 60 \
     --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
-    --cache /var/cache/goveebttemplogger \
-    --download
+    --cache /var/cache/goveebttemplogger
 KillSignal=SIGINT
 
 [Install]
