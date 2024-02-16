@@ -93,6 +93,7 @@
     <ClCompile Include="wimiso8601.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="BTData\README.md" />
     <None Include="CMakePresets.json" />
     <None Include="DeviceImages\README.md" />
     <None Include="goveebttemplogger-version.h.in" />
@@ -133,14 +134,17 @@
       </Command>
     </RemotePreBuildEvent>
     <RemotePostBuildEvent>
-      <Command>
-      </Command>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
     </RemotePostBuildEvent>
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG;DISPLAY_BT_SERVICE_DETAILS</PreprocessorDefinitions>
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
@@ -157,12 +161,15 @@
       </Command>
     </RemotePreBuildEvent>
     <RemotePostBuildEvent>
-      <Command>
-      </Command>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
     </RemotePostBuildEvent>
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>

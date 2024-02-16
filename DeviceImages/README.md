@@ -1,5 +1,5 @@
 # Govee Product Images
-I've found it hard to remember which device is which when referring to them by product numbers. I tried collecting images of each device here.
+I've found it hard to remember which device is which when referring to them by product numbers. Images of each device are here.
 
 ## H5074
 ![image](h5074-phone.jpg) ![image](h5074.jpg)
@@ -12,6 +12,10 @@ Powered by 2 AAA Batteries
 ## H5100
 ![image](h5100-phone.jpg)
 Powered by 1 AAA Battery
+
+## H5104
+![image](h5104-phone.jpg)
+Powered by 2 AAA Batteries
 
 ## H5105
 ![image](h5105-phone.jpg)
@@ -31,9 +35,11 @@ Powered by 3 AA Batteries
 
 ## H5182
 ![image](h5182-phone.jpg) ![image](h5182.jpg)
+Powered by 2 AAA Batteries
 
 ## H5183
 ![image](h5183-phone.jpg)
+Powered by 1 AAA Battery
 
 ## Meat Thermometers
 This image came from the replacement probe package for the meat thermometers. It's especially useful because it shows that the part numbers don't always report the number of probes.

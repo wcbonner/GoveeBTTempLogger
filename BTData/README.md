@@ -1,6 +1,85 @@
+# BTData Bluetooth Captures
+## TCPDump Captures
+#### 2024-02-04 tcpdump details
+A headless machine can be used to capture bluetooth data. The resulting file can be loaded in wireshark for a graphical decode.
+
+Install tcpdump:
+```
+wim@WimPi400:~ $ sudo apt install tcpdump
+```
+See what interfaces are available:
+```
+wim@WimPi400:~ $ tcpdump --list-interfaces
+1.eth0 [Up, Running, Connected]
+2.any (Pseudo-device that captures on all interfaces) [Up, Running]
+3.lo [Up, Running, Loopback]
+4.wlan0 [Up, Wireless]
+5.bluetooth0 (Bluetooth adapter number 0) [Wireless, Association status unknown]
+6.bluetooth-monitor (Bluetooth Linux Monitor) [Wireless]
+7.nflog (Linux netfilter log (NFLOG) interface) [none]
+8.nfqueue (Linux netfilter queue (NFQUEUE) interface) [none]
+9.dbus-system (D-Bus system bus) [none]
+10.dbus-session (D-Bus session bus) [none]
+```
+Start tcpdump capturing bluetooth and running in the background:
+```
+wim@WimPi400:~ $ sudo tcpdump --interface=bluetooth0 --direction=inout -w `hostname`-`date --iso-8601`-bluetooth0-inout.pcap &
+tcpdump: listening on bluetooth0, link-type BLUETOOTH_HCI_H4_WITH_PHDR (Bluetooth HCI UART transport layer plus pseudo-header), snapshot length 262144 bytes
+```
+Run the bluetooth program to generate data:
+```
+wim@WimPi400:~ $  /home/visualstudio/projects/GoveeBTTempLogger/bin/ARM/Debug/GoveeBTTempLogger.out && /home/visualstudio/projects/GoveeBTTempLogger/bin/ARM/Debug/GoveeBTTempLogger.out --log /var/log/goveebttemplogger --time 60 --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 --cache /var/cache/goveebttemplogger --download --only C2:35:33:30:25:50 --only D0:35:33:33:44:03 --only A4:C1:38:0D:3B:10 -v 2
+[2024-02-05T01:08:39] GoveeBTTempLogger Version (non-CMake) Built on: Feb  4 2024 at 13:00:14
+[                   ]      log: "/var/log/goveebttemplogger"
+[                   ]    cache: "/var/cache/goveebttemplogger"
+[                   ]      svg: "/var/www/html/goveebttemplogger"
+[                   ]  battery: 8
+[                   ]   minmax: 8
+[                   ]  celsius: false
+[                   ] titlemap: ""
+[                   ]     time: 60
+[                   ]  average: 5
+[                   ] download: 14 (days betwen data download)
+[                   ]  passive: false
+[                   ] no-bluetooth: false
+[                   ] BlueToothDevice_ID: 0
+[                   ] Reset device: hci0. Success(0)
+[                   ] DOWN device: hci0. Success(0)
+[                   ] UP device: hci0. Success(0)
+[2024-02-05T01:08:40] LocalName: WimPi400
+[2024-02-05T01:08:40] BlueTooth Address Filter: [A4:C1:38:0D:3B:10] [C2:35:33:30:25:50] [D0:35:33:33:44:03]
+[2024-02-05T01:08:40] Scanning Stopped.
+[2024-02-05T01:08:40] BlueTooth Address Filter: [A4:C1:38:0D:3B:10] [C2:35:33:30:25:50] [D0:35:33:33:44:03]
+[2024-02-05T01:08:40] Scanning Started. ScanInterval(11.25 msec) ScanWindow(11.25 msec) ScanType(1)
+[2024-02-05T01:08:41] 46 [A4:C1:38:0D:3B:10] (Name) GVH5177_3B10 (UUID) 88EC (Flags) 05 (Manu) 0100010102482759 (Temp) 14.9543°C (Humidity) 54.3% (Battery) 89% (GVH5177)
+[2024-02-05T01:08:41] Scanning Stopped.
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+[2024-02-05T01:09:16] [A4:C1:38:0D:3B:10] hci_le_create_conn Return(-1) handle (0000)
+[2024-02-05T01:09:16] Scanning Stopped.
+[2024-02-05T01:09:16] BlueTooth Address Filter: [A4:C1:38:0D:3B:10] [C2:35:33:30:25:50] [D0:35:33:33:44:03]
+[2024-02-05T01:09:16] Scanning Started. ScanInterval(5000 msec) ScanWindow(500 msec) ScanType(1)
+[2024-02-05T01:09:16] Scanning Stopped.
+[2024-02-04T17:09:16] Writing: /var/cache/goveebttemplogger/gvh-A4C1380D3B10-cache.txt
+GoveeBTTempLogger Version (non-CMake) Built on: Feb  4 2024 at 13:00:14 (exiting)
+```
+Git the PID of running tcpdump and send it the INT signal:
+```
+wim@WimPi400:~ $ ps aux | grep tcpdump
+root      159431  0.0  0.1  10468  3908 pts/0    S    17:08   0:00 sudo tcpdump --interface=bluetooth0 --direction=inout -w WimPi400-2024-02-04-bluetooth0-inout.pcap
+root      159434  0.0  0.0  10468   468 pts/1    Ss+  17:08   0:00 sudo tcpdump --interface=bluetooth0 --direction=inout -w WimPi400-2024-02-04-bluetooth0-inout.pcap
+tcpdump   159435  0.0  0.1  13972  5024 pts/1    S    17:08   0:00 tcpdump --interface=bluetooth0 --direction=inout -w WimPi400-2024-02-04-bluetooth0-inout.pcap
+wim       159844  0.0  0.0   6088  1932 pts/0    S+   17:09   0:00 grep --color=auto tcpdump
+wim@WimPi400:~ $ sudo kill -SIGINT 159435
+218 packets captured
+7304 packets received by filter
+0 packets dropped by kernel
+```
+Copy the resulting file somewhere useful to look at the data. Note that my filename format uses the hostname and the date, but multiple runs on the same date will overwrite the file.
+
 ## BTData directory contains a Data Dump
 The file btsnoop_hci.log is a Bluetooth hci snoop log from a Google Nexus 7 device running Android and the Govee Home App. It can be loaded directly in Wireshark.
 
+## Wireshark Captures
 ```sh
 sudo apt install -y wireshark-qt
 ```
