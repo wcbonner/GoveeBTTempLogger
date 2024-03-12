@@ -13,6 +13,10 @@ Powered by 2 AAA Batteries
 ![image](h5100-phone.jpg)
 Powered by 1 AAA Battery
 
+## H5101
+![image](h5101-phone.jpg)
+Powered by 1 CR2450 Battery
+
 ## H5104
 ![image](h5104-phone.jpg)
 Powered by 2 AAA Batteries
