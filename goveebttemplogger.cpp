@@ -3065,6 +3065,7 @@ int main(int argc, char **argv)
 		WriteSVGIndex(LogDirectory, SVGIndexFilename);
 		exit(EXIT_SUCCESS);
 	}
+	int ExitValue = EXIT_SUCCESS;
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (ConsoleVerbosity > 0)
 	{
@@ -3238,7 +3239,9 @@ int main(int argc, char **argv)
 						}
 					}
 					auto btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
-					if (btRVal >= 0)
+					if (btRVal < 0)
+						ExitValue = EXIT_FAILURE;
+					else
 					{
 						// Save the current HCI filter (Host Controller Interface)
 						struct hci_filter original_filter;
@@ -3534,7 +3537,12 @@ int main(int argc, char **argv)
 																else
 																	GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, DownloadTime));
 															}
-															bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+															btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+															if (btRVal < 0)
+															{
+																bRun = false; // rely on inetd to restart entire process
+																ExitValue = EXIT_FAILURE;
+															}
 														}
 													}
 												}
@@ -3586,6 +3594,11 @@ int main(int argc, char **argv)
 										if (ConsoleVerbosity > 0)
 											std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
 										btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+										if (btRVal < 0)
+										{
+											bRun = false;	// rely on inetd to restart entire process
+											ExitValue = EXIT_FAILURE;
+										}
 									}
 								}
 								setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter));
@@ -3670,5 +3683,5 @@ int main(int argc, char **argv)
 	}
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	std::cerr << ProgramVersionString << " (exiting)" << std::endl;
-	return(EXIT_SUCCESS);
+	return(ExitValue);
 }
