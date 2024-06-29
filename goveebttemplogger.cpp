@@ -1263,15 +1263,15 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
 void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
-	// By declaring these items here, I'm then basing all my other dimensions on these
-	const int SVGWidth(500);
-	const int SVGHeight(135);
-	const int FontSize(12);
-	const int TickSize(2);
-	int GraphWidth = SVGWidth - (FontSize * 5);
-	const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 	if (!TheValues.empty())
 	{
+		// By declaring these items here, I'm then basing all my other dimensions on these
+		const int SVGWidth(500);
+		const int SVGHeight(135);
+		const int FontSize(12);
+		const int TickSize(2);
+		int GraphWidth = SVGWidth - (FontSize * 5);
+		const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 		struct stat64 SVGStat({0});	// Zero the stat64 structure on allocation
 		if (-1 == stat64(SVGFileName.c_str(), &SVGStat))
 			if (ConsoleVerbosity > 3)

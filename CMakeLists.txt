@@ -26,20 +26,33 @@ project (GoveeBTTempLogger
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
 
-configure_file(goveebttemplogger-version.h.in goveebttemplogger-version.h)
+configure_file(
+    goveebttemplogger-version.h.in
+    goveebttemplogger-version.h)
 
 # Add source to this project's executable.
-add_executable (goveebttemplogger goveebttemplogger.cpp goveebttemplogger-version.h att-types.h uuid.c uuid.h wimiso8601.cpp wimiso8601.h)
-target_link_libraries(goveebttemplogger -lbluetooth -lstdc++fs)
+add_executable (goveebttemplogger
+    goveebttemplogger.cpp
+    goveebttemplogger-version.h
+    att-types.h
+    uuid.c
+    uuid.h
+    wimiso8601.cpp
+    wimiso8601.h
+    )
+
+target_link_libraries(goveebttemplogger
+    -lbluetooth
+    -lstdc++fs
+    )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
+    set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
 endif()
 
-target_include_directories(goveebttemplogger PUBLIC
-                           "${PROJECT_BINARY_DIR}"
-                           ${EXTRA_INCLUDES}
-                           )
+target_include_directories(goveebttemplogger 
+    PUBLIC "${PROJECT_BINARY_DIR}" ${EXTRA_INCLUDES}
+    )
 
 if(EXISTS "/etc/rpi-issue")
 	add_custom_command(TARGET goveebttemplogger POST_BUILD
@@ -49,17 +62,23 @@ if(EXISTS "/etc/rpi-issue")
 	)
 endif()
 
-add_executable(gvh-organizelogs gvh-organizelogs.cpp goveebttemplogger-version.h wimiso8601.cpp wimiso8601.h)
-target_link_libraries(gvh-organizelogs -lbluetooth -lstdc++fs)
+add_executable(gvh-organizelogs
+    gvh-organizelogs.cpp
+    goveebttemplogger-version.h
+    wimiso8601.cpp
+    wimiso8601.h
+    )
+
+target_link_libraries(gvh-organizelogs
+    -lbluetooth
+    -lstdc++fs
+    )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET gvh-organizelogs PROPERTY CXX_STANDARD 17)
 endif()
 
-target_include_directories(gvh-organizelogs PUBLIC
-                           "${PROJECT_BINARY_DIR}"
-                           ${EXTRA_INCLUDES}
-                           )
+target_include_directories(gvh-organizelogs PUBLIC "${PROJECT_BINARY_DIR}" ${EXTRA_INCLUDES} )
 
 # TODO: Add tests and install targets if needed.
 include(CTest)
