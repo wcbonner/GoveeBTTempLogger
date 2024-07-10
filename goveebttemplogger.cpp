@@ -3223,6 +3223,11 @@ int main(int argc, char **argv)
 					char LocalName[HCI_MAX_NAME_LENGTH] = { 0 };
 					hci_read_local_name(BlueToothDevice_Handle, sizeof(LocalName), LocalName, bt_TimeOut);
 
+					// TODO: get controller address and put it in the log. Useful for machines with multiple controllers to verify which is being used
+					bdaddr_t TheLocalBlueToothAddress({ 0 });
+					hci_read_bd_addr(BlueToothDevice_Handle, &TheLocalBlueToothAddress, bt_TimeOut);
+					ControllerAddress = ba2string(TheLocalBlueToothAddress);
+
 					if (ConsoleVerbosity > 0)
 					{
 						if (!ControllerAddress.empty())
@@ -3238,6 +3243,10 @@ int main(int argc, char **argv)
 							std::cout << std::endl;
 						}
 					}
+					else
+						if (!ControllerAddress.empty())
+							std::cerr << "Controller Address: " << ControllerAddress << std::endl;
+
 					auto btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 					if (btRVal < 0)
 						ExitValue = EXIT_FAILURE;

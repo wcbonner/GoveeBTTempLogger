@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30907.101
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GoveeBTTempLogger", "GoveeBTTempLogger.vcxproj", "{87469263-8DEA-4963-9E12-C4F20FA83479}"
 EndProject
@@ -13,8 +13,8 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM.ActiveCfg = Debug|ARM
-		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM.Build.0 = Debug|ARM
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM.ActiveCfg = Debug|ARM64
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM.Build.0 = Debug|ARM64
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|x86.ActiveCfg = Debug|x86
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|x86.Build.0 = Debug|x86
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|x86.Deploy.0 = Debug|x86
