@@ -180,6 +180,9 @@
       <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
+    <RemotePostBuildEvent>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
