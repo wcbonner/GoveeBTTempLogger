@@ -2320,6 +2320,26 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	}
 	return(btRVal);
 }
+/////////////////////////////////////////////////////////////////////////////
+void bt_ListDevices(void)
+{
+	// https://www.linumiz.com/bluetooth-list-available-controllers/
+	// I used the blog post above to learn develop an HCI routine to list the bluetooth devices
+
+	int hci_devs_num(0);
+	struct hci_dev_info hci_devs[HCI_MAX_DEV];
+	for (auto i = hci_devs_num = 0; i < HCI_MAX_DEV; i++)
+		if (hci_devinfo(i, &hci_devs[hci_devs_num]) == 0)
+			hci_devs_num++;
+
+	for (auto i = 0; i < hci_devs_num; i++)
+		if (i == 0 || hci_test_bit(HCI_UP, &hci_devs[i].flags))
+			if (ConsoleVerbosity > 0)
+				std::cout << "[                   ] Host Controller Address: " << ba2string(hci_devs[i].bdaddr) << " BlueTooth Device ID: " << hci_devs[i].dev_id << " HCI Name: " << hci_devs[i].name << std::endl;
+			else
+				std::cerr << "Host Controller Address: " << ba2string(hci_devs[i].bdaddr) << " BlueTooth Device ID: " << hci_devs[i].dev_id << " HCI Name: " << hci_devs[i].name << std::endl;
+}
+/////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
 {
@@ -3138,6 +3158,7 @@ int main(int argc, char **argv)
 			}
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
+		bt_ListDevices();
 		int BlueToothDevice_ID;
 		if (ControllerAddress.empty())
 			BlueToothDevice_ID = hci_get_route(NULL);
@@ -3231,7 +3252,7 @@ int main(int argc, char **argv)
 					if (ConsoleVerbosity > 0)
 					{
 						if (!ControllerAddress.empty())
-							std::cout << "[" << getTimeISO8601() << "] Controller Address: " << ControllerAddress << std::endl;
+							std::cout << "[" << getTimeISO8601() << "] Using Controller Address: " << ControllerAddress << std::endl;
 						std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
 						if (BT_WhiteList.empty())
 							std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter" << std::endl;
@@ -3245,7 +3266,7 @@ int main(int argc, char **argv)
 					}
 					else
 						if (!ControllerAddress.empty())
-							std::cerr << "Controller Address: " << ControllerAddress << std::endl;
+							std::cerr << "Using Controller Address: " << ControllerAddress << std::endl;
 
 					auto btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 					if (btRVal < 0)
