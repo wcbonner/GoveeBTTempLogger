@@ -2326,18 +2326,21 @@ void bt_ListDevices(void)
 	// https://www.linumiz.com/bluetooth-list-available-controllers/
 	// I used the blog post above to learn develop an HCI routine to list the bluetooth devices
 
-	int hci_devs_num(0);
-	struct hci_dev_info hci_devs[HCI_MAX_DEV];
-	for (auto i = hci_devs_num = 0; i < HCI_MAX_DEV; i++)
-		if (hci_devinfo(i, &hci_devs[hci_devs_num]) == 0)
-			hci_devs_num++;
-
-	for (auto i = 0; i < hci_devs_num; i++)
-		if (i == 0 || hci_test_bit(HCI_UP, &hci_devs[i].flags))
+	std::vector<struct hci_dev_info> hci_devices;
+	for (auto i = 0; i < HCI_MAX_DEV; i++)
+	{
+		struct hci_dev_info hci_device_info;
+		if (hci_devinfo(i, &hci_device_info) == 0)
+			hci_devices.push_back(hci_device_info);
+	}
+	for (auto& hci_device : hci_devices)
+	{
+		if (hci_test_bit(HCI_UP, &hci_device.flags))
 			if (ConsoleVerbosity > 0)
-				std::cout << "[                   ] Host Controller Address: " << ba2string(hci_devs[i].bdaddr) << " BlueTooth Device ID: " << hci_devs[i].dev_id << " HCI Name: " << hci_devs[i].name << std::endl;
+				std::cout << "[                   ] Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
 			else
-				std::cerr << "Host Controller Address: " << ba2string(hci_devs[i].bdaddr) << " BlueTooth Device ID: " << hci_devs[i].dev_id << " HCI Name: " << hci_devs[i].name << std::endl;
+				std::cerr << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
+	}
 }
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
