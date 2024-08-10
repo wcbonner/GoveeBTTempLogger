@@ -16,6 +16,9 @@ Added the option --index to create an html index file based on the existing log 
 sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index index.html
 ```
 
+## Major update to version 3.
+Conversion to Bluetooth using BlueZ over DBus! This is a work in progress. DBus is the approved method of Bluetooth communication, complicated to implement without a huge framework.
+
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
 

@@ -93,6 +93,7 @@
     <ClCompile Include="wimiso8601.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".github\workflows\ci.yml" />
     <None Include="BTData\README.md" />
     <None Include="CMakePresets.json" />
     <None Include="DeviceImages\README.md" />
