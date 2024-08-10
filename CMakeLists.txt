@@ -30,6 +30,9 @@ configure_file(
     goveebttemplogger-version.h.in
     goveebttemplogger-version.h)
 
+include( FindPkgConfig )
+pkg_check_modules( dbus REQUIRED dbus-1 )
+
 # Add source to this project's executable.
 add_executable (goveebttemplogger
     goveebttemplogger.cpp
@@ -54,7 +57,7 @@ endif()
 target_include_directories(goveebttemplogger PUBLIC
     "${PROJECT_BINARY_DIR}" 
     ${EXTRA_INCLUDES}
-    "/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/"
+    ${dbus_INCLUDE_DIRS}
     )
 
 if(EXISTS "/etc/rpi-issue")
