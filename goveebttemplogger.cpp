@@ -3043,7 +3043,7 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 	return(bStarted);
 }
 /////////////////////////////////////////////////////////////////////////////
-void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg)
+void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp)
 {
 	if (std::string(dbus_message_get_signature(dbus_msg)).compare("oa{sa{sv}}"))
 		std::cout << "Invalid Signature!!!";
@@ -3220,7 +3220,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg)
 		} while (dbus_message_iter_next(&array1_iter));
 	}
 }
-void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg)
+void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
 {
 	if (std::string(dbus_message_get_signature(dbus_msg)).compare("sa{sv}as"))
 		std::cout << "Invalid Signature!!!";
@@ -3637,7 +3637,7 @@ int main(int argc, char **argv)
 			SignalHandlerPointer previousHandlerSIGINT = std::signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
 			SignalHandlerPointer previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 
-			// 2022-12-26: I came across information tha signal() is bad and I shoudl be using sigaction() instead
+			// 2022-12-26: I came across information tha signal() is bad and I should be using sigaction() instead
 			// example of signal() https://www.gnu.org/software/libc/manual/html_node/Basic-Signal-Handling.html#Basic-Signal-Handling
 			// example of sigaction() https://www.gnu.org/software/libc/manual/html_node/Sigaction-Function-Example.html
 			//struct sigaction new_action, old_action;
