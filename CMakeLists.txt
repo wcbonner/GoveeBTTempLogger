@@ -21,8 +21,8 @@ if (POLICY CMP0115)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20240715.0
-    DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
+    VERSION 2.20240810.0
+    DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
 
@@ -44,14 +44,17 @@ add_executable (goveebttemplogger
 target_link_libraries(goveebttemplogger
     -lbluetooth
     -lstdc++fs
+    -ldbus-1
     )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
     set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
 endif()
 
-target_include_directories(goveebttemplogger 
-    PUBLIC "${PROJECT_BINARY_DIR}" ${EXTRA_INCLUDES}
+target_include_directories(goveebttemplogger PUBLIC
+    "${PROJECT_BINARY_DIR}" 
+    ${EXTRA_INCLUDES}
+    "/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/"
     )
 
 if(EXISTS "/etc/rpi-issue")

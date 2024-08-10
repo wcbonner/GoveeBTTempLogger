@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-// Copyright (C) 2020 William C Bonner
+// Copyright (C) 2024 William C Bonner
 //
 //	MIT License
 //
@@ -64,13 +64,16 @@
 #include <cmath>
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <dbus/dbus.h> //  sudo apt install libdbus-1-dev
 #include <filesystem>
 #include <fstream>
 #include <getopt.h>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <locale>
 #include <map>
 #include <netdb.h>
@@ -1911,136 +1914,6 @@ const char* addr_type_name(const int dst_type)
 	}
 }
 #define ATT_CID 4
-#ifdef FOO
-/* Error codes for Error response PDU */
-#define ATT_ECODE_INVALID_HANDLE	0x01
-#define ATT_ECODE_READ_NOT_PERM		0x02
-#define ATT_ECODE_WRITE_NOT_PERM	0x03
-#define ATT_ECODE_INVALID_PDU		0x04
-#define ATT_ECODE_AUTHENTICATION	0x05
-#define ATT_ECODE_REQ_NOT_SUPP		0x06
-#define ATT_ECODE_INVALID_OFFSET	0x07
-#define ATT_ECODE_AUTHORIZATION		0x08
-#define ATT_ECODE_PREP_QUEUE_FULL	0x09
-#define ATT_ECODE_ATTR_NOT_FOUND	0x0A
-#define ATT_ECODE_ATTR_NOT_LONG		0x0B
-#define ATT_ECODE_INSUFF_ENCR_KEY_SIZE	0x0C
-#define ATT_ECODE_INVAL_ATTR_VALUE_LEN	0x0D
-#define ATT_ECODE_UNLIKELY			0x0E
-#define ATT_ECODE_INSUFF_ENC		0x0F
-#define ATT_ECODE_UNSUPP_GRP_TYPE	0x10
-#define ATT_ECODE_INSUFF_RESOURCES	0x11
-/* Application error */
-#define ATT_ECODE_IO				0x80
-#define ATT_ECODE_TIMEOUT			0x81
-#define ATT_ECODE_ABORTED			0x82
-//struct bt_att_pdu_error_rsp {
-//	uint8_t opcode;
-//	uint16_t handle;
-//	uint8_t ecode;
-//} __packed;
-const char* att_ecode2str(uint8_t status)
-{
-	switch (status) {
-	case ATT_ECODE_INVALID_HANDLE:
-		return "Invalid handle";
-	case ATT_ECODE_READ_NOT_PERM:
-		return "Attribute can't be read";
-	case ATT_ECODE_WRITE_NOT_PERM:
-		return "Attribute can't be written";
-	case ATT_ECODE_INVALID_PDU:
-		return "Attribute PDU was invalid";
-	case ATT_ECODE_AUTHENTICATION:
-		return "Attribute requires authentication before read/write";
-	case ATT_ECODE_REQ_NOT_SUPP:
-		return "Server doesn't support the request received";
-	case ATT_ECODE_INVALID_OFFSET:
-		return "Offset past the end of the attribute";
-	case ATT_ECODE_AUTHORIZATION:
-		return "Attribute requires authorization before read/write";
-	case ATT_ECODE_PREP_QUEUE_FULL:
-		return "Too many prepare writes have been queued";
-	case ATT_ECODE_ATTR_NOT_FOUND:
-		return "No attribute found within the given range";
-	case ATT_ECODE_ATTR_NOT_LONG:
-		return "Attribute can't be read/written using Read Blob Req";
-	case ATT_ECODE_INSUFF_ENCR_KEY_SIZE:
-		return "Encryption Key Size is insufficient";
-	case ATT_ECODE_INVAL_ATTR_VALUE_LEN:
-		return "Attribute value length is invalid";
-	case ATT_ECODE_UNLIKELY:
-		return "Request attribute has encountered an unlikely error";
-	case ATT_ECODE_INSUFF_ENC:
-		return "Encryption required before read/write";
-	case ATT_ECODE_UNSUPP_GRP_TYPE:
-		return "Attribute type is not a supported grouping attribute";
-	case ATT_ECODE_INSUFF_RESOURCES:
-		return "Insufficient Resources to complete the request";
-	case ATT_ECODE_IO:
-		return "Internal application error: I/O";
-	case ATT_ECODE_TIMEOUT:
-		return "A timeout occured";
-	case ATT_ECODE_ABORTED:
-		return "The operation was aborted";
-	default:
-		return "Unexpected error code";
-	}
-}
-int att_read(int fd, const uint16_t handle, void* buf)
-{
-	struct 
-	{ 
-		uint8_t opcode; 
-		uint16_t handle; 
-	} __attribute__((packed)) pkt = { BT_ATT_OP_READ_REQ, htobs(handle) };
-	int result = send(fd, &pkt, sizeof(pkt), 0);
-	if (result < 0)
-		return result;
-
-	struct 
-	{ 
-		uint8_t opcode; 
-		uint8_t buf[BT_ATT_DEFAULT_LE_MTU]; 
-	} __attribute__((packed)) rpkt = { 0 };
-	result = recv(fd, &rpkt, sizeof(rpkt), 0);
-	if (result < 0)
-		return result;
-	else if (rpkt.opcode == BT_ATT_OP_ERROR_RSP && result == 1 + sizeof(struct bt_att_pdu_error_rsp)) 
-	{
-		struct bt_att_pdu_error_rsp* err = (struct bt_att_pdu_error_rsp*)rpkt.buf;
-		if (ConsoleVerbosity > 0)
-			std::cerr << "ATT error for opcode " << std::hex << std::showbase << err->opcode << ", handle " << btohs(err->handle) << ": " << att_ecode2str(err->ecode) << std::endl;
-		return -2;
-	}
-	else if (rpkt.opcode != BT_ATT_OP_READ_RSP) 
-	{
-		if (ConsoleVerbosity > 0)
-			std::cerr << "Expect ATT READ response opcode (" << std::hex << std::showbase << BT_ATT_OP_READ_RSP << ") but received " << rpkt.opcode << std::endl;
-		return -2;
-	}
-	else 
-	{
-		int length = result - 1;
-		memcpy(buf, rpkt.buf, length);
-		return length;
-	}
-}
-int att_write(int fd, const uint16_t handle, const void* buf, const int length)
-{
-	struct write_packet { uint8_t opcode; uint16_t handle; uint8_t buf[0]; } __attribute__((packed));// pkt;
-	if ((sizeof(write_packet) + length) > BT_ATT_DEFAULT_LE_MTU)
-		return(-1);
-	write_packet* pkt = (write_packet*) new uint8_t[sizeof(write_packet) + length];
-	pkt->opcode = BT_ATT_OP_WRITE_CMD;
-	pkt->handle = htobs(handle);
-	memcpy(pkt->buf, buf, length);
-	int result = send(fd, pkt, (sizeof(write_packet) + length), 0);
-	delete[] pkt;
-	if (result < 0)
-		return(result);
-	return(length);
-}
-#endif // FOO
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } GATT_DeclarationPacket;
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_WritePacket;
 class BlueToothServiceCharacteristic {public: uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; bt_uuid_t theUUID; };
@@ -2916,6 +2789,592 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 		TimeDownloadStart -= static_cast<long>(60) * offset;
 	}
 	return(TimeDownloadStart);
+}
+/////////////////////////////////////////////////////////////////////////////
+const char * dbus_message_iter_type_to_string(const int type)
+{
+	switch (type)
+	{
+	case DBUS_TYPE_INVALID:
+		return "Invalid";
+	case DBUS_TYPE_VARIANT:
+		return "Variant";
+	case DBUS_TYPE_ARRAY:
+		return "Array";
+	case DBUS_TYPE_BYTE:
+		return "Byte";
+	case DBUS_TYPE_BOOLEAN:
+		return "Boolean";
+	case DBUS_TYPE_INT16:
+		return "Int16";
+	case DBUS_TYPE_UINT16:
+		return "UInt16";
+	case DBUS_TYPE_INT32:
+		return "Int32";
+	case DBUS_TYPE_UINT32:
+		return "UInt32";
+	case DBUS_TYPE_INT64:
+		return "Int64";
+	case DBUS_TYPE_UINT64:
+		return "UInt64";
+	case DBUS_TYPE_DOUBLE:
+		return "Double";
+	case DBUS_TYPE_STRING:
+		return "String";
+	case DBUS_TYPE_OBJECT_PATH:
+		return "ObjectPath";
+	case DBUS_TYPE_SIGNATURE:
+		return "Signature";
+	case DBUS_TYPE_STRUCT:
+		return "Struct";
+	case DBUS_TYPE_DICT_ENTRY:
+		return "DictEntry";
+	default:
+		return "Unknown Type";
+	}
+}
+void bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& adapter_paths)
+{
+	// Initialize D-Bus error
+	DBusError dbus_error;
+	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+	if (!dbus_msg)
+		std::cout << "Can't allocate new method call" << std::endl;
+	else
+	{
+		dbus_error_init(&dbus_error);
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+		std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+		dbus_message_unref(dbus_msg);
+		if (!dbus_reply)
+		{
+			std::cout << "Can't get bluez managed objects:" << std::endl;
+			if (dbus_error_is_set(&dbus_error))
+			{
+				std::cout << dbus_error.message << std::endl;
+				dbus_error_free(&dbus_error);
+			}
+		}
+		else
+		{
+			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+			{
+				int indent(16);
+				std::cout << std::right << std::setw(indent) << "Message Type: " << std::string(dbus_message_type_to_string(dbus_message_get_type(dbus_reply))) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+				const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply));
+				std::cout << std::right << std::setw(indent) << "Signature: " << dbus_reply_Signature << std::endl;
+				std::cout << std::right << std::setw(indent) << "Destination: " << std::string(dbus_message_get_destination(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+				std::cout << std::right << std::setw(indent) << "Sender: " << std::string(dbus_message_get_sender(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+				if (NULL != dbus_message_get_path(dbus_reply)) std::cout << std::right << std::setw(indent) << "Path: " << std::string(dbus_message_get_path(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga18adf731bb42d324fe2624407319e4af
+				if (NULL != dbus_message_get_interface(dbus_reply)) std::cout << std::right << std::setw(indent) << "Interface: " << std::string(dbus_message_get_interface(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga1ad192bd4538cae556121a71b4e09d42
+				if (NULL != dbus_message_get_member(dbus_reply)) std::cout << std::right << std::setw(indent) << "Member: " << std::string(dbus_message_get_member(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
+				if (NULL != dbus_message_get_container_instance(dbus_reply)) std::cout << std::right << std::setw(indent) << "Container Instance: " << std::string(dbus_message_get_container_instance(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+				if (!dbus_reply_Signature.compare("a{oa{sa{sv}}}"))
+				{
+					DBusMessageIter root_iter;
+					dbus_message_iter_init(dbus_reply, &root_iter);
+					do {
+						DBusMessageIter array1_iter;
+						dbus_message_iter_recurse(&root_iter, &array1_iter);
+						do {
+							DBusMessageIter dict1_iter;
+							std::string dict1_object_path;
+							dbus_message_iter_recurse(&array1_iter, &dict1_iter);
+							do {
+								indent += 4;
+								if (DBUS_TYPE_OBJECT_PATH == dbus_message_iter_get_arg_type(&dict1_iter))
+								{
+									DBusBasicValue value;
+									dbus_message_iter_get_basic(&dict1_iter, &value);
+									dict1_object_path = std::string(value.str);
+									std::cout << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
+								}
+								else if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&dict1_iter))
+								{
+									DBusMessageIter array2_iter;
+									dbus_message_iter_recurse(&dict1_iter, &array2_iter);
+									do
+									{
+										DBusMessageIter dict2_iter;
+										dbus_message_iter_recurse(&array2_iter, &dict2_iter);
+										do
+										{
+											if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&dict2_iter))
+											{
+												DBusBasicValue value;
+												dbus_message_iter_get_basic(&dict2_iter, &value);
+												std::string val(value.str);
+												std::cout << std::right << std::setw(indent) << "String: " << val << std::endl;
+												if (!val.compare("org.bluez.Adapter1"))
+													adapter_paths.push_back(dict1_object_path);
+											}
+										} while (dbus_message_iter_next(&dict2_iter));
+									} while (dbus_message_iter_next(&array2_iter));
+								}
+								else
+									std::cout << std::right << std::setw(indent) << "Unexpected type in message: " << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << std::endl;
+								indent -= 4;
+							} while (dbus_message_iter_next(&dict1_iter));
+						} while (dbus_message_iter_next(&array1_iter));
+					} while (dbus_message_iter_next(&root_iter));
+				}
+			}
+			dbus_message_unref(dbus_reply);
+		}
+	}
+}
+void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const bool PowerOn = true)
+{
+
+	// This was hacked from looking at https://git.kernel.org/pub/scm/network/connman/connman.git/tree/gdbus/client.c#n667
+	// https://www.mankier.com/5/org.bluez.Adapter#Interface-boolean_Powered_%5Breadwrite%5D
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.freedesktop.DBus.Properties", "Set"); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga98ddc82450d818138ef326a284201ee0
+	if (!dbus_msg)
+		std::cout << "Can't allocate new method call" << std::endl;
+	else
+	{
+		DBusMessageIter iterParameter;
+		dbus_message_iter_init_append(dbus_msg, &iterParameter); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf733047c467ce21f4a53b65a388f1e9d
+		const char* adapter = "org.bluez.Adapter1";
+		dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &adapter); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga17491f3b75b3203f6fc47dcc2e3b221b
+		const char* powered = "Powered";
+		dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &powered);
+		DBusMessageIter variant;
+		dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_VARIANT, DBUS_TYPE_BOOLEAN_AS_STRING, &variant); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga943150f4e87fd8507da224d22c266100
+		dbus_bool_t cpTrue = PowerOn ? TRUE : FALSE;
+		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &cpTrue);
+		dbus_message_iter_close_container(&iterParameter, &variant); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf00482f63d4af88b7851621d1f24087a
+		dbus_connection_send(dbus_conn, dbus_msg, NULL); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#gae1cb64f4cf550949b23fd3a756b2f7d0
+		std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn << std::endl;
+		dbus_message_unref(dbus_msg); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gab69441efe683918f6a82469c8763f464
+	}
+}
+void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const bool DuplicateData = true, const bool bFilter = true)
+{
+	// https://www.mankier.com/5/org.bluez.Adapter#Interface-void_SetDiscoveryFilter(dict_filter)
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", "SetDiscoveryFilter");
+	if (!dbus_msg)
+		std::cout << "Can't allocate new method call" << std::endl;
+	else
+	{
+		if (bFilter)
+		{
+			DBusMessageIter iterParameter;
+			dbus_message_iter_init_append(dbus_msg, &iterParameter);
+			DBusMessageIter iterArray;
+			dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{sv}", &iterArray);
+			DBusMessageIter iterDict;
+			dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+			const char* cpTransport = "Transport";
+			dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, &cpTransport);
+			DBusMessageIter iterVariant;
+			dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
+			const char* cpBTLE = "le";
+			dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, &cpBTLE);
+			dbus_message_iter_close_container(&iterDict, &iterVariant);
+			dbus_message_iter_close_container(&iterArray, &iterDict);
+			dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+			const char* cpDuplicateData = "DuplicateData";
+			dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, &cpDuplicateData);
+			dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_BOOLEAN_AS_STRING, &iterVariant);
+			dbus_bool_t cpTrue = DuplicateData ? TRUE : FALSE;
+			dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_BOOLEAN, &cpTrue);
+			dbus_message_iter_close_container(&iterDict, &iterVariant);
+			dbus_message_iter_close_container(&iterArray, &iterDict);
+			dbus_message_iter_close_container(&iterParameter, &iterArray);
+		}
+		else
+		{
+			DBusMessageIter iterParameter;
+			dbus_message_iter_init_append(dbus_msg, &iterParameter);
+			DBusMessageIter iterArray;
+			dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{}", &iterArray);
+			DBusMessageIter iterDict;
+			dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+			dbus_message_iter_close_container(&iterArray, &iterDict);
+			dbus_message_iter_close_container(&iterParameter, &iterArray);
+		}
+		// Initialize D-Bus error
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_INFINITE, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+		if (!dbus_reply)
+		{
+			std::cout << __FILE__ << "(" << __LINE__ << "): Error: " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
+			if (dbus_error_is_set(&dbus_error))
+			{
+				std::cout << ": " << dbus_error.message;
+				dbus_error_free(&dbus_error);
+			}
+			std::cout << std::endl;
+		}
+		else
+			dbus_message_unref(dbus_reply);
+		dbus_message_unref(dbus_msg);
+	}
+}
+bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const bool bStartDiscovery = true)
+{
+	bool bStarted = false;
+	// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/adapter-api.txt
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", bStartDiscovery ? "StartDiscovery" : "StopDiscovery");
+	DBusError dbus_error;
+	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+	DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_INFINITE, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+	std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+	if (!dbus_reply)
+	{
+		std::cout << __FILE__ << "(" << __LINE__ << "): Error: " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
+		if (dbus_error_is_set(&dbus_error))
+		{
+			std::cout << ": " << dbus_error.message;
+			dbus_error_free(&dbus_error);
+		}
+		std::cout << std::endl;
+	}
+	else
+	{
+		bStarted = true;
+		dbus_message_unref(dbus_reply);
+	}
+	dbus_message_unref(dbus_msg);
+	return(bStarted);
+}
+/////////////////////////////////////////////////////////////////////////////
+void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg)
+{
+	if (std::string(dbus_message_get_signature(dbus_msg)).compare("oa{sa{sv}}"))
+		std::cout << "Invalid Signature!!!";
+	else
+	{
+		int indent(20);
+		DBusMessageIter root_iter;
+		std::string root_object_path;
+		dbus_message_iter_init(dbus_msg, &root_iter);
+		DBusBasicValue value;
+		dbus_message_iter_get_basic(&root_iter, &value);
+		root_object_path = std::string(value.str);
+		std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
+		dbus_message_iter_next(&root_iter);
+		DBusMessageIter array1_iter;
+		dbus_message_iter_recurse(&root_iter, &array1_iter);
+		do
+		{
+			DBusMessageIter dict1_iter;
+			dbus_message_iter_recurse(&array1_iter, &dict1_iter);
+			indent += 4;
+			DBusBasicValue value;
+			dbus_message_iter_get_basic(&dict1_iter, &value);
+			std::string val(value.str);
+			std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "String: " << val << std::endl;
+			if (!val.compare("org.bluez.Device1"))
+			{
+				dbus_message_iter_next(&dict1_iter);
+				DBusMessageIter array2_iter;
+				dbus_message_iter_recurse(&dict1_iter, &array2_iter);
+				do
+				{
+					DBusMessageIter dict2_iter;
+					dbus_message_iter_recurse(&array2_iter, &dict2_iter);
+					indent += 4;
+					DBusBasicValue value;
+					dbus_message_iter_get_basic(&dict2_iter, &value);
+					std::string Key(value.str);
+					std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << Key << ": ";
+					dbus_message_iter_next(&dict2_iter);
+					DBusMessageIter variant_iter;
+					dbus_message_iter_recurse(&dict2_iter, &variant_iter);
+					do
+					{
+						auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
+						if (dbus_type_is_basic(dbus_message_Type))
+						{
+							DBusBasicValue value;
+							dbus_message_iter_get_basic(&variant_iter, &value);
+							if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+								std::cout << value.str;
+							else if (DBUS_TYPE_BYTE == dbus_message_Type)
+								std::cout << std::to_string(value.byt);
+							else if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
+								std::cout << std::to_string(value.bool_val);
+							else if (DBUS_TYPE_INT16 == dbus_message_Type)
+								std::cout << std::to_string(value.i16);
+							else if (DBUS_TYPE_UINT16 == dbus_message_Type)
+								std::cout << std::to_string(value.u16);
+							else if (DBUS_TYPE_INT32 == dbus_message_Type)
+								std::cout << std::to_string(value.i32);
+							else if (DBUS_TYPE_UINT32 == dbus_message_Type)
+								std::cout << std::to_string(value.u32);
+							else if (DBUS_TYPE_INT64 == dbus_message_Type)
+								std::cout << std::to_string(value.i64);
+							else if (DBUS_TYPE_UINT64 == dbus_message_Type)
+								std::cout << std::to_string(value.u64);
+							else if (DBUS_TYPE_DOUBLE == dbus_message_Type)
+								std::cout << std::to_string(value.dbl);
+							else if (DBUS_TYPE_DOUBLE == dbus_message_Type)
+								std::cout << std::to_string(value.dbl);
+							else
+								std::cout << "Unexpected basic type in variant";
+							std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
+						}
+						else if (DBUS_TYPE_ARRAY == dbus_message_Type)
+						{
+							if (!Key.compare("ManufacturerData"))
+							{
+								DBusMessageIter array3_iter;
+								dbus_message_iter_recurse(&variant_iter, &array3_iter);
+								do
+								{
+									if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
+									{
+										std::cout << " (DBUS_TYPE_DICT_ENTRY){";
+										DBusMessageIter dict1_iter;
+										dbus_message_iter_recurse(&array3_iter, &dict1_iter);
+										if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
+										{
+											DBusBasicValue value;
+											dbus_message_iter_get_basic(&dict1_iter, &value);
+											std::ios oldState(nullptr);
+											oldState.copyfmt(std::cout);
+											std::cout << " (UINT16: " << std::setw(4) << std::setfill('0') << std::hex << value.u16 << ")";
+											std::cout.copyfmt(oldState);
+										}
+										else
+											std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+										dbus_message_iter_next(&dict1_iter);
+										if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
+										{
+											std::cout << " (DBUS_TYPE_VARIANT)[";
+											DBusMessageIter variant2_iter;
+											dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
+											if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
+											{
+												std::cout << " (DBUS_TYPE_ARRAY){";
+												DBusMessageIter array4_iter;
+												dbus_message_iter_recurse(&variant2_iter, &array4_iter);
+												do
+												{
+													if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&array4_iter))
+													{
+														std::cout << " (DBUS_TYPE_VARIANT)[";
+														DBusMessageIter variant3_iter;
+														dbus_message_iter_recurse(&dict1_iter, &variant3_iter);
+														std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant3_iter)) << ")";
+														std::cout << " ]";
+													}
+													else if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
+													{
+														DBusBasicValue value;
+														dbus_message_iter_get_basic(&array4_iter, &value);
+														std::ios oldState(nullptr);
+														oldState.copyfmt(std::cout);
+														std::cout << std::setw(2) << std::setfill('0') << std::hex << int(value.byt);
+														std::cout.copyfmt(oldState);
+													}
+													else
+														std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array4_iter)) << ")";
+												} while (dbus_message_iter_next(&array4_iter));
+												std::cout << "}";
+											}
+											else
+												std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant2_iter)) << ")";
+											std::cout << " ]";
+										}
+										else
+											std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+										std::cout << " }";
+									}
+									else
+										std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
+								} while (dbus_message_iter_next(&array3_iter));
+							}
+							else if (!Key.compare("UUIDs"))
+							{
+								DBusMessageIter array3_iter;
+								dbus_message_iter_recurse(&variant_iter, &array3_iter);
+								do
+								{
+									if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array3_iter))
+									{
+										DBusBasicValue value;
+										dbus_message_iter_get_basic(&array3_iter, &value);
+										std::cout << " " << value.str;
+									}
+									else
+										std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
+								} while (dbus_message_iter_next(&array3_iter));
+							}
+							else
+								std::cout << "TODO: Array Decode";
+						}
+						else
+							std::cout << "Unexpected type in variant (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
+						std::cout << std::endl;
+					} while (dbus_message_iter_next(&variant_iter));
+					indent -= 4;
+				} while (dbus_message_iter_next(&array2_iter));
+			}
+			indent -= 4;
+		} while (dbus_message_iter_next(&array1_iter));
+	}
+}
+void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg)
+{
+	if (std::string(dbus_message_get_signature(dbus_msg)).compare("sa{sv}as"))
+		std::cout << "Invalid Signature!!!";
+	else
+	{
+		int indent(20);
+		DBusMessageIter root_iter;
+		std::string root_object_path;
+		dbus_message_iter_init(dbus_msg, &root_iter);
+		DBusBasicValue value;
+		dbus_message_iter_get_basic(&root_iter, &value);
+		root_object_path = std::string(value.str);
+		std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
+		dbus_message_iter_next(&root_iter);
+		DBusMessageIter array1_iter;
+		dbus_message_iter_recurse(&root_iter, &array1_iter);
+		do
+		{
+			DBusMessageIter dict1_iter;
+			dbus_message_iter_recurse(&array1_iter, &dict1_iter); // The key of the dict
+			indent += 4;
+			DBusBasicValue value;
+			dbus_message_iter_get_basic(&dict1_iter, &value);
+			std::string Key(value.str);
+			std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << Key << ": ";
+			dbus_message_iter_next(&dict1_iter);
+			DBusMessageIter variant_iter;
+			dbus_message_iter_recurse(&dict1_iter, &variant_iter); // the Variant value of the dict
+			do // process the variant in the dict
+			{
+				auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
+				if (dbus_type_is_basic(dbus_message_Type))
+				{
+					DBusBasicValue value;
+					dbus_message_iter_get_basic(&variant_iter, &value);
+					if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+						std::cout << value.str;
+					else if (DBUS_TYPE_BYTE == dbus_message_Type)
+						std::cout << std::to_string(value.byt);
+					else if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
+						std::cout << std::to_string(value.bool_val);
+					else if (DBUS_TYPE_INT16 == dbus_message_Type)
+						std::cout << std::to_string(value.i16);
+					else if (DBUS_TYPE_UINT16 == dbus_message_Type)
+						std::cout << std::to_string(value.u16);
+					else if (DBUS_TYPE_INT32 == dbus_message_Type)
+						std::cout << std::to_string(value.i32);
+					else if (DBUS_TYPE_UINT32 == dbus_message_Type)
+						std::cout << std::to_string(value.u32);
+					else if (DBUS_TYPE_INT64 == dbus_message_Type)
+						std::cout << std::to_string(value.i64);
+					else if (DBUS_TYPE_UINT64 == dbus_message_Type)
+						std::cout << std::to_string(value.u64);
+					else if (DBUS_TYPE_DOUBLE == dbus_message_Type)
+						std::cout << std::to_string(value.dbl);
+					else if (DBUS_TYPE_DOUBLE == dbus_message_Type)
+						std::cout << std::to_string(value.dbl);
+					else
+						std::cout << "Unexpected basic type in variant";
+					std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
+				}
+				else if (DBUS_TYPE_ARRAY == dbus_message_Type)
+				{
+					if (!Key.compare("ManufacturerData"))
+					{
+						DBusMessageIter array3_iter;
+						dbus_message_iter_recurse(&variant_iter, &array3_iter);
+						do
+						{
+							if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
+							{
+								std::cout << " (DBUS_TYPE_DICT_ENTRY){";
+								DBusMessageIter dict1_iter;
+								dbus_message_iter_recurse(&array3_iter, &dict1_iter);
+								if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
+								{
+									DBusBasicValue value;
+									dbus_message_iter_get_basic(&dict1_iter, &value);
+									std::ios oldState(nullptr);
+									oldState.copyfmt(std::cout);
+									std::cout << " (UINT16: " << std::setw(4) << std::setfill('0') << std::hex << value.u16 << ")";
+									std::cout.copyfmt(oldState);
+								}
+								else
+									std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+								dbus_message_iter_next(&dict1_iter);
+								if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
+								{
+									std::cout << " (DBUS_TYPE_VARIANT)[";
+									DBusMessageIter variant2_iter;
+									dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
+									if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
+									{
+										std::cout << " (DBUS_TYPE_ARRAY){";
+										DBusMessageIter array4_iter;
+										dbus_message_iter_recurse(&variant2_iter, &array4_iter);
+										do
+										{
+											if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&array4_iter))
+											{
+												std::cout << " (DBUS_TYPE_VARIANT)[";
+												DBusMessageIter variant3_iter;
+												dbus_message_iter_recurse(&dict1_iter, &variant3_iter);
+												std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant3_iter)) << ")";
+												std::cout << " ]";
+											}
+											else if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
+											{
+												DBusBasicValue value;
+												dbus_message_iter_get_basic(&array4_iter, &value);
+												std::ios oldState(nullptr);
+												oldState.copyfmt(std::cout);
+												std::cout << std::setw(2) << std::setfill('0') << std::hex << int(value.byt);
+												std::cout.copyfmt(oldState);
+											}
+											else
+												std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array4_iter)) << ")";
+										} while (dbus_message_iter_next(&array4_iter));
+										std::cout << "}";
+									}
+									else
+										std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant2_iter)) << ")";
+									std::cout << " ]";
+								}
+								else
+									std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+								std::cout << " }";
+							}
+							else
+								std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
+						} while (dbus_message_iter_next(&array3_iter));
+					}
+					else
+						std::cout << "TODO: Array Decode";
+				}
+				else
+					std::cout << "Unexpected type in variant (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
+			} while (dbus_message_iter_next(&variant_iter));
+			std::cout << std::endl;
+			indent -= 4;
+		} while (dbus_message_iter_next(&array1_iter));
+		dbus_message_iter_next(&root_iter);
+		DBusMessageIter array2_iter;
+		dbus_message_iter_recurse(&root_iter, &array2_iter);
+		do
+		{
+			if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array2_iter))
+			{
+				DBusBasicValue value;
+				dbus_message_iter_get_basic(&array2_iter, &value);
+				std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << value.str << std::endl;
+			}
+		} while (dbus_message_iter_next(&array2_iter));
+	}
 }
 /////////////////////////////////////////////////////////////////////////////
 int LogFileTime(60);
