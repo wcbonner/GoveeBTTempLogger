@@ -3094,8 +3094,9 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 /////////////////////////////////////////////////////////////////////////////
 void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp)
 {
+	std::ostringstream ssOutput;
 	if (std::string(dbus_message_get_signature(dbus_msg)).compare("oa{sa{sv}}"))
-		std::cout << "Invalid Signature!!!";
+		ssOutput << "Invalid Signature: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
 	else
 	{
 		int indent(20);
@@ -3114,7 +3115,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
 		}
-		//std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
+		//ssOutput << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
 		dbus_message_iter_next(&root_iter);
 		DBusMessageIter array1_iter;
 		dbus_message_iter_recurse(&root_iter, &array1_iter);
@@ -3126,7 +3127,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			DBusBasicValue value;
 			dbus_message_iter_get_basic(&dict1_iter, &value);
 			std::string val(value.str);
-			//std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "String: " << val << std::endl;
+			//ssOutput << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "String: " << val << std::endl;
 			if (!val.compare("org.bluez.Device1"))
 			{
 				dbus_message_iter_next(&dict1_iter);
@@ -3140,7 +3141,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 					DBusBasicValue value;
 					dbus_message_iter_get_basic(&dict2_iter, &value);
 					std::string Key(value.str);
-					std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << Key << ": ";
+					ssOutput << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << Key << ": ";
 					dbus_message_iter_next(&dict2_iter);
 					DBusMessageIter variant_iter;
 					dbus_message_iter_recurse(&dict2_iter, &variant_iter);
@@ -3153,33 +3154,33 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 							dbus_message_iter_get_basic(&variant_iter, &value);
 							if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
 							{
-								std::cout << value.str;
+								ssOutput << value.str;
 								if (!Key.compare("Name"))
 									dbusTemp.SetModel(std::string(value.str));
 							}
 							else if (DBUS_TYPE_BYTE == dbus_message_Type)
-								std::cout << std::to_string(value.byt);
+								ssOutput << std::to_string(value.byt);
 							else if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
-								std::cout << std::to_string(value.bool_val);
+								ssOutput << std::to_string(value.bool_val);
 							else if (DBUS_TYPE_INT16 == dbus_message_Type)
-								std::cout << std::to_string(value.i16);
+								ssOutput << std::to_string(value.i16);
 							else if (DBUS_TYPE_UINT16 == dbus_message_Type)
-								std::cout << std::to_string(value.u16);
+								ssOutput << std::to_string(value.u16);
 							else if (DBUS_TYPE_INT32 == dbus_message_Type)
-								std::cout << std::to_string(value.i32);
+								ssOutput << std::to_string(value.i32);
 							else if (DBUS_TYPE_UINT32 == dbus_message_Type)
-								std::cout << std::to_string(value.u32);
+								ssOutput << std::to_string(value.u32);
 							else if (DBUS_TYPE_INT64 == dbus_message_Type)
-								std::cout << std::to_string(value.i64);
+								ssOutput << std::to_string(value.i64);
 							else if (DBUS_TYPE_UINT64 == dbus_message_Type)
-								std::cout << std::to_string(value.u64);
+								ssOutput << std::to_string(value.u64);
 							else if (DBUS_TYPE_DOUBLE == dbus_message_Type)
-								std::cout << std::to_string(value.dbl);
+								ssOutput << std::to_string(value.dbl);
 							else if (DBUS_TYPE_DOUBLE == dbus_message_Type)
-								std::cout << std::to_string(value.dbl);
+								ssOutput << std::to_string(value.dbl);
 							else
-								std::cout << "Unexpected basic type in variant";
-							std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
+								ssOutput << "Unexpected basic type in variant";
+							ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
 						}
 						else if (DBUS_TYPE_ARRAY == dbus_message_Type)
 						{
@@ -3191,7 +3192,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 								{
 									if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
 									{
-										std::cout << " (DBUS_TYPE_DICT_ENTRY){";
+										ssOutput << " (DBUS_TYPE_DICT_ENTRY){";
 										DBusMessageIter dict1_iter;
 										dbus_message_iter_recurse(&array3_iter, &dict1_iter);
 										if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
@@ -3199,57 +3200,57 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 											DBusBasicValue value;
 											dbus_message_iter_get_basic(&dict1_iter, &value);
 											std::ios oldState(nullptr);
-											oldState.copyfmt(std::cout);
-											std::cout << " (UINT16: " << std::setw(4) << std::setfill('0') << std::hex << value.u16 << ")";
-											std::cout.copyfmt(oldState);
+											oldState.copyfmt(ssOutput);
+											ssOutput << " (UINT16: " << std::setw(4) << std::setfill('0') << std::hex << value.u16 << ")";
+											ssOutput.copyfmt(oldState);
 										}
 										else
-											std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+											ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
 										dbus_message_iter_next(&dict1_iter);
 										if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
 										{
-											std::cout << " (DBUS_TYPE_VARIANT)[";
+											ssOutput << " (DBUS_TYPE_VARIANT)[";
 											DBusMessageIter variant2_iter;
 											dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
 											if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
 											{
-												std::cout << " (DBUS_TYPE_ARRAY){";
+												ssOutput << " (DBUS_TYPE_ARRAY){";
 												DBusMessageIter array4_iter;
 												dbus_message_iter_recurse(&variant2_iter, &array4_iter);
 												do
 												{
 													if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&array4_iter))
 													{
-														std::cout << " (DBUS_TYPE_VARIANT)[";
+														ssOutput << " (DBUS_TYPE_VARIANT)[";
 														DBusMessageIter variant3_iter;
 														dbus_message_iter_recurse(&dict1_iter, &variant3_iter);
-														std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant3_iter)) << ")";
-														std::cout << " ]";
+														ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant3_iter)) << ")";
+														ssOutput << " ]";
 													}
 													else if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
 													{
 														DBusBasicValue value;
 														dbus_message_iter_get_basic(&array4_iter, &value);
 														std::ios oldState(nullptr);
-														oldState.copyfmt(std::cout);
-														std::cout << std::setw(2) << std::setfill('0') << std::hex << int(value.byt);
-														std::cout.copyfmt(oldState);
+														oldState.copyfmt(ssOutput);
+														ssOutput << std::setw(2) << std::setfill('0') << std::hex << int(value.byt);
+														ssOutput.copyfmt(oldState);
 													}
 													else
-														std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array4_iter)) << ")";
+														ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array4_iter)) << ")";
 												} while (dbus_message_iter_next(&array4_iter));
-												std::cout << "}";
+												ssOutput << "}";
 											}
 											else
-												std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant2_iter)) << ")";
-											std::cout << " ]";
+												ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant2_iter)) << ")";
+											ssOutput << " ]";
 										}
 										else
-											std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
-										std::cout << " }";
+											ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+										ssOutput << " }";
 									}
 									else
-										std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
+										ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
 								} while (dbus_message_iter_next(&array3_iter));
 							}
 							else if (!Key.compare("UUIDs"))
@@ -3262,18 +3263,18 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 									{
 										DBusBasicValue value;
 										dbus_message_iter_get_basic(&array3_iter, &value);
-										std::cout << " " << value.str;
+										ssOutput << " " << value.str;
 									}
 									else
-										std::cout << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
+										ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
 								} while (dbus_message_iter_next(&array3_iter));
 							}
 							else
-								std::cout << "TODO: Array Decode";
+								ssOutput << "TODO: Array Decode";
 						}
 						else
-							std::cout << "Unexpected type in variant (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
-						std::cout << std::endl;
+							ssOutput << "Unexpected type in variant (" << dbus_message_iter_type_to_string(dbus_message_Type) << ")";
+						ssOutput << std::endl;
 					} while (dbus_message_iter_next(&variant_iter));
 					indent -= 4;
 				} while (dbus_message_iter_next(&array2_iter));
@@ -3281,6 +3282,10 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			indent -= 4;
 		} while (dbus_message_iter_next(&array1_iter));
 	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
 {
