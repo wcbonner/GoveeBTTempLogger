@@ -3284,8 +3284,9 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 }
 void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
 {
+	std::ostringstream ssOutput;
 	if (std::string(dbus_message_get_signature(dbus_msg)).compare("sa{sv}as"))
-		std::cout << "Invalid Signature!!!";
+		ssOutput << "Invalid Signature: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
 	else
 	{
 		// TODO: convert dbus_msg_Path to dbusBTAddress using regex
@@ -3298,25 +3299,19 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
 		}
-
-		//if (!dbus_msg_Path.compare("/org/bluez/hci0/dev_E3_8E_C8_C1_98_9A"))
-		int indent(20);
 		DBusMessageIter root_iter;
 		std::string root_object_path;
 		dbus_message_iter_init(dbus_msg, &root_iter);
 		DBusBasicValue value;
 		dbus_message_iter_get_basic(&root_iter, &value);
 		root_object_path = std::string(value.str);
-		//std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
 		dbus_message_iter_next(&root_iter);
 		DBusMessageIter array1_iter;
 		dbus_message_iter_recurse(&root_iter, &array1_iter);
-		std::ostringstream ssOutput;
 		do
 		{
 			DBusMessageIter dict1_iter;
 			dbus_message_iter_recurse(&array1_iter, &dict1_iter); // The key of the dict
-			indent += 4;
 			DBusBasicValue value;
 			dbus_message_iter_get_basic(&dict1_iter, &value);
 			std::string Key(value.str);
@@ -3404,26 +3399,12 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 				} while (dbus_message_iter_next(&variant_iter));
 				ssOutput << std::endl;
 			}
-			indent -= 4;
 		} while (dbus_message_iter_next(&array1_iter));
-		dbus_message_iter_next(&root_iter);
-		DBusMessageIter array2_iter;
-		dbus_message_iter_recurse(&root_iter, &array2_iter);
-		do
-		{
-			if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array2_iter))
-			{
-				DBusBasicValue value;
-				dbus_message_iter_get_basic(&array2_iter, &value);
-				ssOutput << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << value.str << std::endl;
-			}
-		} while (dbus_message_iter_next(&array2_iter));
-
-		if (ConsoleVerbosity > 0)
-			std::cout << ssOutput.str();
-		else
-			std::cerr << ssOutput.str();
 	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
 int LogFileTime(60);
