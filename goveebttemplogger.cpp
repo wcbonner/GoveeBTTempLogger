@@ -2840,7 +2840,12 @@ void bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 	if (!dbus_msg)
-		std::cout << "Can't allocate new method call" << std::endl;
+	{
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+		else
+			std::cerr << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+	}
 	else
 	{
 		dbus_error_init(&dbus_error);
@@ -2860,16 +2865,19 @@ void bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 		{
 			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
 			{
-				int indent(16);
-				std::cout << std::right << std::setw(indent) << "Message Type: " << std::string(dbus_message_type_to_string(dbus_message_get_type(dbus_reply))) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
 				const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply));
-				std::cout << std::right << std::setw(indent) << "Signature: " << dbus_reply_Signature << std::endl;
-				std::cout << std::right << std::setw(indent) << "Destination: " << std::string(dbus_message_get_destination(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
-				std::cout << std::right << std::setw(indent) << "Sender: " << std::string(dbus_message_get_sender(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
-				//if (NULL != dbus_message_get_path(dbus_reply)) std::cout << std::right << std::setw(indent) << "Path: " << std::string(dbus_message_get_path(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga18adf731bb42d324fe2624407319e4af
-				//if (NULL != dbus_message_get_interface(dbus_reply)) std::cout << std::right << std::setw(indent) << "Interface: " << std::string(dbus_message_get_interface(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga1ad192bd4538cae556121a71b4e09d42
-				//if (NULL != dbus_message_get_member(dbus_reply)) std::cout << std::right << std::setw(indent) << "Member: " << std::string(dbus_message_get_member(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
-				//if (NULL != dbus_message_get_container_instance(dbus_reply)) std::cout << std::right << std::setw(indent) << "Container Instance: " << std::string(dbus_message_get_container_instance(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+				int indent(16);
+				if (ConsoleVerbosity > 1)
+				{
+					std::cout << "[                   ] " << std::right << std::setw(indent) << "Message Type: " << std::string(dbus_message_type_to_string(dbus_message_get_type(dbus_reply))) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+					std::cout << "[                   ] " << std::right << std::setw(indent) << "Signature: " << dbus_reply_Signature << std::endl;
+					std::cout << "[                   ] " << std::right << std::setw(indent) << "Destination: " << std::string(dbus_message_get_destination(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+					std::cout << "[                   ] " << std::right << std::setw(indent) << "Sender: " << std::string(dbus_message_get_sender(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+					//if (NULL != dbus_message_get_path(dbus_reply)) std::cout << std::right << std::setw(indent) << "Path: " << std::string(dbus_message_get_path(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga18adf731bb42d324fe2624407319e4af
+					//if (NULL != dbus_message_get_interface(dbus_reply)) std::cout << std::right << std::setw(indent) << "Interface: " << std::string(dbus_message_get_interface(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga1ad192bd4538cae556121a71b4e09d42
+					//if (NULL != dbus_message_get_member(dbus_reply)) std::cout << std::right << std::setw(indent) << "Member: " << std::string(dbus_message_get_member(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
+					//if (NULL != dbus_message_get_container_instance(dbus_reply)) std::cout << std::right << std::setw(indent) << "Container Instance: " << std::string(dbus_message_get_container_instance(dbus_reply)) << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaed63e4c2baaa50d782e8ebb7643def19
+				}
 				if (!dbus_reply_Signature.compare("a{oa{sa{sv}}}"))
 				{
 					DBusMessageIter root_iter;
@@ -2888,7 +2896,8 @@ void bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 									DBusBasicValue value;
 									dbus_message_iter_get_basic(&dict1_iter, &value);
 									dict1_object_path = std::string(value.str);
-									std::cout << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
+									if (ConsoleVerbosity > 1)
+										std::cout << "[                   ] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
 								}
 								else if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&dict1_iter))
 								{
@@ -2905,15 +2914,16 @@ void bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 												DBusBasicValue value;
 												dbus_message_iter_get_basic(&dict2_iter, &value);
 												std::string val(value.str);
-												std::cout << std::right << std::setw(indent) << "String: " << val << std::endl;
+												if (ConsoleVerbosity > 1)
+													std::cout << "[                   ] " << std::right << std::setw(indent) << "String: " << val << std::endl;
 												if (!val.compare("org.bluez.Adapter1"))
 													adapter_paths.push_back(dict1_object_path);
 											}
 										} while (dbus_message_iter_next(&dict2_iter));
 									} while (dbus_message_iter_next(&array2_iter));
 								}
-								else
-									std::cout << std::right << std::setw(indent) << "Unexpected type in message: " << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << std::endl;
+								else if (ConsoleVerbosity > 0)
+									std::cout << "[                   ] " << std::right << std::setw(indent) << "Unexpected type in message: " << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << std::endl;
 								indent -= 4;
 							} while (dbus_message_iter_next(&dict1_iter));
 						} while (dbus_message_iter_next(&array1_iter));
@@ -2923,6 +2933,11 @@ void bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 			dbus_message_unref(dbus_reply);
 		}
 	}
+	for (auto& adapter : adapter_paths)
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] org.bluez.Adapter1: " << adapter << std::endl;
+		else
+			std::cerr << "org.bluez.Adapter1: " << adapter << std::endl;
 }
 void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const bool PowerOn = true)
 {
@@ -2931,7 +2946,12 @@ void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const b
 	// https://www.mankier.com/5/org.bluez.Adapter#Interface-boolean_Powered_%5Breadwrite%5D
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.freedesktop.DBus.Properties", "Set"); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga98ddc82450d818138ef326a284201ee0
 	if (!dbus_msg)
-		std::cout << "Can't allocate new method call" << std::endl;
+	{
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+		else
+			std::cerr << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+	}
 	else
 	{
 		DBusMessageIter iterParameter;
@@ -2946,7 +2966,10 @@ void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const b
 		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &cpTrue);
 		dbus_message_iter_close_container(&iterParameter, &variant); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf00482f63d4af88b7851621d1f24087a
 		dbus_connection_send(dbus_conn, dbus_msg, NULL); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#gae1cb64f4cf550949b23fd3a756b2f7d0
-		std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn << std::endl;
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn << std::endl;
+		else
+			std::cerr << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn << std::endl;
 		dbus_message_unref(dbus_msg); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gab69441efe683918f6a82469c8763f464
 	}
 }
@@ -2955,7 +2978,12 @@ void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 	// https://www.mankier.com/5/org.bluez.Adapter#Interface-void_SetDiscoveryFilter(dict_filter)
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", "SetDiscoveryFilter");
 	if (!dbus_msg)
-		std::cout << "Can't allocate new method call" << std::endl;
+	{
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+		else
+			std::cerr << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+	}
 	else
 	{
 		if (bFilter)
@@ -2999,7 +3027,10 @@ void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 		DBusError dbus_error;
 		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_INFINITE, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
-		std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+		else
+			std::cerr << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
 		if (!dbus_reply)
 		{
 			std::cout << __FILE__ << "(" << __LINE__ << "): Error: " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
@@ -3020,26 +3051,39 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 	bool bStarted = false;
 	// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/adapter-api.txt
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", bStartDiscovery ? "StartDiscovery" : "StopDiscovery");
-	DBusError dbus_error;
-	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-	DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_INFINITE, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
-	std::cout << __FILE__ << "(" << __LINE__ << "): " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
-	if (!dbus_reply)
+	if (!dbus_msg)
 	{
-		std::cout << __FILE__ << "(" << __LINE__ << "): Error: " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
-		if (dbus_error_is_set(&dbus_error))
-		{
-			std::cout << ": " << dbus_error.message;
-			dbus_error_free(&dbus_error);
-		}
-		std::cout << std::endl;
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+		else
+			std::cerr << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
 	}
 	else
 	{
-		bStarted = true;
-		dbus_message_unref(dbus_reply);
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_INFINITE, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		if (ConsoleVerbosity > 0)
+			std::cout << "[                   ] " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+		else
+			std::cerr << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
+		if (!dbus_reply)
+		{
+			std::cout << __FILE__ << "(" << __LINE__ << "): Error: " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
+			if (dbus_error_is_set(&dbus_error))
+			{
+				std::cout << ": " << dbus_error.message;
+				dbus_error_free(&dbus_error);
+			}
+			std::cout << std::endl;
+		}
+		else
+		{
+			bStarted = true;
+			dbus_message_unref(dbus_reply);
+		}
+		dbus_message_unref(dbus_msg);
 	}
-	dbus_message_unref(dbus_msg);
 	return(bStarted);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3056,7 +3100,16 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 		DBusBasicValue value;
 		dbus_message_iter_get_basic(&root_iter, &value);
 		root_object_path = std::string(value.str);
-		std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
+
+		const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+		std::smatch AddressMatch;
+		if (std::regex_search(root_object_path, AddressMatch, BluetoothAddressRegex))
+		{
+			std::string BluetoothAddress(AddressMatch.str());
+			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
+			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
+		}
+		//std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "Object Path: " << root_object_path << std::endl;
 		dbus_message_iter_next(&root_iter);
 		DBusMessageIter array1_iter;
 		dbus_message_iter_recurse(&root_iter, &array1_iter);
@@ -3068,7 +3121,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			DBusBasicValue value;
 			dbus_message_iter_get_basic(&dict1_iter, &value);
 			std::string val(value.str);
-			std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "String: " << val << std::endl;
+			//std::cout << __FILE__ << "(" << __LINE__ << "): " << std::right << std::setw(indent) << "String: " << val << std::endl;
 			if (!val.compare("org.bluez.Device1"))
 			{
 				dbus_message_iter_next(&dict1_iter);
@@ -3094,7 +3147,11 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 							DBusBasicValue value;
 							dbus_message_iter_get_basic(&variant_iter, &value);
 							if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+							{
 								std::cout << value.str;
+								if (!Key.compare("Name"))
+									dbusTemp.SetModel(std::string(value.str));
+							}
 							else if (DBUS_TYPE_BYTE == dbus_message_Type)
 								std::cout << std::to_string(value.byt);
 							else if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
@@ -3226,6 +3283,18 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		std::cout << "Invalid Signature!!!";
 	else
 	{
+		// TODO: convert dbus_msg_Path to dbusBTAddress using regex
+		const std::string dbus_msg_Path(dbus_message_get_path(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga18adf731bb42d324fe2624407319e4af
+		const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+		std::smatch AddressMatch;
+		if (std::regex_search(dbus_msg_Path, AddressMatch, BluetoothAddressRegex))
+		{
+			std::string BluetoothAddress(AddressMatch.str());
+			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
+			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
+		}
+
+		//if (!dbus_msg_Path.compare("/org/bluez/hci0/dev_E3_8E_C8_C1_98_9A"))
 		int indent(20);
 		DBusMessageIter root_iter;
 		std::string root_object_path;
@@ -3618,6 +3687,137 @@ int main(int argc, char **argv)
 				}
 				TheFile.close();
 			}
+		}
+		///////////////////////////////////////////////////////////////////////////////////////////////
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+
+		// Connect to the system bus
+		DBusConnection* dbus_conn = dbus_bus_get(DBUS_BUS_SYSTEM, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga77ba5250adb84620f16007e1b023cf26
+		if (dbus_error_is_set(&dbus_error)) // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#gab0ed62e9fc2685897eb2d41467c89405
+		{
+			std::cout << "[" << getTimeISO8601() << "] Error connecting to the D-Bus system bus: " << dbus_error.message << std::endl;
+			dbus_error_free(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#gaac6c14ead14829ee4e090f39de6a7568
+		}
+		else
+		{
+			if (ConsoleVerbosity > 0)
+				std::cout << "[" << getTimeISO8601() << "]  Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+			else
+				std::cerr << "Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+			std::vector<std::string> BlueZAdapters;
+			bluez_find_adapters(dbus_conn, BlueZAdapters);
+			if (!BlueZAdapters.empty())
+			{
+				std::string BlueZAdapter(BlueZAdapters.front()); // TODO: Allow selection of Bluetooth Adapters
+				bluez_power_on(dbus_conn, BlueZAdapter.c_str());
+				bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
+				if (bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true))
+				{
+					dbus_connection_flush(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga10e68d9d2f41d655a4151ddeb807ff54
+					std::vector<std::string> MatchRules;
+					MatchRules.push_back("type='signal',sender='org.bluez',member='InterfacesAdded'");
+					MatchRules.push_back("type='signal',sender='org.bluez',member='PropertiesChanged'");
+					for (auto& MatchRule : MatchRules)
+					{
+						dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+						dbus_bus_add_match(dbus_conn, MatchRule.c_str(), &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga4eb6401ba014da3dbe3dc4e2a8e5b3ef
+						if (dbus_error_is_set(&dbus_error))
+						{
+							std::cout << "Error adding a match rule on the D-Bus system bus: " << dbus_error.message << std::endl;
+							dbus_error_free(&dbus_error);
+						}
+					}
+					// Main loop
+					bRun = true;
+					time_t TimeStart(0), TimeSVG(0), TimeAdvertisment(0);
+					time(&TimeStart);
+					while (bRun)
+					{
+						// Wait for access to the D-Bus
+						if (!dbus_connection_read_write(dbus_conn, 1000)) // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga371163b4955a6e0bf0f1f70f38390c14
+						{
+							if (ConsoleVerbosity > 0)
+								std::cout << "[" << getTimeISO8601() << "] D-Bus connection was closed" << std::endl;
+							else
+								std::cerr << "D-Bus connection was closed" << std::endl;
+							bRun = false;
+						}
+						else
+						{
+							// Pop first message on D-Bus connection
+							DBusMessage* dbus_msg = dbus_connection_pop_message(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga1e40d994ea162ce767e78de1c4988566
+
+							// If there is nothing to receive we get a NULL
+							if (dbus_msg != nullptr)
+							{
+								if (DBUS_MESSAGE_TYPE_SIGNAL == dbus_message_get_type(dbus_msg))
+								{
+									const std::string dbus_msg_Member(dbus_message_get_member(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
+									bdaddr_t localBTAddress({ 0 });
+									Govee_Temp localTemp;
+									if (!dbus_msg_Member.compare("InterfacesAdded"))
+										bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, localTemp);
+									else if (!dbus_msg_Member.compare("PropertiesChanged"))
+										bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, localTemp);
+									else
+									{
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601() << "] Unhandled Member: " << dbus_msg_Member << std::endl;
+										else
+											std::cerr << "Unhandled Member: " << dbus_msg_Member << std::endl;
+									}
+									if (localTemp.IsValid())
+									{
+										std::ostringstream ConsoleOutLine;
+										ConsoleOutLine << "[" << getTimeISO8601() << "]";
+										std::queue<Govee_Temp> foo;
+										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
+										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+										UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+									}
+								}								
+								dbus_message_unref(dbus_msg); // Free the message
+							}
+						}
+						time_t TimeNow;
+						time(&TimeNow);
+						if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
+						{
+							if (ConsoleVerbosity > 0)
+								std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
+							TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
+							WriteAllSVG();
+						}
+						if (difftime(TimeNow, TimeStart) > LogFileTime)
+						{
+							if (ConsoleVerbosity > 0)
+								std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
+							TimeStart = TimeNow;
+							GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+							GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+							MonitorLoggedData();
+						}
+						//if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
+						//{
+						//	if (ConsoleVerbosity > 0)
+						//		std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+						//	btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
+						//	if (btRVal < 0)
+						//	{
+						//		bRun = false;	// rely on inetd to restart entire process
+						//		ExitValue = EXIT_FAILURE;
+						//	}
+						//}
+					}
+					bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
+				}
+				bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
+			}
+			// Close the connection
+			// When using the System Bus, unreference the connection instead of closing it
+			dbus_connection_unref(dbus_conn);
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		bt_ListDevices();
