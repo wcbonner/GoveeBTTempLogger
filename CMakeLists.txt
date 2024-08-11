@@ -21,7 +21,7 @@ if (POLICY CMP0115)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 3.20240811.0
+    VERSION 3.20240811.1
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -59,14 +59,6 @@ target_include_directories(goveebttemplogger PUBLIC
     ${EXTRA_INCLUDES}
     ${dbus_INCLUDE_DIRS}
     )
-
-if(EXISTS "/etc/rpi-issue")
-	add_custom_command(TARGET goveebttemplogger POST_BUILD
-	    COMMAND sudo setcap 'cap_net_raw,cap_net_admin+eip' $<TARGET_FILE:goveebttemplogger>
-	    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-	    COMMENT "Setting Raw Priveleges on $<TARGET_FILE:goveebttemplogger>"
-	)
-endif()
 
 add_executable(gvh-organizelogs
     gvh-organizelogs.cpp
