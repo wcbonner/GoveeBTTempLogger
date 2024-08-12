@@ -612,6 +612,34 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)
 {
 	bool rval = false;
+//[2024-08-12T22:15:53] [E3:8E:C8:C1:98:9A] Name: Govee_H5074_989A
+//[2024-08-12T22:15:53] [E3:8E:C8:C1:98:9A] ManufacturerData:  004c:0215494e54454c4c495f524f434b535f485750749a98c2
+//[2024-08-12T22:15:55] [A4:C1:38:0D:3B:10] Name: GVH5177_3B10
+//[2024-08-12T22:15:55] [A4:C1:38:0D:3B:10] ManufacturerData:  0001:010103da5054
+//[2024-08-12T22:15:55] [D0:35:33:33:44:03] Name: GVH5105_4403
+//[2024-08-12T22:15:55] [D0:35:33:33:44:03] ManufacturerData:  0001:010103ce8164
+//[2024-08-12T22:15:55] [C3:36:35:30:61:77] Name: GVH5104_6177
+//[2024-08-12T22:15:55] [C3:36:35:30:61:77] ManufacturerData:  0001:010103bed92b 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+	if ((Manufacturer == 0xec88) && (Data.size() == 7))// Govee_H5074_xxxx
+	{
+		if (Model == ThermometerType::Unknown)
+			Model = ThermometerType::H5074;
+		// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
+																	// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
+																	// 2 3 4  5 6  7 8  9
+		//[2024-08-12T22:15:54] [E3:5E:CC:21:5C:0F] Name: Govee_H5074_5C0F
+		//[2024-08-12T22:15:54] [E3:5E:CC:21:5C:0F] ManufacturerData:  ec88:00 3609 b21d 64 02
+		//                                                                  0  1 2  3 4  5  6
+		short iTemp = short(Data[2]) << 8 | short(Data[1]);
+		int iHumidity = int(Data[4]) << 8 | int(Data[3]);
+		Temperature[0] = float(iTemp) / 100.0;
+		Humidity = float(iHumidity) / 100.0;
+		Battery = int(Data[5]);
+		Averages = 1;
+		time(&Time);
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
+		rval = true;
+	}
 	return(rval);
 }
 void Govee_Temp::SetMinMax(const Govee_Temp& a)
@@ -3687,7 +3715,7 @@ int main(int argc, char **argv)
 										char addr[19] = { 0 };
 										ba2str(&localBTAddress, addr);
 										ConsoleOutLine << " [" << addr << "]";
-										ConsoleOutLine << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";
+										ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";
 										ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
 										ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
 										ConsoleOutLine << " " << localTemp.GetModelAsString();
@@ -3697,6 +3725,8 @@ int main(int argc, char **argv)
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+										if (ConsoleVerbosity > 0)
+											std::cout << ConsoleOutLine.str();
 									}
 								}								
 								dbus_message_unref(dbus_msg); // Free the message
