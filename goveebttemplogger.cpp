@@ -620,16 +620,18 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 //[2024-08-12T22:15:55] [D0:35:33:33:44:03] ManufacturerData:  0001:010103ce8164
 //[2024-08-12T22:15:55] [C3:36:35:30:61:77] Name: GVH5104_6177
 //[2024-08-12T22:15:55] [C3:36:35:30:61:77] ManufacturerData:  0001:010103bed92b 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+
 	if ((Manufacturer == 0xec88) && (Data.size() == 7))// Govee_H5074_xxxx
 	{
 		if (Model == ThermometerType::Unknown)
 			Model = ThermometerType::H5074;
 		// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
-																	// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
-																	// 2 3 4  5 6  7 8  9
-		//[2024-08-12T22:15:54] [E3:5E:CC:21:5C:0F] Name: Govee_H5074_5C0F
-		//[2024-08-12T22:15:54] [E3:5E:CC:21:5C:0F] ManufacturerData:  ec88:00 3609 b21d 64 02
-		//                                                                  0  1 2  3 4  5  6
+		// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
+		// 2 3 4  5 6  7 8  9
+		//[2024-08-12T22:53:41] [E3:5E:CC:21:5C:0F] Name: Govee_H5074_5C0F
+		//[2024-08-12T22:53:41] [E3:5E:CC:21:5C:0F] ManufacturerData:  ec88:00f8099f1c6402
+		//                                                                  0 1 2 3 4 5 6 
+		//[2024-08-12T22:53:41] [E3:5E:CC:21:5C:0F] (Temp) 25.52°C (Humidity) 73.27% (Battery) 100% (GVH5074) 
 		short iTemp = short(Data[2]) << 8 | short(Data[1]);
 		int iHumidity = int(Data[4]) << 8 | int(Data[3]);
 		Temperature[0] = float(iTemp) / 100.0;
@@ -640,6 +642,36 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
+	else if ((Manufacturer == 0xec88) && (Data.size() == 6))// GVH5075_xxxx
+	{
+		if (Model == ThermometerType::Unknown)
+			Model = ThermometerType::H5075;
+		// This data came from https://github.com/Thrilleratplay/GoveeWatcher
+		// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
+		// 2 3 4  5 6 7  8
+		//[2024-08-12T23:06:40] [E3:60:59:23:14:7D] ManufacturerData:  004c:0215494e54454c4c495f524f434b535f485750747d14c2
+		//[2024-08-12T23:06:40] [A4:C1:38:37:BC:AE] ManufacturerData:  ec88:000418856100 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
+		//                                                                  0 1 2 3 4 5
+		//[2024-08-12T23:06:40] [A4:C1:38:37:BC:AE] (Temp) 26.8°C (Humidity) 42.1% (Battery) 97% (GVH5075)
+		int iTemp = int(Data[1]) << 16 | int(Data[2]) << 8 | int(Data[3]);
+		bool bNegative = iTemp & 0x800000;	// check sign bit
+		iTemp = iTemp & 0x7ffff;			// mask off sign bit
+		Temperature[0] = float(iTemp / 1000) / 10.0; // issue #49 fix. 
+		// After converting the hexadecimal number into decimal the first three digits are the 
+		// temperature and the last three digits are the humidity.So "03519e" converts to "217502" 
+		// which means 21.7 °C and 50.2 % humidity without any rounding.
+		if (bNegative)						// apply sign bit
+			Temperature[0] = -1.0 * Temperature[0];
+		Humidity = float(iTemp % 1000) / 10.0;
+		Battery = int(Data[4]);
+		Averages = 1;
+		time(&Time);
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
+		rval = true;
+	}
+
+
+
 	return(rval);
 }
 void Govee_Temp::SetMinMax(const Govee_Temp& a)
