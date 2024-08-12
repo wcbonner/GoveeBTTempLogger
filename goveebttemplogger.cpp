@@ -3184,18 +3184,15 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 						auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
 						if (!Key.compare("Name"))
 						{
-							if (dbus_type_is_basic(dbus_message_Type))
+							if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
 							{
 								DBusBasicValue value;
 								dbus_message_iter_get_basic(&variant_iter, &value);
-								if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
-								{
-									if (ConsoleVerbosity > 0)
-										ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
-									else
-										ssOutput << "[" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
-									dbusTemp.SetModel(std::string(value.str));
-								}
+								if (ConsoleVerbosity > 0)
+									ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
+								else
+									ssOutput << "[" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
+								dbusTemp.SetModel(std::string(value.str));
 							}
 						}
 						else if (!Key.compare("ManufacturerData"))
@@ -3212,65 +3209,66 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 								{
 									if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
 									{
-										ssOutput << " (DBUS_TYPE_DICT_ENTRY){";
+										uint16_t ManufacturerID(0);
+										std::vector<uint8_t> ManufacturerData;
+										//ssOutput << " (DBUS_TYPE_DICT_ENTRY){";
 										DBusMessageIter dict1_iter;
 										dbus_message_iter_recurse(&array3_iter, &dict1_iter);
 										if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
 										{
 											DBusBasicValue value;
 											dbus_message_iter_get_basic(&dict1_iter, &value);
-											std::ios oldState(nullptr);
-											oldState.copyfmt(ssOutput);
-											ssOutput << " (UINT16: " << std::setw(4) << std::setfill('0') << std::hex << value.u16 << ")";
-											ssOutput.copyfmt(oldState);
+											ManufacturerID = value.u16;
+											//ssOutput << " (UINT16: " << std::setw(4) << std::setfill('0') << std::hex << ManufacturerID << ")";
 										}
-										else
-											ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+										//else
+										//	ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
 										dbus_message_iter_next(&dict1_iter);
 										if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
 										{
-											ssOutput << " (DBUS_TYPE_VARIANT)[";
+											//ssOutput << " (DBUS_TYPE_VARIANT)[";
 											DBusMessageIter variant2_iter;
 											dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
 											if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
 											{
-												ssOutput << " (DBUS_TYPE_ARRAY){";
+												//ssOutput << " (DBUS_TYPE_ARRAY){";
 												DBusMessageIter array4_iter;
 												dbus_message_iter_recurse(&variant2_iter, &array4_iter);
 												do
 												{
 													if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&array4_iter))
 													{
-														ssOutput << " (DBUS_TYPE_VARIANT)[";
+														//ssOutput << " (DBUS_TYPE_VARIANT)[";
 														DBusMessageIter variant3_iter;
 														dbus_message_iter_recurse(&dict1_iter, &variant3_iter);
-														ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant3_iter)) << ")";
-														ssOutput << " ]";
+														//ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant3_iter)) << ")";
+														//ssOutput << " ]";
 													}
 													else if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
 													{
 														DBusBasicValue value;
 														dbus_message_iter_get_basic(&array4_iter, &value);
-														std::ios oldState(nullptr);
-														oldState.copyfmt(ssOutput);
-														ssOutput << std::setw(2) << std::setfill('0') << std::hex << int(value.byt);
-														ssOutput.copyfmt(oldState);
+														ManufacturerData.push_back(value.byt);
+														//ssOutput << std::setw(2) << std::setfill('0') << std::hex << int(value.byt);
 													}
-													else
-														ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array4_iter)) << ")";
+													//else
+													//	ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array4_iter)) << ")";
 												} while (dbus_message_iter_next(&array4_iter));
-												ssOutput << "}";
+												//ssOutput << "}";
 											}
-											else
-												ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant2_iter)) << ")";
-											ssOutput << " ]";
+											//else
+											//	ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&variant2_iter)) << ")";
+											//ssOutput << " ]";
 										}
-										else
-											ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
-										ssOutput << " }";
+										//else
+										//	ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << ")";
+										//ssOutput << " }";
+										ssOutput << " " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
+										for (auto& Data : ManufacturerData)
+											ssOutput << std::setw(2) << int(Data);
 									}
-									else
-										ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
+									//else
+									//	ssOutput << " (" << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array3_iter)) << ")";
 								} while (dbus_message_iter_next(&array3_iter));
 								ssOutput << std::endl;
 							}
