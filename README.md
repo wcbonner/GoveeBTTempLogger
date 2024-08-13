@@ -17,7 +17,7 @@ sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index 
 ```
 
 ## Major update to version 3.
-Conversion to Bluetooth using BlueZ over DBus! This is a work in progress. DBus is the approved method of Bluetooth communication, complicated to implement without a huge framework.
+Conversion to Bluetooth using BlueZ over DBus! This is a work in progress. DBus is the approved method of Bluetooth communication, complicated to implement without a huge framework. I've got this branch running on my personal production machine. It's using significantly more CPU than the pure HCI code. When I tried building this on a machine running Raspbian GNU/Linux 10 (buster) the system builds but the BlueZ DBus routines to find the bluetooth adapter fail. For this reason, I've left the old HCI commands in the code and fallback to running HCI if DBus fails. I've also added an --HCI option to allow the user to force it to run the HCI commands instead of using the DBus interface.
 
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
@@ -51,6 +51,7 @@ If the --svg option is not added to the command line, the program should continu
 
  * Kernel version 3.6 or above
  * ```libbluetooth-dev```
+ * ```libdbus-1-dev```
  
 #### Ubuntu/Debian/Raspbian
 
@@ -137,6 +138,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -d (--download) Periodically attempt to connect and download stored data
  * -p (--passive) Bluetooth LE Passive Scanning
  * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
+ * -H (--HCI) Prefer deprecated BlueZ HCI interface instead of DBus
 
  ## Log File Format
 
