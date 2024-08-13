@@ -3871,25 +3871,29 @@ int main(int argc, char **argv)
 											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, localTemp);
 										else if (!dbus_msg_Member.compare("PropertiesChanged"))
 											bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, localTemp);
-										if (localTemp.IsValid())
+										auto BT_AddressInWhitelist = BT_WhiteList.find(localBTAddress);
+										if (BT_WhiteList.empty() || (BT_AddressInWhitelist != BT_WhiteList.end()))
 										{
-											std::ostringstream ConsoleOutLine;
-											ConsoleOutLine << "[" << getTimeISO8601() << "]";
-											char addr[19] = { 0 };
-											ba2str(&localBTAddress, addr);
-											ConsoleOutLine << " [" << addr << "]";
-											ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";
-											ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
-											ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
-											ConsoleOutLine << " " << localTemp.GetModelAsString();
-											ConsoleOutLine << std::endl;
-											std::queue<Govee_Temp> foo;
-											auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
-											ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-											UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
-											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
-											if (ConsoleVerbosity > 0)
-												std::cout << ConsoleOutLine.str();
+											if (localTemp.IsValid())
+											{
+												std::ostringstream ConsoleOutLine;
+												ConsoleOutLine << "[" << getTimeISO8601() << "]";
+												char addr[19] = { 0 };
+												ba2str(&localBTAddress, addr);
+												ConsoleOutLine << " [" << addr << "]";
+												ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";
+												ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
+												ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
+												ConsoleOutLine << " " << localTemp.GetModelAsString();
+												ConsoleOutLine << std::endl;
+												std::queue<Govee_Temp> foo;
+												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
+												ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+												UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+												GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+												if (ConsoleVerbosity > 0)
+													std::cout << ConsoleOutLine.str();
+											}
 										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
