@@ -3099,6 +3099,7 @@ bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::stri
 									ssOutput << "[                   ] " << std::right << std::setw(indent) << "String: " << dict2_string << std::endl;
 								if (!dict2_string.compare("org.bluez.Adapter1"))
 								{
+									indent += 4;
 									dbus_message_iter_next(&dict2_iter);
 									DBusMessageIter array3_iter;
 									dbus_message_iter_recurse(&dict2_iter, &array3_iter);
@@ -3128,6 +3129,7 @@ bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::stri
 											}
 										}
 									} while (dbus_message_iter_next(&array3_iter));
+									indent -= 4;
 								}
 							} while (dbus_message_iter_next(&array2_iter));
 							indent -= 4;
