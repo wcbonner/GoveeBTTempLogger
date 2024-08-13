@@ -3791,6 +3791,11 @@ int main(int argc, char **argv)
 							dbus_error_free(&dbus_error);
 						}
 					}
+					// Set up CTR-C signal handler
+					typedef void(*SignalHandlerPointer)(int);
+					SignalHandlerPointer previousHandlerSIGINT = std::signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
+					SignalHandlerPointer previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
+
 					// Main loop
 					bRun = true;
 					time_t TimeStart(0), TimeSVG(0), TimeAdvertisment(0);
@@ -3878,6 +3883,11 @@ int main(int argc, char **argv)
 						//}
 					}
 					bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
+					std::signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
+					std::signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
+
+					GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
+					GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 				}
 				bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 			}
@@ -3886,6 +3896,9 @@ int main(int argc, char **argv)
 			dbus_connection_unref(dbus_conn);
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef HCI_CODE
+
+
 		bt_ListDevices();
 		int BlueToothDevice_ID;
 		if (ControllerAddress.empty())
@@ -4352,6 +4365,7 @@ int main(int argc, char **argv)
 				}
 			}
 		}
+#endif // HCI_CODE
 	}
 	else if ((!UseBluetooth) && (!LogDirectory.empty()) && (!SVGDirectory.empty()))
 	{
