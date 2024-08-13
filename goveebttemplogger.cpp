@@ -612,15 +612,6 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)
 {
 	bool rval = false;
-//[2024-08-12T22:15:53] [E3:8E:C8:C1:98:9A] Name: Govee_H5074_989A
-//[2024-08-12T22:15:53] [E3:8E:C8:C1:98:9A] ManufacturerData:  004c:0215494e54454c4c495f524f434b535f485750749a98c2
-//[2024-08-12T22:15:55] [A4:C1:38:0D:3B:10] Name: GVH5177_3B10
-//[2024-08-12T22:15:55] [A4:C1:38:0D:3B:10] ManufacturerData:  0001:010103da5054
-//[2024-08-12T22:15:55] [D0:35:33:33:44:03] Name: GVH5105_4403
-//[2024-08-12T22:15:55] [D0:35:33:33:44:03] ManufacturerData:  0001:010103ce8164
-//[2024-08-12T22:15:55] [C3:36:35:30:61:77] Name: GVH5104_6177
-//[2024-08-12T22:15:55] [C3:36:35:30:61:77] ManufacturerData:  0001:010103bed92b 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
-
 	if ((Manufacturer == 0xec88) && (Data.size() == 7))// Govee_H5074_xxxx
 	{
 		if (Model == ThermometerType::Unknown)
@@ -649,10 +640,10 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		// This data came from https://github.com/Thrilleratplay/GoveeWatcher
 		// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
 		// 2 3 4  5 6 7  8
-		//[2024-08-12T23:06:40] [E3:60:59:23:14:7D] ManufacturerData:  004c:0215494e54454c4c495f524f434b535f485750747d14c2
-		//[2024-08-12T23:06:40] [A4:C1:38:37:BC:AE] ManufacturerData:  ec88:000418856100 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
+		//[2024-08-12T23:09:07] [A4:C1:38:37:BC:AE] Name: GVH5075_BCAE
+		//[2024-08-12T23:09:07] [A4:C1:38:37:BC:AE] ManufacturerData:  ec88:000418876100 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
 		//                                                                  0 1 2 3 4 5
-		//[2024-08-12T23:06:40] [A4:C1:38:37:BC:AE] (Temp) 26.8°C (Humidity) 42.1% (Battery) 97% (GVH5075)
+		//[2024-08-12T23:09:07] [A4:C1:38:37:BC:AE] (Temp) 26.8°C (Humidity) 42.3% (Battery) 97% (GVH5075)
 		int iTemp = int(Data[1]) << 16 | int(Data[2]) << 8 | int(Data[3]);
 		bool bNegative = iTemp & 0x800000;	// check sign bit
 		iTemp = iTemp & 0x7ffff;			// mask off sign bit
@@ -669,7 +660,30 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
-
+	else if ((Manufacturer == 0x0001) && (Data.size() == 6))// GVH5177_xxxx or GVH5174_xxxx or GVH5100_xxxx
+	{
+		// This is a guess based on the H5075 3 byte encoding
+		// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
+		// 2 3 4 5  6 7 8  9
+		// It appears that the H5174 uses the exact same data format as the H5177, with the difference being the broadcast name starting with GVH5174_
+		// 
+		//[2024-08-13T00:09:15] [A4:C1:38:0D:3B:10] Name: GVH5177_3B10
+		//[2024-08-13T00:09:15] [A4:C1:38:0D:3B:10] ManufacturerData: 0001:010104245d54 004c:0215494e54454c4c495f524f434b535f48575177f2ffc2
+		//                                                                 0 1 2 3 4 5 
+		//[2024-08-13T00:09:15] [A4:C1:38:0D:3B:10] (Temp) 27.1453°C (Humidity) 45.3% (Battery) 84% (GVH5177)
+		int iTemp = int(Data[2]) << 16 | int(Data[3]) << 8 | int(Data[4]);
+		bool bNegative = iTemp & 0x800000;	// check sign bit
+		iTemp = iTemp & 0x7ffff;			// mask off sign bit
+		Temperature[0] = float(iTemp) / 10000.0;
+		Humidity = float(iTemp % 1000) / 10.0;
+		if (bNegative)						// apply sign bit
+			Temperature[0] = -1.0 * Temperature[0];
+		Battery = int(Data[5]);
+		Averages = 1;
+		time(&Time);
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
+		rval = true;
+	}
 
 
 	return(rval);
@@ -3263,7 +3277,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 							if (DBUS_TYPE_ARRAY == dbus_message_Type)
 							{
 								if (ConsoleVerbosity > 0)
-									ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": ";
+									ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
 								else
 									ssOutput << "[" << BluetoothAddress << "] " << Key << ": ";
 								DBusMessageIter array3_iter;
@@ -3361,9 +3375,9 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 			if (!Key.compare("ManufacturerData")) // I Only care about ManufacturerData changes for Govee Thermometers
 			{
 				if (ConsoleVerbosity > 0)
-					ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": ";
+					ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
 				else
-					ssOutput << "[" << BluetoothAddress << "] " << Key << ": ";
+					ssOutput << "[" << BluetoothAddress << "] " << Key << ":";
 				dbus_message_iter_next(&dict1_iter);
 				DBusMessageIter variant_iter;
 				dbus_message_iter_recurse(&dict1_iter, &variant_iter);
