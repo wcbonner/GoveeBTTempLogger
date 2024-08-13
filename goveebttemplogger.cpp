@@ -3888,17 +3888,6 @@ int main(int argc, char **argv)
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								MonitorLoggedData();
 							}
-							//if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
-							//{
-							//	if (ConsoleVerbosity > 0)
-							//		std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
-							//	btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
-							//	if (btRVal < 0)
-							//	{
-							//		bRun = false;	// rely on inetd to restart entire process
-							//		ExitValue = EXIT_FAILURE;
-							//	}
-							//}
 						}
 						bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
 
