@@ -3802,6 +3802,13 @@ int main(int argc, char **argv)
 					std::cerr << "Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 				std::map<bdaddr_t, std::string> BlueZAdapterMap;
 				bUse_HCI_Interface = !bluez_find_adapters(dbus_conn, BlueZAdapterMap);
+				if (bUse_HCI_Interface && BlueZAdapterMap.empty())
+				{
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601() << "] Could not get list of adapters from BlueZ over DBus. Reverting to HCI interface." << std::endl;
+					else
+						std::cerr << "Could not get list of adapters from BlueZ over DBus. Reverting to HCI interface." << std::endl;
+				}
 				if (!BlueZAdapterMap.empty())
 				{
 					std::string BlueZAdapter(BlueZAdapterMap.cbegin()->second);
