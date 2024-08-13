@@ -272,6 +272,7 @@ public:
 	const std::string GetModelAsString(void) const;
 	ThermometerType SetModel(const std::string& Name);
 	ThermometerType SetModel(const unsigned short* UUID);
+	ThermometerType SetModel(const ThermometerType newModel) { ThermometerType oldModel = Model; Model = newModel; return(oldModel); };
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
 	granularity GetTimeGranularity(void) const;
@@ -684,6 +685,80 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
+	else if ((Manufacturer == 0xec88) && (Data.size() == 9)) // Govee_H5179
+	{
+		if (Model == ThermometerType::Unknown)
+			Model = ThermometerType::H5179;
+		// This is from data provided in https://github.com/wcbonner/GoveeBTTempLogger/issues/36
+		// 0188EC00 0101 0A0A B018 64 (Temp) 25.7°C (Humidity) 63.2% (Battery) 100% (GVH5179)
+		// 2 3 4 5  6 7  8 9  1011 12
+		short iTemp = short(Data[6]) << 8 | short(Data[5]);
+		int iHumidity = int(Data[8]) << 8 | int(Data[7]);
+		Temperature[0] = float(iTemp) / 100.0;
+		Humidity = float(iHumidity) / 100.0;
+		Battery = int(Data[9]);
+		Averages = 1;
+		time(&Time);
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
+		rval = true;
+	}
+
+	else if (Data.size() == 14)
+//	else if (data_len == 17 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5183 (UUID) 5183 B5183011
+	{
+		if (Model == ThermometerType::Unknown)
+			Model = ThermometerType::H5183;
+		// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
+		// https://www.amazon.com/gp/product/B092ZTD96V
+		// The probe measuring range is 0° to 300°C /32° to 572°F.
+		// 5DA1B4 01000101 E4 01 80 0708 13 24 00 00
+		// 2 3 4  5 6 7 8  9  0  1  2 3  4  5  6  7
+		// (Manu) 5DA1B4 01000101 81 0180 07D0 1324 0000 (Temp) 20°C (Temp) 49°C (Battery) 1% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: BF) 
+		// the first three bytes are the last three bytes of the bluetooth address.
+		// then next four bytes appear to be a signature for the device type.
+		// Model = ThermometerType::H5181;
+		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker Cooking BBQ Kitchen Oven
+		// https://www.amazon.com/dp/B092ZTJW37/
+		short iTemp = short(Data[9]) << 8 | short(Data[10]);
+		Temperature[0] = float(iTemp) / 100.0;
+		iTemp = short(Data[11]) << 8 | short(Data[12]);
+		Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
+		Humidity = 0;
+		Battery = int(Data[6] & 0x7F);
+		Averages = 1;
+		time(&Time);
+		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
+		rval = true;
+	}
+	//else if (data_len == 20 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
+	else if (Data.size() == 17)
+	{
+		if (Model == ThermometerType::Unknown)
+			Model = ThermometerType::H5182;
+		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
+		// https://www.amazon.com/gp/product/B094N2FX9P
+		// 301327 01000101 64 01 80 05DC 1324 86 06A4 FFFF
+		// 2 3 4  5 6 7 8  9  0  1  2 3  4 5  6  7 8  9 0
+		// (Manu) 301327 01000101 3A 01 86 076C FFFF 86 076C FFFF (Temp) 19°C (Temp) -0.01°C (Temp) 19°C (Temp) -0.01°C (Battery) 58%
+		// If the probe is not connected to the device, the temperature data is set to FFFF.
+		// If the alarm is not set for the probe, the data is set to FFFF.
+		short iTemp = short(Data[9]) << 8 | short(Data[10]);	// Probe 1 Temperature
+		Temperature[0] = float(iTemp) / 100.0;
+		iTemp = short(Data[11]) << 8 | short(Data[12]);			// Probe 1 Alarm Temperature
+		Temperature[1] = float(iTemp) / 100.0;
+		iTemp = short(Data[14]) << 8 | short(Data[15]);			// Probe 2 Temperature
+		Temperature[2] = float(iTemp) / 100.0;
+		iTemp = short(Data[16]) << 8 | short(Data[17]);			// Probe 2 Alarm Temperature
+		Temperature[3] = float(iTemp) / 100.0;
+		Humidity = 0;
+		Battery = int(Data[6]);
+		Averages = 1;
+		time(&Time);
+		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
+		rval = true;
+	}
 
 
 	return(rval);
@@ -843,6 +918,7 @@ std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_st
 bdaddr_t string2ba(const std::string& a) { std::string ssBTAddress(a); if (ssBTAddress.length() == 12)for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)ssBTAddress.insert(index, ":"); bdaddr_t TheBlueToothAddress({ 0 }); if (ssBTAddress.length() == 17)str2ba(ssBTAddress.c_str(), &TheBlueToothAddress); return(TheBlueToothAddress); }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
+std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
 const std::filesystem::path GVHLastDownloadFileName("gvh-lastdownload.txt");
 /////////////////////////////////////////////////////////////////////////////
@@ -3265,21 +3341,16 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 							{
 								DBusBasicValue value;
 								dbus_message_iter_get_basic(&variant_iter, &value);
-								if (ConsoleVerbosity > 0)
-									ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
-								else
-									ssOutput << "[" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
+								ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
 								dbusTemp.SetModel(std::string(value.str));
+								auto ret = GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
 							}
 						}
 						else if (!Key.compare("ManufacturerData"))
 						{
 							if (DBUS_TYPE_ARRAY == dbus_message_Type)
 							{
-								if (ConsoleVerbosity > 0)
-									ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
-								else
-									ssOutput << "[" << BluetoothAddress << "] " << Key << ": ";
+								ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
 								DBusMessageIter array3_iter;
 								dbus_message_iter_recurse(&variant_iter, &array3_iter);
 								do
@@ -3332,10 +3403,8 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			indent -= 4;
 		} while (dbus_message_iter_next(&array1_iter));
 	}
-	if (ConsoleVerbosity > 0)
+	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
-	else
-		std::cerr << ssOutput.str();
 }
 void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
 {
@@ -3374,10 +3443,7 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 			std::string Key(value.str);
 			if (!Key.compare("ManufacturerData")) // I Only care about ManufacturerData changes for Govee Thermometers
 			{
-				if (ConsoleVerbosity > 0)
-					ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
-				else
-					ssOutput << "[" << BluetoothAddress << "] " << Key << ":";
+				ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
 				dbus_message_iter_next(&dict1_iter);
 				DBusMessageIter variant_iter;
 				dbus_message_iter_recurse(&dict1_iter, &variant_iter);
@@ -3422,7 +3488,12 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 											for (auto& Data : ManufacturerData)
 												ssOutput << std::setw(2) << int(Data);
 											if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
+											{
 												AddressInGoveeSet = true;
+												auto foo = GoveeThermometers.find(dbusBTAddress);
+												if (foo != GoveeThermometers.end())
+													dbusTemp.SetModel(foo->second);
+											}
 										}
 									}
 								}
@@ -3434,10 +3505,8 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 			}
 		} while (dbus_message_iter_next(&array1_iter));
 	}
-	if (ConsoleVerbosity > 0)
+	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
-	else
-		std::cerr << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
 int LogFileTime(60);
