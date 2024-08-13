@@ -702,7 +702,6 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
-
 	else if (Data.size() == 14)
 //	else if (data_len == 17 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5183 (UUID) 5183 B5183011
 	{
@@ -759,8 +758,6 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 		rval = true;
 	}
-
-
 	return(rval);
 }
 void Govee_Temp::SetMinMax(const Govee_Temp& a)
@@ -2387,6 +2384,7 @@ void bt_ListDevices(void)
 	// https://www.linumiz.com/bluetooth-list-available-controllers/
 	// I used the blog post above to learn develop an HCI routine to list the bluetooth devices
 
+	std::ostringstream ssOutput;
 	std::vector<struct hci_dev_info> hci_devices;
 	for (auto i = 0; i < HCI_MAX_DEV; i++)
 	{
@@ -2398,10 +2396,13 @@ void bt_ListDevices(void)
 	{
 		if (hci_test_bit(HCI_UP, &hci_device.flags))
 			if (ConsoleVerbosity > 0)
-				std::cout << "[                   ] Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
-			else
-				std::cerr << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
+				ssOutput << "[                   ] ";
+			ssOutput << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
 	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
@@ -3021,7 +3022,7 @@ const char * dbus_message_iter_type_to_string(const int type)
 		return "Unknown Type";
 	}
 }
-bool bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& adapter_paths)
+bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::string>& AdapterMap)
 {
 	std::ostringstream ssOutput;
 	// Initialize D-Bus error
@@ -3077,46 +3078,59 @@ bool bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 						DBusMessageIter array1_iter;
 						dbus_message_iter_recurse(&root_iter, &array1_iter);
 						do {
+							indent += 4;
 							DBusMessageIter dict1_iter;
-							std::string dict1_object_path;
 							dbus_message_iter_recurse(&array1_iter, &dict1_iter);
-							do {
-								indent += 4;
-								if (DBUS_TYPE_OBJECT_PATH == dbus_message_iter_get_arg_type(&dict1_iter))
+							DBusBasicValue value;
+							dbus_message_iter_get_basic(&dict1_iter, &value);
+							std::string dict1_object_path(value.str);
+							if (ConsoleVerbosity > 1)
+								ssOutput << "[                   ] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
+							dbus_message_iter_next(&dict1_iter);
+							DBusMessageIter array2_iter;
+							dbus_message_iter_recurse(&dict1_iter, &array2_iter);
+							do
+							{
+								DBusMessageIter dict2_iter;
+								dbus_message_iter_recurse(&array2_iter, &dict2_iter);
+								dbus_message_iter_get_basic(&dict2_iter, &value);
+								std::string dict2_string(value.str);
+								if (ConsoleVerbosity > 1)
+									ssOutput << "[                   ] " << std::right << std::setw(indent) << "String: " << dict2_string << std::endl;
+								if (!dict2_string.compare("org.bluez.Adapter1"))
 								{
-									DBusBasicValue value;
-									dbus_message_iter_get_basic(&dict1_iter, &value);
-									dict1_object_path = std::string(value.str);
-									if (ConsoleVerbosity > 1)
-										ssOutput << "[                   ] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
-								}
-								else if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&dict1_iter))
-								{
-									DBusMessageIter array2_iter;
-									dbus_message_iter_recurse(&dict1_iter, &array2_iter);
-									do
-									{
-										DBusMessageIter dict2_iter;
-										dbus_message_iter_recurse(&array2_iter, &dict2_iter);
-										do
+									dbus_message_iter_next(&dict2_iter);
+									DBusMessageIter array3_iter;
+									dbus_message_iter_recurse(&dict2_iter, &array3_iter);
+									do {
+										DBusMessageIter dict3_iter;
+										dbus_message_iter_recurse(&array3_iter, &dict3_iter);
+										dbus_message_iter_get_basic(&dict3_iter, &value);
+										std::string dict3_string(value.str);
+										if (!dict3_string.compare("Address"))
 										{
-											if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&dict2_iter))
+											dbus_message_iter_next(&dict3_iter);
+											if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict3_iter))
 											{
-												DBusBasicValue value;
-												dbus_message_iter_get_basic(&dict2_iter, &value);
-												std::string val(value.str);
-												if (ConsoleVerbosity > 1)
-													ssOutput << "[                   ] " << std::right << std::setw(indent) << "String: " << val << std::endl;
-												if (!val.compare("org.bluez.Adapter1"))
-													adapter_paths.push_back(dict1_object_path);
+												// recurse into variant to get string
+												DBusMessageIter variant_iter;
+												dbus_message_iter_recurse(&dict3_iter, &variant_iter);
+												if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&variant_iter))
+												{
+													dbus_message_iter_get_basic(&variant_iter, &value);
+													std::string Address(value.str);
+													if (ConsoleVerbosity > 1)
+														ssOutput << "[                   ] " << std::right << std::setw(indent) << "Address: " << Address << std::endl;
+													bdaddr_t localBTAddress({ 0 });
+													str2ba(Address.c_str(), &localBTAddress);
+													AdapterMap.insert(std::pair<bdaddr_t, std::string>(localBTAddress, dict1_object_path));
+												}
 											}
-										} while (dbus_message_iter_next(&dict2_iter));
-									} while (dbus_message_iter_next(&array2_iter));
+										}
+									} while (dbus_message_iter_next(&array3_iter));
 								}
-								else if (ConsoleVerbosity > 0)
-									ssOutput << "[                   ] " << std::right << std::setw(indent) << "Unexpected type in message: " << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&dict1_iter)) << std::endl;
-								indent -= 4;
-							} while (dbus_message_iter_next(&dict1_iter));
+							} while (dbus_message_iter_next(&array2_iter));
+							indent -= 4;
 						} while (dbus_message_iter_next(&array1_iter));
 					} while (dbus_message_iter_next(&root_iter));
 				}
@@ -3124,17 +3138,17 @@ bool bluez_find_adapters(DBusConnection* dbus_conn, std::vector<std::string>& ad
 			dbus_message_unref(dbus_reply);
 		}
 	}
-	for (auto& adapter : adapter_paths)
+	for (const auto& [key, value] : AdapterMap)
 	{
 		if (ConsoleVerbosity > 0)
 			ssOutput << "[                   ] ";
-		ssOutput << "org.bluez.Adapter1: " << adapter << std::endl;
+		ssOutput << "Host Controller Address: " << ba2string(key) << " BlueZ Adapter Path: " << value << std::endl;
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
 	else
 		std::cerr << ssOutput.str();
-	return(!adapter_paths.empty());
+	return(!AdapterMap.empty());
 }
 void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const bool PowerOn = true)
 {
@@ -3786,11 +3800,15 @@ int main(int argc, char **argv)
 					std::cout << "[" << getTimeISO8601() << "] Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 				else
 					std::cerr << "Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
-				std::vector<std::string> BlueZAdapters;
-				bUse_HCI_Interface = !bluez_find_adapters(dbus_conn, BlueZAdapters);
-				if (!BlueZAdapters.empty())
+				std::map<bdaddr_t, std::string> BlueZAdapterMap;
+				bUse_HCI_Interface = !bluez_find_adapters(dbus_conn, BlueZAdapterMap);
+				if (!BlueZAdapterMap.empty())
 				{
-					std::string BlueZAdapter(BlueZAdapters.front()); // TODO: Allow selection of Bluetooth Adapters
+					std::string BlueZAdapter(BlueZAdapterMap.cbegin()->second);
+					if (!ControllerAddress.empty())
+						if (auto search = BlueZAdapterMap.find(string2ba(ControllerAddress)); search != BlueZAdapterMap.end())
+							BlueZAdapter = search->second;
+
 					bluez_power_on(dbus_conn, BlueZAdapter.c_str());
 					bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
 					if (bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true))
