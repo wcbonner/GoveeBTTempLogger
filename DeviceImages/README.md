@@ -45,6 +45,19 @@ Powered by 2 AAA Batteries
 ![image](h5183-phone.jpg)
 Powered by 1 AAA Battery
 
+## H5184
+![image](h5184-phone.jpg)
+Powered by 2 AAA Batteries
+
+## H5198
+![image](h5198-phone.jpg)
+Powered by internal lithium battery. Charged by USB C
+
 ## Meat Thermometers
 This image came from the replacement probe package for the meat thermometers. It's especially useful because it shows that the part numbers don't always report the number of probes.
 ![image](meatthermometers.jpg) 
+
+## H5055
+![image](h5055-phone.jpg)
+![image](h5055-phone-6probes.jpg)
+Powered by 2 AA Batteries
