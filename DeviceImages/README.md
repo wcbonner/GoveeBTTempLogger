@@ -37,6 +37,10 @@ Powered by 3 AA Batteries
 ![image](h5179-phone.jpg) ![image](h5179.jpg)
 Powered by 3 AA Batteries
 
+## H5072
+![image](h5072-phone.jpg)
+Powered by 3 AAA Batteries
+
 ## H5182
 ![image](h5182-phone.jpg) ![image](h5182.jpg)
 Powered by 2 AAA Batteries

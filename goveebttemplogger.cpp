@@ -225,8 +225,9 @@ const size_t YEAR_SAMPLE(24 * 60 * 60);	/* Sample every 24 hours */
 enum class ThermometerType 
 { 
 	Unknown = 0,
-	H5074 = 5074, 
-	H5075 = 5075, 
+	H5072 = 5072,
+	H5074 = 5074,
+	H5075 = 5075,
 	H5100 = 5100,
 	H5101 = 5101,
 	H5104 = 5104,
@@ -428,6 +429,8 @@ const std::string Govee_Temp::GetModelAsString(void) const
 {
 	switch (Model)
 	{
+	case ThermometerType::H5072:
+		return(std::string("(GVH5072)"));
 	case ThermometerType::H5074:
 		return(std::string("(GVH5074)"));
 	case ThermometerType::H5075:
@@ -446,21 +449,19 @@ const std::string Govee_Temp::GetModelAsString(void) const
 		return(std::string("(GVH5177)"));
 	case ThermometerType::H5179:
 		return(std::string("(GVH5179)"));
-	case ThermometerType::H5183:
-		return(std::string("(GVH5183)"));
-	case ThermometerType::H5182:
-		return(std::string("(GVH5182)"));
 	case ThermometerType::H5181:
 		return(std::string("(GVH5181)"));
+	case ThermometerType::H5182:
+		return(std::string("(GVH5182)"));
+	case ThermometerType::H5183:
+		return(std::string("(GVH5183)"));
 	}
 	return(std::string("(ThermometerType::Unknown)"));
 }
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
 {
 	ThermometerType rval = Model;
-	if (0 == Name.substr(0, 8).compare("GVH5177_"))
-		Model = ThermometerType::H5177;
-	else if (0 == Name.substr(0, 8).compare("GVH5100_"))
+	if (0 == Name.substr(0, 8).compare("GVH5100_"))
 		Model = ThermometerType::H5100;
 	else if (0 == Name.substr(0, 8).compare("GVH5101_"))
 		Model = ThermometerType::H5101;
@@ -470,12 +471,16 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 		Model = ThermometerType::H5105;
 	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
 		Model = ThermometerType::H5174;
-	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
-		Model = ThermometerType::H5179;
+	else if (0 == Name.substr(0, 8).compare("GVH5177_"))
+		Model = ThermometerType::H5177;
+	else if (0 == Name.substr(0, 8).compare("GVH5072_"))
+		Model = ThermometerType::H5072;
 	else if (0 == Name.substr(0, 8).compare("GVH5075_"))
 		Model = ThermometerType::H5075;
 	else if (0 == Name.substr(0, 12).compare("Govee_H5074_"))
 		Model = ThermometerType::H5074;
+	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
+		Model = ThermometerType::H5179;
 	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
