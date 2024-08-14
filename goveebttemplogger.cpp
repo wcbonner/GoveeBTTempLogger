@@ -700,11 +700,11 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		// This is from data provided in https://github.com/wcbonner/GoveeBTTempLogger/issues/36
 		// 0188EC00 0101 0A0A B018 64 (Temp) 25.7°C (Humidity) 63.2% (Battery) 100% (GVH5179)
 		// 2 3 4 5  6 7  8 9  1011 12
-		short iTemp = short(Data[6]) << 8 | short(Data[5]);
-		int iHumidity = int(Data[8]) << 8 | int(Data[7]);
+		short iTemp = short(Data[5]) << 8 | short(Data[4]);
+		int iHumidity = int(Data[7]) << 8 | int(Data[6]);
 		Temperature[0] = float(iTemp) / 100.0;
 		Humidity = float(iHumidity) / 100.0;
-		Battery = int(Data[9]);
+		Battery = int(Data[8]);
 		Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
