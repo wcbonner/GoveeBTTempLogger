@@ -325,7 +325,7 @@ Govee_Temp::Govee_Temp(const std::string & data)
 		default:
 			Model = ThermometerType::Unknown;
 		}
-		auto index = 1;
+		unsigned long index = 1;
 		while ((!TheLine.eof()) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
 		{
 			TheLine >> Temperature[index];
@@ -595,7 +595,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Battery = int(data[9] & 0x7F);
 			Averages = 1;
 			time(&Time);
-			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 			rval = true;
 		}
@@ -622,7 +622,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			Battery = int(data[9] & 0x7F);
 			Averages = 1;
 			time(&Time);
-			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 			rval = true;
 		}
@@ -632,7 +632,6 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)
 {
 	bool rval = false;
-	auto DataSize = Data.size();
 	if ((Manufacturer == 0xec88) && (Data.size() == 7))// Govee_H5074_xxxx
 	{
 		if (Model == ThermometerType::Unknown)
@@ -727,7 +726,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Battery = int(Data[5] & 0x7F);
 		Averages = 1;
 		time(&Time);
-		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+		for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 		rval = true;
 	}
@@ -753,7 +752,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Battery = int(Data[5] & 0x7f);
 		Averages = 1;
 		time(&Time);
-		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+		for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 		rval = true;
 	}
@@ -761,7 +760,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 }
 void Govee_Temp::SetMinMax(const Govee_Temp& a)
 {
-	for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+	for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 	{
 		TemperatureMin[index] = TemperatureMin[index] < Temperature[index] ? TemperatureMin[index] : Temperature[index];
 		TemperatureMax[index] = TemperatureMax[index] > Temperature[index] ? TemperatureMax[index] : Temperature[index];
@@ -816,7 +815,7 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	if (b.IsValid())
 	{
 		Time = std::max(Time, b.Time); // Use the maximum time (newest time)
-		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+		for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 		{
 			Temperature[index] = ((Temperature[index] * Averages) + (b.Temperature[index] * b.Averages)) / (Averages + b.Averages);
 			TemperatureMin[index] = std::min(std::min(Temperature[index], TemperatureMin[index]), b.TemperatureMin[index]);
@@ -3328,7 +3327,6 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
 		}
-		bool AddressInGoveeSet(GoveeTemperatures.end() != GoveeTemperatures.find(dbusBTAddress));
 		dbus_message_iter_next(&root_iter);
 		DBusMessageIter array1_iter;
 		dbus_message_iter_recurse(&root_iter, &array1_iter);
@@ -3367,7 +3365,8 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 								dbus_message_iter_get_basic(&variant_iter, &value);
 								ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
 								dbusTemp.SetModel(std::string(value.str));
-								auto ret = GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+								if (dbusTemp.GetModel() != ThermometerType::Unknown)
+									GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
 							}
 						}
 						else if (!Key.compare("ManufacturerData"))
@@ -3411,7 +3410,16 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 													for (auto& Data : ManufacturerData)
 														ssOutput << std::setw(2) << int(Data);
 													if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
-														AddressInGoveeSet = true;
+													{
+														if (dbusTemp.GetModel() == ThermometerType::Unknown)
+														{
+															auto foo = GoveeThermometers.find(dbusBTAddress);
+															if (foo != GoveeThermometers.end())
+																dbusTemp.SetModel(foo->second);
+														}
+														else
+															GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+													}
 												}
 											}
 										}
@@ -3448,7 +3456,6 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
 		}
-		bool AddressInGoveeSet(GoveeTemperatures.end() != GoveeTemperatures.find(dbusBTAddress));
 		DBusMessageIter root_iter;
 		std::string root_object_path;
 		dbus_message_iter_init(dbus_msg, &root_iter);
@@ -3513,10 +3520,12 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 												ssOutput << std::setw(2) << int(Data);
 											if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
 											{
-												AddressInGoveeSet = true;
-												auto foo = GoveeThermometers.find(dbusBTAddress);
-												if (foo != GoveeThermometers.end())
-													dbusTemp.SetModel(foo->second);
+												if (dbusTemp.GetModel() == ThermometerType::Unknown)
+												{
+													auto foo = GoveeThermometers.find(dbusBTAddress);
+													if (foo != GoveeThermometers.end())
+														dbusTemp.SetModel(foo->second);
+												}
 											}
 										}
 									}
