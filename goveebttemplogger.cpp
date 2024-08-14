@@ -243,6 +243,7 @@ public:
 	time_t Time;
 	std::string WriteTXT(const char seperator = '\t') const;
 	std::string WriteCache(void) const;
+	std::string WriteConsole(void) const;
 	bool ReadCache(const std::string& data);
 	bool ReadMSG(const uint8_t * const data);
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
@@ -386,6 +387,18 @@ std::string Govee_Temp::WriteCache(void) const
 //	ssValue << "\t" << Model;
 	return(ssValue.str());
 }
+std::string Govee_Temp::WriteConsole(void) const
+{
+	std::ostringstream ssValue;
+	ssValue << "(Temp) " << std::dec << GetTemperature() << "\u00B0" << "C";
+	if (Model == ThermometerType::H5183)
+		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
+	ssValue << " (Humidity) " << GetHumidity() << "%";
+	ssValue << " (Battery) " << GetBattery() << "%";
+	ssValue << " " << GetModelAsString();
+	return(ssValue.str());
+}
+
 bool Govee_Temp::ReadCache(const std::string& data)
 {
 	bool rval = false;
@@ -613,6 +626,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)
 {
 	bool rval = false;
+	auto DataSize = Data.size();
 	if ((Manufacturer == 0xec88) && (Data.size() == 7))// Govee_H5074_xxxx
 	{
 		if (Model == ThermometerType::Unknown)
@@ -702,8 +716,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
-	else if (Data.size() == 14)
-//	else if (data_len == 17 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5183 (UUID) 5183 B5183011
+	else if ((Manufacturer == 0xa15d) && (Data.size() == 14))
 	{
 		if (Model == ThermometerType::Unknown)
 			Model = ThermometerType::H5183;
@@ -718,12 +731,14 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		// Model = ThermometerType::H5181;
 		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker Cooking BBQ Kitchen Oven
 		// https://www.amazon.com/dp/B092ZTJW37/
-		short iTemp = short(Data[9]) << 8 | short(Data[10]);
+		//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] ManufacturerData: a15d:b401000101e4008b09c426480000 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+		//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] (Temp) 25°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
+		short iTemp = short(Data[8]) << 8 | short(Data[9]);
 		Temperature[0] = float(iTemp) / 100.0;
-		iTemp = short(Data[11]) << 8 | short(Data[12]);
+		iTemp = short(Data[10]) << 8 | short(Data[11]);
 		Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
 		Humidity = 0;
-		Battery = int(Data[6] & 0x7F);
+		Battery = int(Data[5] & 0x7F);
 		Averages = 1;
 		time(&Time);
 		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
@@ -3880,13 +3895,8 @@ int main(int argc, char **argv)
 											{
 												std::ostringstream ConsoleOutLine;
 												ConsoleOutLine << "[" << getTimeISO8601() << "]";
-												char addr[19] = { 0 };
-												ba2str(&localBTAddress, addr);
-												ConsoleOutLine << " [" << addr << "]";
-												ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";
-												ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
-												ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
-												ConsoleOutLine << " " << localTemp.GetModelAsString();
+												ConsoleOutLine << " [" << ba2string(localBTAddress) << "]";
+												ConsoleOutLine << " " << localTemp.WriteConsole();
 												ConsoleOutLine << std::endl;
 												std::queue<Govee_Temp> foo;
 												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
