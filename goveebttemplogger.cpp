@@ -391,6 +391,12 @@ std::string Govee_Temp::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << "(Temp) " << std::dec << GetTemperature() << "\u00B0" << "C";
+	if (Model == ThermometerType::H5182)
+	{
+		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
+		ssValue << " (Temp) " << GetTemperature(false, 2) << "\u00B0" << "C";
+		ssValue << " (Alarm) " << GetTemperature(false, 3) << "\u00B0" << "C";
+	}
 	if (Model == ThermometerType::H5183)
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
 	ssValue << " (Humidity) " << GetHumidity() << "%";
@@ -613,7 +619,7 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data)
 			iTemp = short(data[19]) << 8 | short(data[20]);			// Probe 2 Alarm Temperature
 			Temperature[3] = float(iTemp) / 100.0;
 			Humidity = 0;
-			Battery = int(data[9]);
+			Battery = int(data[9] & 0x7F);
 			Averages = 1;
 			time(&Time);
 			for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
@@ -631,12 +637,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 	{
 		if (Model == ThermometerType::Unknown)
 			Model = ThermometerType::H5074;
-		// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
-		// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
-		// 2 3 4  5 6  7 8  9
 		//[2024-08-12T22:53:41] [E3:5E:CC:21:5C:0F] Name: Govee_H5074_5C0F
 		//[2024-08-12T22:53:41] [E3:5E:CC:21:5C:0F] ManufacturerData:  ec88:00f8099f1c6402
-		//                                                                  0 1 2 3 4 5 6 
 		//[2024-08-12T22:53:41] [E3:5E:CC:21:5C:0F] (Temp) 25.52°C (Humidity) 73.27% (Battery) 100% (GVH5074) 
 		short iTemp = short(Data[2]) << 8 | short(Data[1]);
 		int iHumidity = int(Data[4]) << 8 | int(Data[3]);
@@ -652,12 +654,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 	{
 		if (Model == ThermometerType::Unknown)
 			Model = ThermometerType::H5075;
-		// This data came from https://github.com/Thrilleratplay/GoveeWatcher
-		// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
-		// 2 3 4  5 6 7  8
 		//[2024-08-12T23:09:07] [A4:C1:38:37:BC:AE] Name: GVH5075_BCAE
 		//[2024-08-12T23:09:07] [A4:C1:38:37:BC:AE] ManufacturerData:  ec88:000418876100 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
-		//                                                                  0 1 2 3 4 5
 		//[2024-08-12T23:09:07] [A4:C1:38:37:BC:AE] (Temp) 26.8°C (Humidity) 42.3% (Battery) 97% (GVH5075)
 		int iTemp = int(Data[1]) << 16 | int(Data[2]) << 8 | int(Data[3]);
 		bool bNegative = iTemp & 0x800000;	// check sign bit
@@ -678,13 +676,9 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 	else if ((Manufacturer == 0x0001) && (Data.size() == 6))// GVH5177_xxxx or GVH5174_xxxx or GVH5100_xxxx
 	{
 		// This is a guess based on the H5075 3 byte encoding
-		// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
-		// 2 3 4 5  6 7 8  9
 		// It appears that the H5174 uses the exact same data format as the H5177, with the difference being the broadcast name starting with GVH5174_
-		// 
 		//[2024-08-13T00:09:15] [A4:C1:38:0D:3B:10] Name: GVH5177_3B10
 		//[2024-08-13T00:09:15] [A4:C1:38:0D:3B:10] ManufacturerData: 0001:010104245d54 004c:0215494e54454c4c495f524f434b535f48575177f2ffc2
-		//                                                                 0 1 2 3 4 5 
 		//[2024-08-13T00:09:15] [A4:C1:38:0D:3B:10] (Temp) 27.1453°C (Humidity) 45.3% (Battery) 84% (GVH5177)
 		int iTemp = int(Data[2]) << 16 | int(Data[3]) << 8 | int(Data[4]);
 		bool bNegative = iTemp & 0x800000;	// check sign bit
@@ -716,21 +710,13 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
-	else if ((Manufacturer == 0xa15d) && (Data.size() == 14))
+	else if (Data.size() == 14)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 	{
 		if (Model == ThermometerType::Unknown)
 			Model = ThermometerType::H5183;
 		// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
 		// https://www.amazon.com/gp/product/B092ZTD96V
 		// The probe measuring range is 0° to 300°C /32° to 572°F.
-		// 5DA1B4 01000101 E4 01 80 0708 13 24 00 00
-		// 2 3 4  5 6 7 8  9  0  1  2 3  4  5  6  7
-		// (Manu) 5DA1B4 01000101 81 0180 07D0 1324 0000 (Temp) 20°C (Temp) 49°C (Battery) 1% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: BF) 
-		// the first three bytes are the last three bytes of the bluetooth address.
-		// then next four bytes appear to be a signature for the device type.
-		// Model = ThermometerType::H5181;
-		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker Cooking BBQ Kitchen Oven
-		// https://www.amazon.com/dp/B092ZTJW37/
 		//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] ManufacturerData: a15d:b401000101e4008b09c426480000 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
 		//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] (Temp) 25°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
 		short iTemp = short(Data[8]) << 8 | short(Data[9]);
@@ -745,28 +731,26 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
 		rval = true;
 	}
-	//else if (data_len == 20 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
-	else if (Data.size() == 17)
+	else if (Data.size() == 17)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 	{
 		if (Model == ThermometerType::Unknown)
 			Model = ThermometerType::H5182;
 		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
 		// https://www.amazon.com/gp/product/B094N2FX9P
-		// 301327 01000101 64 01 80 05DC 1324 86 06A4 FFFF
-		// 2 3 4  5 6 7 8  9  0  1  2 3  4 5  6  7 8  9 0
-		// (Manu) 301327 01000101 3A 01 86 076C FFFF 86 076C FFFF (Temp) 19°C (Temp) -0.01°C (Temp) 19°C (Temp) -0.01°C (Battery) 58%
 		// If the probe is not connected to the device, the temperature data is set to FFFF.
 		// If the alarm is not set for the probe, the data is set to FFFF.
-		short iTemp = short(Data[9]) << 8 | short(Data[10]);	// Probe 1 Temperature
+		//[2024-08-14T17:47:34] [C3:31:30:30:13:27] ManufacturerData: 1330:2701000101e4018008341cdc8008341cdc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+		//[2024-08-14T17:47:34] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
+		short iTemp = short(Data[8]) << 8 | short(Data[9]);	// Probe 1 Temperature
 		Temperature[0] = float(iTemp) / 100.0;
-		iTemp = short(Data[11]) << 8 | short(Data[12]);			// Probe 1 Alarm Temperature
+		iTemp = short(Data[10]) << 8 | short(Data[11]);			// Probe 1 Alarm Temperature
 		Temperature[1] = float(iTemp) / 100.0;
-		iTemp = short(Data[14]) << 8 | short(Data[15]);			// Probe 2 Temperature
+		iTemp = short(Data[13]) << 8 | short(Data[14]);			// Probe 2 Temperature
 		Temperature[2] = float(iTemp) / 100.0;
-		iTemp = short(Data[16]) << 8 | short(Data[17]);			// Probe 2 Alarm Temperature
+		iTemp = short(Data[15]) << 8 | short(Data[16]);			// Probe 2 Alarm Temperature
 		Temperature[3] = float(iTemp) / 100.0;
 		Humidity = 0;
-		Battery = int(Data[6]);
+		Battery = int(Data[5] & 0x7f);
 		Averages = 1;
 		time(&Time);
 		for (auto index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
