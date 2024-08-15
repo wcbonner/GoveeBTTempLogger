@@ -3475,35 +3475,15 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn)
 {
 	// This function is mainly useful after a rapid restart of the program. BlueZ keeps around information on devices for three minutes after scanning has been stopped.
 	std::ostringstream ssOutput;
-	// Initialize D-Bus error
-	DBusError dbus_error;
-	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
-	if (!dbus_msg)
+	if (dbus_msg)
 	{
-		if (ConsoleVerbosity > 0)
-			ssOutput << "[                   ] ";
-		ssOutput << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
-	}
-	else
-	{
-		dbus_error_init(&dbus_error);
+		// Initialize D-Bus error
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
 		dbus_message_unref(dbus_msg);
-		if (!dbus_reply)
-		{
-			if (ConsoleVerbosity > 0)
-				ssOutput << "[                   ] ";
-			ssOutput << "Can't get bluez managed objects" << std::endl;
-			if (dbus_error_is_set(&dbus_error))
-			{
-				if (ConsoleVerbosity > 0)
-					ssOutput << "[                   ] ";
-				ssOutput << dbus_error.message << std::endl;
-				dbus_error_free(&dbus_error);
-			}
-		}
-		else
+		if (dbus_reply)
 		{
 			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
 			{
@@ -3572,8 +3552,6 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn)
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
-	else
-		std::cerr << ssOutput.str();
 }
 void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp)
 {
