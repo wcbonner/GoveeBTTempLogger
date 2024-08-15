@@ -3476,6 +3476,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 														ssOutput << std::setw(2) << int(Data);
 													if (ConsoleVerbosity > 4)
 													{
+														// https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/company_identifiers/company_identifiers.yaml
 														ssOutput << " ";
 														if (0x0001 == ManufacturerID)
 															ssOutput << "'Nokia Mobile Phones'";
