@@ -393,7 +393,7 @@ std::string Govee_Temp::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << "(Temp) " << std::dec << GetTemperature() << "\u00B0" << "C";
-	if (Model == ThermometerType::H5182)
+	if ((Model == ThermometerType::H5182) || (Model == ThermometerType::H5184))
 	{
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
 		ssValue << " (Temp) " << GetTemperature(false, 2) << "\u00B0" << "C";
@@ -401,7 +401,8 @@ std::string Govee_Temp::WriteConsole(void) const
 	}
 	if (Model == ThermometerType::H5183)
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
-	ssValue << " (Humidity) " << GetHumidity() << "%";
+	if (!((Model == ThermometerType::H5183) || (Model == ThermometerType::H5182) || (Model == ThermometerType::H5184)))
+		ssValue << " (Humidity) " << GetHumidity() << "%";
 	ssValue << " (Battery) " << GetBattery() << "%";
 	ssValue << " " << GetModelAsString();
 	return(ssValue.str());
@@ -3544,12 +3545,10 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		{
 			DBusMessageIter dict1_iter;
 			dbus_message_iter_recurse(&array1_iter, &dict1_iter); // The key of the dict
-			DBusBasicValue value;
 			dbus_message_iter_get_basic(&dict1_iter, &value);
 			std::string Key(value.str);
 			if (!Key.compare("ManufacturerData")) // I Only care about ManufacturerData changes for Govee Thermometers
 			{
-				ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
 				dbus_message_iter_next(&dict1_iter);
 				DBusMessageIter variant_iter;
 				dbus_message_iter_recurse(&dict1_iter, &variant_iter);
@@ -3568,7 +3567,6 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 								dbus_message_iter_recurse(&array3_iter, &dict1_iter);
 								if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
 								{
-									DBusBasicValue value;
 									dbus_message_iter_get_basic(&dict1_iter, &value);
 									uint16_t ManufacturerID(value.u16);
 									if (ConsoleVerbosity > 5)
@@ -3576,7 +3574,7 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 										// Total Hack 
 										uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
 										if (BTManufacturer == ManufacturerID)
-											ssOutput << " *** Meat Thermometer ***";
+											ssOutput << "[                   ] [" << BluetoothAddress << "] *** Meat Thermometer ***" << std::endl;
 									}
 									dbus_message_iter_next(&dict1_iter);
 									if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
@@ -3592,14 +3590,14 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 											{
 												if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
 												{
-													DBusBasicValue value;
 													dbus_message_iter_get_basic(&array4_iter, &value);
 													ManufacturerData.push_back(value.byt);
 												}
 											} while (dbus_message_iter_next(&array4_iter));
-											ssOutput << " " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
+											ssOutput << "[                   ] [" << BluetoothAddress << "] " << Key << ": " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
 											for (auto& Data : ManufacturerData)
 												ssOutput << std::setw(2) << int(Data);
+											ssOutput << std::endl;
 											if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
 											{
 												if (dbusTemp.GetModel() == ThermometerType::Unknown)
@@ -3616,7 +3614,6 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 						} while (dbus_message_iter_next(&array3_iter));
 					}
 				} while (dbus_message_iter_next(&variant_iter));
-				ssOutput << std::endl;
 			}
 		} while (dbus_message_iter_next(&array1_iter));
 	}
@@ -3968,18 +3965,13 @@ int main(int argc, char **argv)
 										{
 											if (localTemp.IsValid())
 											{
-												std::ostringstream ConsoleOutLine;
-												ConsoleOutLine << "[" << getTimeISO8601() << "]";
-												ConsoleOutLine << " [" << ba2string(localBTAddress) << "]";
-												ConsoleOutLine << " " << localTemp.WriteConsole();
-												ConsoleOutLine << std::endl;
 												std::queue<Govee_Temp> foo;
 												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
 												ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 												UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 												GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 												if (ConsoleVerbosity > 0)
-													std::cout << ConsoleOutLine.str();
+													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
 											}
 										}
 									}
