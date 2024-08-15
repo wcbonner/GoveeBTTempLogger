@@ -3479,10 +3479,14 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 														ssOutput << " ";
 														if (0x0001 == ManufacturerID)
 															ssOutput << "'Nokia Mobile Phones'";
+														if (0x0006 == ManufacturerID)
+															ssOutput << "'Microsoft'";
 														if (0x004c == ManufacturerID)
 															ssOutput << "'Apple, Inc.'";
 														if (0x058e == ManufacturerID)
 															ssOutput << "'Meta Platforms Technologies, LLC'";
+														if (0x02E1 == ManufacturerID)
+															ssOutput << "'Victron Energy BV'";
 													}
 													ssOutput << std::endl;
 													if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
