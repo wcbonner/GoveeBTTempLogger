@@ -3345,6 +3345,132 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 	return(bStarted);
 }
 /////////////////////////////////////////////////////////////////////////////
+std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
+{
+	std::ostringstream ssOutput;
+	do
+	{
+		DBusMessageIter dict2_iter;
+		dbus_message_iter_recurse(&array_iter, &dict2_iter);
+		DBusBasicValue value;
+		dbus_message_iter_get_basic(&dict2_iter, &value);
+		std::string Key(value.str);
+		dbus_message_iter_next(&dict2_iter);
+		DBusMessageIter variant_iter;
+		dbus_message_iter_recurse(&dict2_iter, &variant_iter);
+		do
+		{
+			auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
+			if (!Key.compare("Name"))
+			{
+				if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+				{
+					dbus_message_iter_get_basic(&variant_iter, &value);
+					ssOutput << "[" << getTimeISO8601() << "] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+					dbusTemp.SetModel(std::string(value.str));
+					if (dbusTemp.GetModel() != ThermometerType::Unknown)
+						GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+				}
+			}
+			else if (!Key.compare("UUIDs"))
+			{
+				DBusMessageIter array3_iter;
+				dbus_message_iter_recurse(&variant_iter, &array3_iter);
+				do
+				{
+					if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array3_iter))
+					{
+						dbus_message_iter_get_basic(&array3_iter, &value);
+						ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+						dbusTemp.SetModel(std::string(value.str));
+						if (dbusTemp.GetModel() != ThermometerType::Unknown)
+							GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+					}
+				} while (dbus_message_iter_next(&array3_iter));
+			}
+			else if (!Key.compare("ManufacturerData"))
+			{
+				if (DBUS_TYPE_ARRAY == dbus_message_Type)
+				{
+					DBusMessageIter array3_iter;
+					dbus_message_iter_recurse(&variant_iter, &array3_iter);
+					do
+					{
+						if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
+						{
+							DBusMessageIter dict1_iter;
+							dbus_message_iter_recurse(&array3_iter, &dict1_iter);
+							if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
+							{
+								DBusBasicValue value;
+								dbus_message_iter_get_basic(&dict1_iter, &value);
+								uint16_t ManufacturerID(value.u16);
+								if (ConsoleVerbosity > 5)
+								{
+									// Total Hack 
+									uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
+									if (BTManufacturer == ManufacturerID)
+										ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] *** Meat Thermometer ***" << std::endl;
+								}
+								dbus_message_iter_next(&dict1_iter);
+								if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
+								{
+									DBusMessageIter variant2_iter;
+									dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
+									if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
+									{
+										std::vector<uint8_t> ManufacturerData;
+										DBusMessageIter array4_iter;
+										dbus_message_iter_recurse(&variant2_iter, &array4_iter);
+										do
+										{
+											if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
+											{
+												dbus_message_iter_get_basic(&array4_iter, &value);
+												ManufacturerData.push_back(value.byt);
+											}
+										} while (dbus_message_iter_next(&array4_iter));
+										ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
+										for (auto& Data : ManufacturerData)
+											ssOutput << std::setw(2) << int(Data);
+										if (ConsoleVerbosity > 4)
+										{
+											// https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/company_identifiers/company_identifiers.yaml
+											ssOutput << " ";
+											if (0x0001 == ManufacturerID)
+												ssOutput << "'Nokia Mobile Phones'";
+											if (0x0006 == ManufacturerID)
+												ssOutput << "'Microsoft'";
+											if (0x004c == ManufacturerID)
+												ssOutput << "'Apple, Inc.'";
+											if (0x058e == ManufacturerID)
+												ssOutput << "'Meta Platforms Technologies, LLC'";
+											if (0x02E1 == ManufacturerID)
+												ssOutput << "'Victron Energy BV'";
+										}
+										ssOutput << std::endl;
+										if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
+										{
+											if (dbusTemp.GetModel() == ThermometerType::Unknown)
+											{
+												auto foo = GoveeThermometers.find(dbusBTAddress);
+												if (foo != GoveeThermometers.end())
+													dbusTemp.SetModel(foo->second);
+											}
+											else
+												GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+										}
+									}
+								}
+							}
+						}
+					} while (dbus_message_iter_next(&array3_iter));
+				}
+			}
+		} while (dbus_message_iter_next(&variant_iter));
+	} while (dbus_message_iter_next(&array_iter));
+	return(ssOutput.str());
+}
 void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp)
 {
 	std::ostringstream ssOutput;
@@ -3352,13 +3478,11 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 		ssOutput << "Invalid Signature: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
 	else
 	{
-		int indent(20);
 		DBusMessageIter root_iter;
-		std::string root_object_path;
 		dbus_message_iter_init(dbus_msg, &root_iter);
 		DBusBasicValue value;
 		dbus_message_iter_get_basic(&root_iter, &value);
-		root_object_path = std::string(value.str);
+		std::string root_object_path(value.str);
 
 		std::string BluetoothAddress;
 		const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
@@ -3376,7 +3500,6 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 		{
 			DBusMessageIter dict1_iter;
 			dbus_message_iter_recurse(&array1_iter, &dict1_iter);
-			indent += 4;
 			DBusBasicValue value;
 			dbus_message_iter_get_basic(&dict1_iter, &value);
 			std::string val(value.str);
@@ -3385,134 +3508,8 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 				dbus_message_iter_next(&dict1_iter);
 				DBusMessageIter array2_iter;
 				dbus_message_iter_recurse(&dict1_iter, &array2_iter);
-				do
-				{
-					DBusMessageIter dict2_iter;
-					dbus_message_iter_recurse(&array2_iter, &dict2_iter);
-					indent += 4;
-					DBusBasicValue value;
-					dbus_message_iter_get_basic(&dict2_iter, &value);
-					std::string Key(value.str);
-					dbus_message_iter_next(&dict2_iter);
-					DBusMessageIter variant_iter;
-					dbus_message_iter_recurse(&dict2_iter, &variant_iter);
-					do
-					{
-						auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
-						if (!Key.compare("Name"))
-						{
-							if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
-							{
-								DBusBasicValue value;
-								dbus_message_iter_get_basic(&variant_iter, &value);
-								ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
-								dbusTemp.SetModel(std::string(value.str));
-								if (dbusTemp.GetModel() != ThermometerType::Unknown)
-									GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
-							}
-						}
-						else if (!Key.compare("UUIDs"))
-						{
-							DBusMessageIter array3_iter;
-							dbus_message_iter_recurse(&variant_iter, &array3_iter);
-							do
-							{
-								if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array3_iter))
-								{
-									DBusBasicValue value;
-									dbus_message_iter_get_basic(&array3_iter, &value);
-									ssOutput << "[                   ] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
-									dbusTemp.SetModel(std::string(value.str));
-									if (dbusTemp.GetModel() != ThermometerType::Unknown)
-										GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
-								}
-							} while (dbus_message_iter_next(&array3_iter));
-						}
-						else if (!Key.compare("ManufacturerData"))
-						{
-							if (DBUS_TYPE_ARRAY == dbus_message_Type)
-							{
-								DBusMessageIter array3_iter;
-								dbus_message_iter_recurse(&variant_iter, &array3_iter);
-								do
-								{
-									if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
-									{
-										DBusMessageIter dict1_iter;
-										dbus_message_iter_recurse(&array3_iter, &dict1_iter);
-										if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
-										{
-											DBusBasicValue value;
-											dbus_message_iter_get_basic(&dict1_iter, &value);
-											uint16_t ManufacturerID(value.u16);
-											if (ConsoleVerbosity > 5)
-											{
-												// Total Hack 
-												uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
-												if (BTManufacturer == ManufacturerID)
-													ssOutput << "[                   ] [" << BluetoothAddress << "] *** Meat Thermometer ***" << std::endl;
-											}
-											dbus_message_iter_next(&dict1_iter);
-											if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
-											{
-												DBusMessageIter variant2_iter;
-												dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
-												if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
-												{
-													std::vector<uint8_t> ManufacturerData;
-													DBusMessageIter array4_iter;
-													dbus_message_iter_recurse(&variant2_iter, &array4_iter);
-													do
-													{
-														if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
-														{
-															DBusBasicValue value;
-															dbus_message_iter_get_basic(&array4_iter, &value);
-															ManufacturerData.push_back(value.byt);
-														}
-													} while (dbus_message_iter_next(&array4_iter));
-													ssOutput << "[                   ] [" << BluetoothAddress << "] " << Key << ": " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
-													for (auto& Data : ManufacturerData)
-														ssOutput << std::setw(2) << int(Data);
-													if (ConsoleVerbosity > 4)
-													{
-														// https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/company_identifiers/company_identifiers.yaml
-														ssOutput << " ";
-														if (0x0001 == ManufacturerID)
-															ssOutput << "'Nokia Mobile Phones'";
-														if (0x0006 == ManufacturerID)
-															ssOutput << "'Microsoft'";
-														if (0x004c == ManufacturerID)
-															ssOutput << "'Apple, Inc.'";
-														if (0x058e == ManufacturerID)
-															ssOutput << "'Meta Platforms Technologies, LLC'";
-														if (0x02E1 == ManufacturerID)
-															ssOutput << "'Victron Energy BV'";
-													}
-													ssOutput << std::endl;
-													if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
-													{
-														if (dbusTemp.GetModel() == ThermometerType::Unknown)
-														{
-															auto foo = GoveeThermometers.find(dbusBTAddress);
-															if (foo != GoveeThermometers.end())
-																dbusTemp.SetModel(foo->second);
-														}
-														else
-															GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
-													}
-												}
-											}
-										}
-									}
-								} while (dbus_message_iter_next(&array3_iter));
-							}
-						}
-					} while (dbus_message_iter_next(&variant_iter));
-					indent -= 4;
-				} while (dbus_message_iter_next(&array2_iter));
+				ssOutput << bluez_dbus_msg_iter(array2_iter, dbusBTAddress, dbusTemp);
 			}
-			indent -= 4;
 		} while (dbus_message_iter_next(&array1_iter));
 	}
 	if (ConsoleVerbosity > 1)
@@ -3543,83 +3540,9 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		dbus_message_iter_get_basic(&root_iter, &value);
 		root_object_path = std::string(value.str);
 		dbus_message_iter_next(&root_iter);
-		DBusMessageIter array1_iter;
-		dbus_message_iter_recurse(&root_iter, &array1_iter);
-		do
-		{
-			DBusMessageIter dict1_iter;
-			dbus_message_iter_recurse(&array1_iter, &dict1_iter); // The key of the dict
-			dbus_message_iter_get_basic(&dict1_iter, &value);
-			std::string Key(value.str);
-			if (!Key.compare("ManufacturerData")) // I Only care about ManufacturerData changes for Govee Thermometers
-			{
-				dbus_message_iter_next(&dict1_iter);
-				DBusMessageIter variant_iter;
-				dbus_message_iter_recurse(&dict1_iter, &variant_iter);
-				do
-				{
-					auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
-					if (DBUS_TYPE_ARRAY == dbus_message_Type)
-					{
-						DBusMessageIter array3_iter;
-						dbus_message_iter_recurse(&variant_iter, &array3_iter);
-						do
-						{
-							if (DBUS_TYPE_DICT_ENTRY == dbus_message_iter_get_arg_type(&array3_iter))
-							{
-								DBusMessageIter dict1_iter;
-								dbus_message_iter_recurse(&array3_iter, &dict1_iter);
-								if (DBUS_TYPE_UINT16 == dbus_message_iter_get_arg_type(&dict1_iter))
-								{
-									dbus_message_iter_get_basic(&dict1_iter, &value);
-									uint16_t ManufacturerID(value.u16);
-									if (ConsoleVerbosity > 5)
-									{
-										// Total Hack 
-										uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
-										if (BTManufacturer == ManufacturerID)
-											ssOutput << "[                   ] [" << BluetoothAddress << "] *** Meat Thermometer ***" << std::endl;
-									}
-									dbus_message_iter_next(&dict1_iter);
-									if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
-									{
-										DBusMessageIter variant2_iter;
-										dbus_message_iter_recurse(&dict1_iter, &variant2_iter);
-										if (DBUS_TYPE_ARRAY == dbus_message_iter_get_arg_type(&variant2_iter))
-										{
-											std::vector<uint8_t> ManufacturerData;
-											DBusMessageIter array4_iter;
-											dbus_message_iter_recurse(&variant2_iter, &array4_iter);
-											do
-											{
-												if (DBUS_TYPE_BYTE == dbus_message_iter_get_arg_type(&array4_iter))
-												{
-													dbus_message_iter_get_basic(&array4_iter, &value);
-													ManufacturerData.push_back(value.byt);
-												}
-											} while (dbus_message_iter_next(&array4_iter));
-											ssOutput << "[                   ] [" << BluetoothAddress << "] " << Key << ": " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
-											for (auto& Data : ManufacturerData)
-												ssOutput << std::setw(2) << int(Data);
-											ssOutput << std::endl;
-											if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
-											{
-												if (dbusTemp.GetModel() == ThermometerType::Unknown)
-												{
-													auto foo = GoveeThermometers.find(dbusBTAddress);
-													if (foo != GoveeThermometers.end())
-														dbusTemp.SetModel(foo->second);
-												}
-											}
-										}
-									}
-								}
-							}
-						} while (dbus_message_iter_next(&array3_iter));
-					}
-				} while (dbus_message_iter_next(&variant_iter));
-			}
-		} while (dbus_message_iter_next(&array1_iter));
+		DBusMessageIter array_iter;
+		dbus_message_iter_recurse(&root_iter, &array_iter);
+		ssOutput << bluez_dbus_msg_iter(array_iter, dbusBTAddress, dbusTemp);
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
