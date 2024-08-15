@@ -3471,6 +3471,110 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, bdaddr_t& dbusBTAdd
 	} while (dbus_message_iter_next(&array_iter));
 	return(ssOutput.str());
 }
+void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn)
+{
+	// This function is mainly useful after a rapid restart of the program. BlueZ keeps around information on devices for three minutes after scanning has been stopped.
+	std::ostringstream ssOutput;
+	// Initialize D-Bus error
+	DBusError dbus_error;
+	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+	if (!dbus_msg)
+	{
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[                   ] ";
+		ssOutput << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+	}
+	else
+	{
+		dbus_error_init(&dbus_error);
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+		dbus_message_unref(dbus_msg);
+		if (!dbus_reply)
+		{
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[                   ] ";
+			ssOutput << "Can't get bluez managed objects" << std::endl;
+			if (dbus_error_is_set(&dbus_error))
+			{
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[                   ] ";
+				ssOutput << dbus_error.message << std::endl;
+				dbus_error_free(&dbus_error);
+			}
+		}
+		else
+		{
+			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+			{
+				const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply));
+				int indent(16);
+				if (!dbus_reply_Signature.compare("a{oa{sa{sv}}}"))
+				{
+					DBusMessageIter root_iter;
+					dbus_message_iter_init(dbus_reply, &root_iter);
+					do {
+						DBusMessageIter array1_iter;
+						dbus_message_iter_recurse(&root_iter, &array1_iter);
+						do {
+							indent += 4;
+							DBusMessageIter dict1_iter;
+							dbus_message_iter_recurse(&array1_iter, &dict1_iter);
+							DBusBasicValue value;
+							dbus_message_iter_get_basic(&dict1_iter, &value);
+							std::string dict1_object_path(value.str);
+							dbus_message_iter_next(&dict1_iter);
+							DBusMessageIter array2_iter;
+							dbus_message_iter_recurse(&dict1_iter, &array2_iter);
+							do
+							{
+								DBusMessageIter dict2_iter;
+								dbus_message_iter_recurse(&array2_iter, &dict2_iter);
+								dbus_message_iter_get_basic(&dict2_iter, &value);
+								std::string dict2_string(value.str);
+								if (!dict2_string.compare("org.bluez.Device1"))
+								{
+									if (ConsoleVerbosity > 1)
+										ssOutput << "[" << getTimeISO8601() << "] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
+									dbus_message_iter_next(&dict2_iter);
+									DBusMessageIter array3_iter;
+									dbus_message_iter_recurse(&dict2_iter, &array3_iter);
+									bdaddr_t localBTAddress({ 0 });
+									const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+									std::smatch AddressMatch;
+									if (std::regex_search(dict1_object_path, AddressMatch, BluetoothAddressRegex))
+									{
+										std::string BluetoothAddress(AddressMatch.str());
+										std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
+										localBTAddress = string2ba(BluetoothAddress);
+									}
+									Govee_Temp localTemp;
+									ssOutput << bluez_dbus_msg_iter(array3_iter, localBTAddress, localTemp);
+									if (localTemp.IsValid())
+									{
+										std::queue<Govee_Temp> foo;
+										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
+										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+										UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+										if (ConsoleVerbosity > 0)
+											ssOutput << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+									}
+								}
+							} while (dbus_message_iter_next(&array2_iter));
+							indent -= 4;
+						} while (dbus_message_iter_next(&array1_iter));
+					} while (dbus_message_iter_next(&root_iter));
+				}
+			}
+			dbus_message_unref(dbus_reply);
+		}
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+}
 void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp)
 {
 	std::ostringstream ssOutput;
@@ -3491,7 +3595,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 		{
 			BluetoothAddress = AddressMatch.str();
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
-			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
+			dbusBTAddress = string2ba(BluetoothAddress);
 		}
 		dbus_message_iter_next(&root_iter);
 		DBusMessageIter array1_iter;
@@ -3531,7 +3635,7 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		{
 			BluetoothAddress = AddressMatch.str();
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
-			str2ba(BluetoothAddress.c_str(), &dbusBTAddress);
+			dbusBTAddress = string2ba(BluetoothAddress);
 		}
 		DBusMessageIter root_iter;
 		std::string root_object_path;
@@ -3834,6 +3938,7 @@ int main(int argc, char **argv)
 
 					bluez_power_on(dbus_conn, BlueZAdapter.c_str());
 					bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
+					bluez_dbus_FindExistingDevices(dbus_conn); // This pulls data from BlueZ on devices that BlueZ is already keeping track of
 					if (bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true))
 					{
 						dbus_connection_flush(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga10e68d9d2f41d655a4151ddeb807ff54
