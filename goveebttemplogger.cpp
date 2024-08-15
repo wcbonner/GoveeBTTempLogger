@@ -235,9 +235,10 @@ enum class ThermometerType
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
-	H5183 = 5183, 
-	H5182 = 5182,
 	H5181 = 5181,
+	H5182 = 5182,
+	H5183 = 5183,
+	H5184 = 5184,
 };
 class  Govee_Temp {
 public:
@@ -455,6 +456,8 @@ const std::string Govee_Temp::GetModelAsString(void) const
 		return(std::string("(GVH5182)"));
 	case ThermometerType::H5183:
 		return(std::string("(GVH5183)"));
+	case ThermometerType::H5184:
+		return(std::string("(GVH5184)"));
 	}
 	return(std::string("(ThermometerType::Unknown)"));
 }
@@ -481,6 +484,24 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 		Model = ThermometerType::H5074;
 	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
 		Model = ThermometerType::H5179;
+	//The Bluetooth SIG maintains a list of "Assigned Numbers" that includes those UUIDs found in the sample app: https://www.bluetooth.com/specifications/assigned-numbers/
+	//Although UUIDs are 128 bits in length, the assigned numbers for Bluetooth LE are listed as 16 bit hex values because the lower 96 bits are consistent across a class of attributes.
+	//For example, all BLE characteristic UUIDs are of the form:
+	//0000XXXX-0000-1000-8000-00805f9b34fb
+	else if (0 == Name.compare("00008151-0000-1000-8000-00805f9b34fb"))
+		Model = ThermometerType::H5181;
+	else if (0 == Name.compare("00008251-0000-1000-8000-00805f9b34fb"))
+		Model = ThermometerType::H5182;
+		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] UUIDs: 00008251-0000-1000-8000-00805f9b34fb
+		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] ManufacturerData: *** Meat Thermometer ***  1330:2701000101e4018008341cdc8008341cdc
+		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
+	else if (0 == Name.compare("00008351-0000-1000-8000-00805f9b34fb"))
+		Model = ThermometerType::H5183;
+		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] UUIDs: 00008351-0000-1000-8000-00805f9b34fb
+		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] ManufacturerData: *** Meat Thermometer ***  a15d:b401000101e4008b083426480000 'Apple, Inc.' 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] (Temp) 21°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
+	else if (0 == Name.compare("00008451-0000-1000-8000-00805f9b34fb"))
+		Model = ThermometerType::H5184;
 	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
@@ -738,20 +759,35 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 	else if (Data.size() == 17)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 	{
 		if (Model == ThermometerType::Unknown)
-			Model = ThermometerType::H5182;
+				Model = ThermometerType::H5182;
 		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
 		// https://www.amazon.com/gp/product/B094N2FX9P
 		// If the probe is not connected to the device, the temperature data is set to FFFF.
 		// If the alarm is not set for the probe, the data is set to FFFF.
 		//[2024-08-14T17:47:34] [C3:31:30:30:13:27] ManufacturerData: 1330:2701000101e4018008341cdc8008341cdc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
 		//[2024-08-14T17:47:34] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
+
+		// The H5184 seems to use this same data format, and alternates sending probes 1-2 and 3-4. 
+		// I've not figured out how to recognize which set of probes are currently being sent.
+		// it may be a single bit in byte 12.
+		//wim@WimPi4:~ $ ~/GoveeBTTempLogger/build/goveebttemplogger -v 2 | grep CF\:32\:32\:36\:4F\:62
+		// Alarms set to 60, 71, 49, and 93                                0  1 2 3 4  5  6 7  8 9  0 1  2  3 4  5 6
+		//[2024-08-15T03:08:39] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 0180 0834 1770 89 0898 1bbc
+		//[2024-08-15T03:08:39] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 60°C (Temp) 22°C (Alarm) 71°C (Battery) 100% (GVH5182)
+		//[2024-08-15T03:08:40] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 028a 0834 1324 8c 0898 2454
+		//[2024-08-15T03:08:40] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 49°C (Temp) 22°C (Alarm) 93°C (Battery) 100% (GVH5182)
+		//[2024-08-15T03:08:41] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 0180 0834 1770 89 0898 1bbc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+		//[2024-08-15T03:08:41] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 60°C (Temp) 22°C (Alarm) 71°C (Battery) 100% (GVH5182)
+		//[2024-08-15T03:08:42] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 028a 0834 1324 8c 0898 2454
+		//[2024-08-15T03:08:42] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 49°C (Temp) 22°C (Alarm) 93°C (Battery) 100% (GVH5182)
+
 		short iTemp = short(Data[8]) << 8 | short(Data[9]);	// Probe 1 Temperature
 		Temperature[0] = float(iTemp) / 100.0;
-		iTemp = short(Data[10]) << 8 | short(Data[11]);			// Probe 1 Alarm Temperature
+		iTemp = short(Data[10]) << 8 | short(Data[11]);		// Probe 1 Alarm Temperature
 		Temperature[1] = float(iTemp) / 100.0;
-		iTemp = short(Data[13]) << 8 | short(Data[14]);			// Probe 2 Temperature
+		iTemp = short(Data[13]) << 8 | short(Data[14]);		// Probe 2 Temperature
 		Temperature[2] = float(iTemp) / 100.0;
-		iTemp = short(Data[15]) << 8 | short(Data[16]);			// Probe 2 Alarm Temperature
+		iTemp = short(Data[15]) << 8 | short(Data[16]);		// Probe 2 Alarm Temperature
 		Temperature[3] = float(iTemp) / 100.0;
 		Humidity = 0;
 		Battery = int(Data[5] & 0x7f);
@@ -3374,6 +3410,23 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 									GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
 							}
 						}
+						else if (!Key.compare("UUIDs"))
+						{
+							DBusMessageIter array3_iter;
+							dbus_message_iter_recurse(&variant_iter, &array3_iter);
+							do
+							{
+								if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array3_iter))
+								{
+									DBusBasicValue value;
+									dbus_message_iter_get_basic(&array3_iter, &value);
+									ssOutput << "[                   ] [" << BluetoothAddress << "] " << Key << ": " << value.str << std::endl;
+									dbusTemp.SetModel(std::string(value.str));
+									if (dbusTemp.GetModel() != ThermometerType::Unknown)
+										GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+								}
+							} while (dbus_message_iter_next(&array3_iter));
+						}
 						else if (!Key.compare("ManufacturerData"))
 						{
 							if (DBUS_TYPE_ARRAY == dbus_message_Type)
@@ -3392,6 +3445,13 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 											DBusBasicValue value;
 											dbus_message_iter_get_basic(&dict1_iter, &value);
 											uint16_t ManufacturerID(value.u16);
+											if (ConsoleVerbosity > 5)
+											{
+												// Total Hack 
+												uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
+												if (BTManufacturer == ManufacturerID)
+													ssOutput << " *** Meat Thermometer ***";
+											}
 											dbus_message_iter_next(&dict1_iter);
 											if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
 											{
@@ -3411,6 +3471,16 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 															ManufacturerData.push_back(value.byt);
 														}
 													} while (dbus_message_iter_next(&array4_iter));
+													if (ConsoleVerbosity > 4)
+													{
+														ssOutput << " ";
+														if (0x0001 == ManufacturerID)
+															ssOutput << "'Nokia Mobile Phones'";
+														if (0x004c == ManufacturerID)
+															ssOutput << "'Apple, Inc.'";
+														if (0x058e == ManufacturerID)
+															ssOutput << "'Meta Platforms Technologies, LLC'";
+													}
 													ssOutput << " " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
 													for (auto& Data : ManufacturerData)
 														ssOutput << std::setw(2) << int(Data);
@@ -3501,6 +3571,13 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 									DBusBasicValue value;
 									dbus_message_iter_get_basic(&dict1_iter, &value);
 									uint16_t ManufacturerID(value.u16);
+									if (ConsoleVerbosity > 5)
+									{
+										// Total Hack 
+										uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
+										if (BTManufacturer == ManufacturerID)
+											ssOutput << " *** Meat Thermometer ***";
+									}
 									dbus_message_iter_next(&dict1_iter);
 									if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
 									{
