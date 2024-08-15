@@ -738,8 +738,6 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 	}
 	else if (Data.size() == 14)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 	{
-		if (Model == ThermometerType::Unknown)
-			Model = ThermometerType::H5183;
 		// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
 		// https://www.amazon.com/gp/product/B092ZTD96V
 		// The probe measuring range is 0° to 300°C /32° to 572°F.
@@ -759,8 +757,6 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 	}
 	else if (Data.size() == 17)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 	{
-		if (Model == ThermometerType::Unknown)
-				Model = ThermometerType::H5182;
 		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
 		// https://www.amazon.com/gp/product/B094N2FX9P
 		// If the probe is not connected to the device, the temperature data is set to FFFF.
