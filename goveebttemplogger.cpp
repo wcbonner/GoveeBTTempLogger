@@ -3432,7 +3432,6 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 						{
 							if (DBUS_TYPE_ARRAY == dbus_message_Type)
 							{
-								ssOutput << "[" << getTimeISO8601() << "] [" << BluetoothAddress << "] " << Key << ":";
 								DBusMessageIter array3_iter;
 								dbus_message_iter_recurse(&variant_iter, &array3_iter);
 								do
@@ -3451,7 +3450,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 												// Total Hack 
 												uint16_t BTManufacturer(uint16_t(dbusBTAddress.b[1]) << 8 | uint16_t(dbusBTAddress.b[2]));
 												if (BTManufacturer == ManufacturerID)
-													ssOutput << " *** Meat Thermometer ***";
+													ssOutput << "[                   ] [" << BluetoothAddress << "] *** Meat Thermometer ***" << std::endl;
 											}
 											dbus_message_iter_next(&dict1_iter);
 											if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&dict1_iter))
@@ -3472,6 +3471,9 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 															ManufacturerData.push_back(value.byt);
 														}
 													} while (dbus_message_iter_next(&array4_iter));
+													ssOutput << "[                   ] [" << BluetoothAddress << "] " << Key << ": " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
+													for (auto& Data : ManufacturerData)
+														ssOutput << std::setw(2) << int(Data);
 													if (ConsoleVerbosity > 4)
 													{
 														ssOutput << " ";
@@ -3482,7 +3484,7 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 														if (0x058e == ManufacturerID)
 															ssOutput << "'Meta Platforms Technologies, LLC'";
 													}
-													ssOutput << " " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
+													ssOutput << std::endl;
 													for (auto& Data : ManufacturerData)
 														ssOutput << std::setw(2) << int(Data);
 													if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
@@ -3501,7 +3503,6 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 										}
 									}
 								} while (dbus_message_iter_next(&array3_iter));
-								ssOutput << std::endl;
 							}
 						}
 					} while (dbus_message_iter_next(&variant_iter));
