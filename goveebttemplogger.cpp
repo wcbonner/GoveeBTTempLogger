@@ -3485,8 +3485,6 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 															ssOutput << "'Meta Platforms Technologies, LLC'";
 													}
 													ssOutput << std::endl;
-													for (auto& Data : ManufacturerData)
-														ssOutput << std::setw(2) << int(Data);
 													if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
 													{
 														if (dbusTemp.GetModel() == ThermometerType::Unknown)
