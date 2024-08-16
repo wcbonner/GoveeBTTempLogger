@@ -21,14 +21,17 @@ if (POLICY CMP0115)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 2.20240715.0
-    DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments"
+    VERSION 3.20240815.0
+    DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
 
 configure_file(
     goveebttemplogger-version.h.in
     goveebttemplogger-version.h)
+
+include( FindPkgConfig )
+pkg_check_modules( dbus REQUIRED dbus-1 )
 
 # Add source to this project's executable.
 add_executable (goveebttemplogger
@@ -44,14 +47,17 @@ add_executable (goveebttemplogger
 target_link_libraries(goveebttemplogger
     -lbluetooth
     -lstdc++fs
+    -ldbus-1
     )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
     set_property(TARGET goveebttemplogger PROPERTY CXX_STANDARD 17)
 endif()
 
-target_include_directories(goveebttemplogger 
-    PUBLIC "${PROJECT_BINARY_DIR}" ${EXTRA_INCLUDES}
+target_include_directories(goveebttemplogger PUBLIC
+    "${PROJECT_BINARY_DIR}" 
+    ${EXTRA_INCLUDES}
+    ${dbus_INCLUDE_DIRS}
     )
 
 if(EXISTS "/etc/rpi-issue")
@@ -102,7 +108,7 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "William C Bonner <${CPACK_PACKAGE_CONTACT}>
 include(InstallRequiredSystemLibraries)
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-set(CPACK_DEBIAN_PACKAGE_RELEASE ${CMAKE_PROJECT_VERSION_PATCH})
+# set(CPACK_DEBIAN_PACKAGE_RELEASE ${CMAKE_PROJECT_VERSION_PATCH})
 set(CPACK_DEBIAN_PACKAGE_SECTION custom)
 set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/postinst" "${CMAKE_CURRENT_SOURCE_DIR}/prerm" "${CMAKE_CURRENT_SOURCE_DIR}/postrm")
 set(CPACK_STRIP_FILES YES)

@@ -93,6 +93,7 @@
     <ClCompile Include="wimiso8601.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".github\workflows\ci.yml" />
     <None Include="BTData\README.md" />
     <None Include="CMakePresets.json" />
     <None Include="DeviceImages\README.md" />
@@ -173,12 +174,13 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>
-      <LibraryDependencies>bluetooth</LibraryDependencies>
+      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
     </Link>
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
       <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalIncludeDirectories>%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/</AdditionalIncludeDirectories>
     </ClCompile>
     <RemotePostBuildEvent>
       <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
@@ -186,11 +188,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
-      <LibraryDependencies>bluetooth</LibraryDependencies>
+      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
     </Link>
     <ClCompile />
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalIncludeDirectories>%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

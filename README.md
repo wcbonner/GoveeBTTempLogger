@@ -16,6 +16,148 @@ Added the option --index to create an html index file based on the existing log 
 sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index index.html
 ```
 
+## Major update to version 3.
+Conversion to Bluetooth using BlueZ over DBus! This is a work in progress. 
+DBus is the approved method of Bluetooth communication, complicated to implement without a huge framework. 
+I've got this branch running on my personal production machine. 
+It's using significantly more CPU than the pure HCI code. 
+When I tried building this on a machine running Raspbian GNU/Linux 10 (buster) the system builds but the BlueZ DBus routines to find the bluetooth adapter fail. 
+For this reason, I've left the old HCI commands in the code and fallback to running HCI if DBus fails. 
+
+I've added an --HCI option to allow the user to force it to run the HCI commands instead of using the DBus interface.
+
+When running DBus, there is no way to run in passive mode. The --passive option is ignored.
+
+When running HCI mode, the whitelist created with the --only option is sent to the bluetooth hardware and only those devices are sent from the hardware to the software.
+In DBus mode whitelisting does not appear to be available.
+In DBus mode I'm filtering the output based on the whitelist.
+
+### Example v3 output
+```
+wim@WimPi5:~ $ ./GoveeBTTempLogger/build/goveebttemplogger -v 9
+[2024-08-14T15:28:02] GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18
+[                   ]      log: ""
+[                   ]    cache: ""
+[                   ]      svg: ""
+[                   ]  battery: 0
+[                   ]   minmax: 0
+[                   ]  celsius: false
+[                   ] titlemap: ""
+[                   ]     time: 60
+[                   ]  average: 5
+[                   ] download: 0 (days betwen data download)
+[                   ]  passive: false
+[                   ] no-bluetooth: false
+[                   ]      HCI: false
+[2024-08-14T15:28:02] Connected to D-Bus as ":1.227"
+[                   ]   Message Type: method_return
+[                   ]      Signature: a{oa{sa{sv}}}
+[                   ]    Destination: :1.227
+[                   ]         Sender: :1.5
+[                   ]        Object Path: /org/bluez
+[                   ]             String: org.freedesktop.DBus.Introspectable
+[                   ]             String: org.bluez.AgentManager1
+[                   ]             String: org.bluez.ProfileManager1
+[                   ]             String: org.bluez.HealthManager1
+[                   ]        Object Path: /org/bluez/hci0
+[                   ]             String: org.freedesktop.DBus.Introspectable
+[                   ]             String: org.bluez.Adapter1
+[                   ]                Address: 2C:CF:67:0B:78:71
+[                   ]             String: org.freedesktop.DBus.Properties
+[                   ]             String: org.bluez.GattManager1
+[                   ]             String: org.bluez.Media1
+[                   ]             String: org.bluez.NetworkServer1
+[                   ]             String: org.bluez.LEAdvertisingManager1
+[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueZ Adapter Path: /org/bluez/hci0
+[                   ] /org/bluez/hci0: org.freedesktop.DBus.Properties: SetPowered: true
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: StartDiscovery
+[2024-08-14T15:28:02] [E3:60:59:21:80:65] Name: Govee_H5074_8065
+[2024-08-14T15:28:02] [E3:60:59:21:80:65] ManufacturerData: ec88:00b8fc770c5d02
+[2024-08-14T15:28:02] [E3:60:59:21:80:65] (Temp) -8.4°C (Humidity) 31.91% (Battery) 93% (GVH5074)
+[2024-08-14T15:28:02] [6C:2A:DF:E0:14:1A] Name: HB-00147479
+[2024-08-14T15:28:02] [75:2E:2E:EB:6B:D5] Name: Cerbo GX HQ2312AG767
+[2024-08-14T15:28:02] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
+[2024-08-14T15:28:02] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
+[2024-08-14T15:28:02] [E3:8E:C8:C1:98:9A] Name: Govee_H5074_989A
+[2024-08-14T15:28:02] [E3:8E:C8:C1:98:9A] ManufacturerData: ec88:005807ea1b6202
+[2024-08-14T15:28:02] [E3:8E:C8:C1:98:9A] (Temp) 18.8°C (Humidity) 71.46% (Battery) 98% (GVH5074)
+[2024-08-14T15:28:02] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
+[2024-08-14T15:28:02] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
+[2024-08-14T15:28:03] [4B:5D:22:2A:F7:9D] ManufacturerData: 004c:160800d7f91e519802d7
+[2024-08-14T15:28:03] [A4:C1:38:D5:A3:3B] Name: Govee_H5074_A33B
+[2024-08-14T15:28:03] [A4:C1:38:D5:A3:3B] ManufacturerData: 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
+[2024-08-14T15:28:03] [A4:C1:38:DC:CC:3D] Name: GVH5174_CC3D
+[2024-08-14T15:28:03] [A4:C1:38:DC:CC:3D] ManufacturerData: 0001:010102dd3f44 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
+[2024-08-14T15:28:03] [A4:C1:38:DC:CC:3D] (Temp) 18.7711°C (Humidity) 71.1% (Battery) 68% (GVH5174)
+[2024-08-14T15:28:03] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
+[2024-08-14T15:28:03] [D0:35:33:33:44:03] Name: GVH5105_4403
+[2024-08-14T15:28:03] [D0:35:33:33:44:03] ManufacturerData: 0001:010102e11362 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+[2024-08-14T15:28:03] [D0:35:33:33:44:03] (Temp) 18.8691°C (Humidity) 69.1% (Battery) 98% (GVH5105)
+[2024-08-14T15:28:03] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
+[2024-08-14T15:28:03] [A4:C1:38:05:C7:A1] Name: Govee_H5074_C7A1
+[2024-08-14T15:28:03] [A4:C1:38:05:C7:A1] ManufacturerData: 004c:0215494e54454c4c495f524f434b535f48575075f2ffc2
+[2024-08-14T15:28:03] [E3:60:59:21:80:65] ManufacturerData: 004c:0215494e54454c4c495f524f434b535f485750746580c2
+[2024-08-14T15:28:03] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
+[2024-08-14T15:28:03] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
+[2024-08-14T15:28:03] [22:A4:EC:E8:EC:F4] ManufacturerData: 0006:01092022868159d832b59c782dfe1ba2aa578ec6205eff3eb6f720
+[2024-08-14T15:28:03] [75:2E:2E:EB:6B:D5] ManufacturerData: 02e1:10000ac0
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: StopDiscovery
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
+[                   ] Error: org.bluez.Adapter1: SetDiscoveryFilter: Connection was disconnected before a reply was received /home/wim/GoveeBTTempLogger/goveebttemplogger.cpp(3256)
+GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18 (exiting)
+wim@WimPi5:~ $ ./GoveeBTTempLogger/build/goveebttemplogger
+[2024-08-14T15:42:02] GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18
+[2024-08-14T15:42:02] Connected to D-Bus as ":1.230"
+[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueZ Adapter Path: /org/bluez/hci0
+[                   ] /org/bluez/hci0: org.freedesktop.DBus.Properties: SetPowered: true
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: StartDiscovery
+[2024-08-14T15:42:02] [C2:35:33:30:25:50] (Temp) 18.9697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
+[2024-08-14T15:42:02] [E3:60:59:21:80:65] (Temp) -8.44°C (Humidity) 31.54% (Battery) 93% (GVH5074)
+[2024-08-14T15:42:02] [E3:8E:C8:C1:98:9A] (Temp) 19°C (Humidity) 70.73% (Battery) 98% (GVH5074)
+[2024-08-14T15:42:02] [A4:C1:38:D5:A3:3B] (Temp) 19.32°C (Humidity) 68.58% (Battery) 51% (GVH5074)
+[2024-08-14T15:42:02] [A4:C1:38:05:C7:A1] (Temp) 18.4°C (Humidity) 72.7% (Battery) 66% (GVH5074)
+[2024-08-14T15:42:03] [D0:35:33:33:44:03] (Temp) 19.2682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
+[2024-08-14T15:42:04] [C3:36:35:30:61:77] (Temp) 18.6718°C (Humidity) 71.8% (Battery) 43% (GVH5104)
+[2024-08-14T15:42:04] [A4:C1:38:37:BC:AE] (Temp) 20.5°C (Humidity) 64.3% (Battery) 97% (GVH5075)
+[2024-08-14T15:42:04] [C2:35:33:30:25:50] (Temp) 18.9697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
+[2024-08-14T15:42:05] [E3:60:59:23:14:7D] (Temp) 8.37°C (Humidity) 73.75% (Battery) 100% (GVH5074)
+[2024-08-14T15:42:05] [D0:35:33:33:44:03] (Temp) 19.2682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
+[2024-08-14T15:42:06] [C3:36:35:30:61:77] (Temp) 18.6718°C (Humidity) 71.8% (Battery) 43% (GVH5104)
+[2024-08-14T15:42:06] [A4:C1:38:37:BC:AE] (Temp) 20.6°C (Humidity) 64.3% (Battery) 97% (GVH5075)
+[2024-08-14T15:42:06] [C2:35:33:30:25:50] (Temp) 19.0697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
+[2024-08-14T15:42:06] [E3:8E:C8:C1:98:9A] (Temp) 19.01°C (Humidity) 70.72% (Battery) 98% (GVH5074)
+[2024-08-14T15:42:07] [A4:C1:38:0D:3B:10] (Temp) 19.1681°C (Humidity) 68.1% (Battery) 84% (GVH5177)
+[2024-08-14T15:42:07] [D0:35:33:33:44:03] (Temp) 19.2682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
+[2024-08-14T15:42:07] [E3:5E:CC:21:5C:0F] (Temp) 17.71°C (Humidity) 99.99% (Battery) 100% (GVH5074)
+[2024-08-14T15:42:08] [C3:36:35:30:61:77] (Temp) 18.6717°C (Humidity) 71.7% (Battery) 43% (GVH5104)
+[2024-08-14T15:42:08] [A4:C1:38:37:BC:AE] (Temp) 20.5°C (Humidity) 64.2% (Battery) 97% (GVH5075)
+[2024-08-14T15:42:09] [A4:C1:38:0D:3B:10] (Temp) 19.1681°C (Humidity) 68.1% (Battery) 84% (GVH5177)
+[2024-08-14T15:42:10] [C3:36:35:30:61:77] (Temp) 18.6717°C (Humidity) 71.7% (Battery) 43% (GVH5104)
+[2024-08-14T15:42:10] [A4:C1:38:37:BC:AE] (Temp) 20.5°C (Humidity) 64.2% (Battery) 97% (GVH5075)
+[2024-08-14T15:42:10] [C2:35:33:30:25:50] (Temp) 18.9697°C (Humidity) 69.7% (Battery) 42% (GVH5100)
+[2024-08-14T15:42:10] [E3:60:59:21:80:65] (Temp) -8.41°C (Humidity) 31.56% (Battery) 93% (GVH5074)
+[2024-08-14T15:42:10] [E3:8E:C8:C1:98:9A] (Temp) 19.03°C (Humidity) 70.72% (Battery) 98% (GVH5074)
+[2024-08-14T15:42:10] [A4:C1:38:D5:A3:3B] (Temp) 19.32°C (Humidity) 68.54% (Battery) 51% (GVH5074)
+[2024-08-14T15:42:10] [A4:C1:38:05:C7:A1] (Temp) 18.43°C (Humidity) 72.71% (Battery) 66% (GVH5074)
+[2024-08-14T15:42:11] [A4:C1:38:0D:3B:10] (Temp) 19.1681°C (Humidity) 68.1% (Battery) 84% (GVH5177)
+[2024-08-14T15:42:11] [D0:35:33:33:44:03] (Temp) 19.1682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
+[2024-08-14T15:42:12] [C3:36:35:30:61:77] (Temp) 18.6718°C (Humidity) 71.8% (Battery) 43% (GVH5104)
+[2024-08-14T15:42:12] [A4:C1:38:37:BC:AE] (Temp) 20.6°C (Humidity) 64.3% (Battery) 97% (GVH5075)
+[2024-08-14T15:42:12] [A4:C1:38:D5:A3:3B] (Temp) 19.32°C (Humidity) 68.54% (Battery) 51% (GVH5074)
+[2024-08-14T15:42:12] [A4:C1:38:05:C7:A1] (Temp) 18.43°C (Humidity) 72.71% (Battery) 66% (GVH5074)
+[2024-08-14T15:42:13] [D0:35:33:33:44:03] (Temp) 19.1682°C (Humidity) 68.2% (Battery) 98% (GVH5105)
+[2024-08-14T15:42:13] [A4:C1:38:DC:CC:3D] (Temp) 18.9708°C (Humidity) 70.8% (Battery) 68% (GVH5174)
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+[2024-08-14T15:42:14] [E3:5E:CC:21:5C:0F] (Temp) 17.7°C (Humidity) 99.99% (Battery) 100% (GVH5074)
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: StopDiscovery
+[                   ] /org/bluez/hci0: org.bluez.Adapter1: SetDiscoveryFilter
+[                   ] Error: org.bluez.Adapter1: SetDiscoveryFilter: Connection was disconnected before a reply was received /home/wim/GoveeBTTempLogger/goveebttemplogger.cpp(3256)
+GoveeBTTempLogger Version 3.20240813.2 Built on: Aug 13 2024 at 15:08:18 (exiting)
+```
+
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
 
@@ -48,6 +190,7 @@ If the --svg option is not added to the command line, the program should continu
 
  * Kernel version 3.6 or above
  * ```libbluetooth-dev```
+ * ```libdbus-1-dev```
  
 #### Ubuntu/Debian/Raspbian
 
@@ -55,7 +198,7 @@ If the --svg option is not added to the command line, the program should continu
 This seems to better build the debian package with the correct installed size, dependencies, and md5sums details. I'm still learning CMake so there may be regular updates for a while.
 
 ```sh
-sudo apt install build-essential cmake git libbluetooth-dev
+sudo apt install build-essential cmake git libbluetooth-dev libdbus-1-dev
 git clone https://github.com/wcbonner/GoveeBTTempLogger.git
 cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
 cmake --build GoveeBTTempLogger/build
@@ -134,6 +277,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -d (--download) Periodically attempt to connect and download stored data
  * -p (--passive) Bluetooth LE Passive Scanning
  * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
+ * -H (--HCI) Prefer deprecated BlueZ HCI interface instead of DBus
 
  ## Log File Format
 
