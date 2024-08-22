@@ -239,6 +239,7 @@ enum class ThermometerType
 	H5182 = 5182,
 	H5183 = 5183,
 	H5184 = 5184,
+	H5055 = 5055,
 };
 class  Govee_Temp {
 public:
@@ -324,6 +325,12 @@ Govee_Temp::Govee_Temp(const std::string & data)
 		case 5183:
 			Model = ThermometerType::H5183;
 			break;
+		case 5184:
+			Model = ThermometerType::H5184;
+			break;
+		case 5055:
+			Model = ThermometerType::H5055;
+			break;
 		default:
 			Model = ThermometerType::Unknown;
 		}
@@ -368,6 +375,20 @@ std::string Govee_Temp::WriteTXT(const char seperator) const
 		ssValue << seperator << 5183;
 		ssValue << seperator << Temperature[1];
 	}
+	if (Model == ThermometerType::H5184)
+	{
+		ssValue << seperator << 5184;
+		ssValue << seperator << Temperature[1];
+		ssValue << seperator << Temperature[2];
+		ssValue << seperator << Temperature[3];
+	}
+	if (Model == ThermometerType::H5055)
+	{
+		ssValue << seperator << 5055;
+		ssValue << seperator << Temperature[1];
+		ssValue << seperator << Temperature[2];
+		ssValue << seperator << Temperature[3];
+	}
 	return(ssValue.str());
 }
 std::string Govee_Temp::WriteCache(void) const
@@ -393,7 +414,7 @@ std::string Govee_Temp::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << "(Temp) " << std::dec << GetTemperature() << "\u00B0" << "C";
-	if ((Model == ThermometerType::H5182) || (Model == ThermometerType::H5184))
+	if ((Model == ThermometerType::H5182) || (Model == ThermometerType::H5184) || (Model == ThermometerType::H5055))
 	{
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
 		ssValue << " (Temp) " << GetTemperature(false, 2) << "\u00B0" << "C";
@@ -401,7 +422,7 @@ std::string Govee_Temp::WriteConsole(void) const
 	}
 	if (Model == ThermometerType::H5183)
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
-	if (!((Model == ThermometerType::H5183) || (Model == ThermometerType::H5182) || (Model == ThermometerType::H5184)))
+	if (!((Model == ThermometerType::H5183) || (Model == ThermometerType::H5182) || (Model == ThermometerType::H5184) || (Model == ThermometerType::H5055)))
 		ssValue << " (Humidity) " << GetHumidity() << "%";
 	ssValue << " (Battery) " << GetBattery() << "%";
 	ssValue << " " << GetModelAsString();
@@ -459,6 +480,8 @@ const std::string Govee_Temp::GetModelAsString(void) const
 		return(std::string("(GVH5183)"));
 	case ThermometerType::H5184:
 		return(std::string("(GVH5184)"));
+	case ThermometerType::H5055:
+		return(std::string("(GVH5055)"));
 	}
 	return(std::string("(ThermometerType::Unknown)"));
 }
@@ -503,6 +526,8 @@ ThermometerType Govee_Temp::SetModel(const std::string& Name)
 		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] (Temp) 21°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
 	else if (0 == Name.compare("00008451-0000-1000-8000-00805f9b34fb"))
 		Model = ThermometerType::H5184;
+	else if (0 == Name.compare("00005550-0000-1000-8000-00805f9b34fb"))
+		Model = ThermometerType::H5055;
 	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
@@ -515,6 +540,10 @@ ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
 		Model = ThermometerType::H5182;
 	else if (0x8351 == *UUID)
 		Model = ThermometerType::H5183;
+	else if (0x8451 == *UUID)
+		Model = ThermometerType::H5184;
+	else if (0x5550 == *UUID)
+		Model = ThermometerType::H5055;
 	return(rval);
 }
 bool Govee_Temp::ReadMSG(const uint8_t * const data)
@@ -736,63 +765,107 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
 	}
-	else if (Data.size() == 14)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
+	else if (0x004c != Manufacturer) // Ignore 'Apple, Inc.'
 	{
-		// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
-		// https://www.amazon.com/gp/product/B092ZTD96V
-		// The probe measuring range is 0° to 300°C /32° to 572°F.
-		//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] ManufacturerData: a15d:b401000101e4008b09c426480000 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
-		//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] (Temp) 25°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
-		short iTemp = short(Data[8]) << 8 | short(Data[9]);
-		Temperature[0] = float(iTemp) / 100.0;
-		iTemp = short(Data[10]) << 8 | short(Data[11]);
-		Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
-		Humidity = 0;
-		Battery = int(Data[5] & 0x7F);
-		Averages = 1;
-		time(&Time);
-		for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
-			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-		rval = true;
-	}
-	else if (Data.size() == 17)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
-	{
-		// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
-		// https://www.amazon.com/gp/product/B094N2FX9P
-		// If the probe is not connected to the device, the temperature data is set to FFFF.
-		// If the alarm is not set for the probe, the data is set to FFFF.
-		//[2024-08-14T17:47:34] [C3:31:30:30:13:27] ManufacturerData: 1330:2701000101e4018008341cdc8008341cdc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
-		//[2024-08-14T17:47:34] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
+		if (Data.size() == 14)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
+		{
+			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
+			// https://www.amazon.com/gp/product/B092ZTD96V
+			// The probe measuring range is 0° to 300°C /32° to 572°F.
+			//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] ManufacturerData: a15d:b401000101e4008b09c426480000 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+			//[2024-08-14T16:43:01] [A4:C1:38:5D:A1:B4] (Temp) 25°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
+			short iTemp = short(Data[8]) << 8 | short(Data[9]);
+			Temperature[0] = float(iTemp) / 100.0;
+			iTemp = short(Data[10]) << 8 | short(Data[11]);
+			Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
+			Humidity = 0;
+			Battery = int(Data[5] & 0x7F);
+			Averages = 1;
+			time(&Time);
+			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
+			rval = true;
+		}
+		else if (Data.size() == 17)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
+		{
+			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
+			// https://www.amazon.com/gp/product/B094N2FX9P
+			// If the probe is not connected to the device, the temperature data is set to FFFF.
+			// If the alarm is not set for the probe, the data is set to FFFF.
+			//[2024-08-14T17:47:34] [C3:31:30:30:13:27] ManufacturerData: 1330:2701000101e4018008341cdc8008341cdc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+			//[2024-08-14T17:47:34] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
 
-		// The H5184 seems to use this same data format, and alternates sending probes 1-2 and 3-4. 
-		// I've not figured out how to recognize which set of probes are currently being sent.
-		// it may be a single bit in byte 12.
-		//wim@WimPi4:~ $ ~/GoveeBTTempLogger/build/goveebttemplogger -v 2 | grep CF\:32\:32\:36\:4F\:62
-		// Alarms set to 60, 71, 49, and 93                                0  1 2 3 4  5  6 7  8 9  0 1  2  3 4  5 6
-		//[2024-08-15T03:08:39] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 0180 0834 1770 89 0898 1bbc
-		//[2024-08-15T03:08:39] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 60°C (Temp) 22°C (Alarm) 71°C (Battery) 100% (GVH5182)
-		//[2024-08-15T03:08:40] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 028a 0834 1324 8c 0898 2454
-		//[2024-08-15T03:08:40] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 49°C (Temp) 22°C (Alarm) 93°C (Battery) 100% (GVH5182)
-		//[2024-08-15T03:08:41] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 0180 0834 1770 89 0898 1bbc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
-		//[2024-08-15T03:08:41] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 60°C (Temp) 22°C (Alarm) 71°C (Battery) 100% (GVH5182)
-		//[2024-08-15T03:08:42] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 028a 0834 1324 8c 0898 2454
-		//[2024-08-15T03:08:42] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 49°C (Temp) 22°C (Alarm) 93°C (Battery) 100% (GVH5182)
+			// The H5184 seems to use this same data format, and alternates sending probes 1-2 and 3-4. 
+			// I've not figured out how to recognize which set of probes are currently being sent.
+			// it may be a single bit in byte 12.
+			//wim@WimPi4:~ $ ~/GoveeBTTempLogger/build/goveebttemplogger -v 2 | grep CF\:32\:32\:36\:4F\:62
+			// Alarms set to 60, 71, 49, and 93                                0  1 2 3 4  5  6 7  8 9  0 1  2  3 4  5 6
+			//[2024-08-15T03:08:39] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 0180 0834 1770 89 0898 1bbc
+			//[2024-08-15T03:08:39] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 60°C (Temp) 22°C (Alarm) 71°C (Battery) 100% (GVH5182)
+			//[2024-08-15T03:08:40] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 028a 0834 1324 8c 0898 2454
+			//[2024-08-15T03:08:40] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 49°C (Temp) 22°C (Alarm) 93°C (Battery) 100% (GVH5182)
+			//[2024-08-15T03:08:41] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 0180 0834 1770 89 0898 1bbc 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+			//[2024-08-15T03:08:41] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 60°C (Temp) 22°C (Alarm) 71°C (Battery) 100% (GVH5182)
+			//[2024-08-15T03:08:42] [CF:32:32:36:4F:62] ManufacturerData: 4f36:62 01000101 64 028a 0834 1324 8c 0898 2454
+			//[2024-08-15T03:08:42] [CF:32:32:36:4F:62] (Temp) 21°C (Alarm) 49°C (Temp) 22°C (Alarm) 93°C (Battery) 100% (GVH5182)
 
-		short iTemp = short(Data[8]) << 8 | short(Data[9]);	// Probe 1 Temperature
-		Temperature[0] = float(iTemp) / 100.0;
-		iTemp = short(Data[10]) << 8 | short(Data[11]);		// Probe 1 Alarm Temperature
-		Temperature[1] = float(iTemp) / 100.0;
-		iTemp = short(Data[13]) << 8 | short(Data[14]);		// Probe 2 Temperature
-		Temperature[2] = float(iTemp) / 100.0;
-		iTemp = short(Data[15]) << 8 | short(Data[16]);		// Probe 2 Alarm Temperature
-		Temperature[3] = float(iTemp) / 100.0;
-		Humidity = 0;
-		Battery = int(Data[5] & 0x7f);
-		Averages = 1;
-		time(&Time);
-		for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
-			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-		rval = true;
+			short iTemp = short(Data[8]) << 8 | short(Data[9]);	// Probe 1 Temperature
+			Temperature[0] = float(iTemp) / 100.0;
+			iTemp = short(Data[10]) << 8 | short(Data[11]);		// Probe 1 Alarm Temperature
+			Temperature[1] = float(iTemp) / 100.0;
+			iTemp = short(Data[13]) << 8 | short(Data[14]);		// Probe 2 Temperature
+			Temperature[2] = float(iTemp) / 100.0;
+			iTemp = short(Data[15]) << 8 | short(Data[16]);		// Probe 2 Alarm Temperature
+			Temperature[3] = float(iTemp) / 100.0;
+			Humidity = 0;
+			Battery = int(Data[5] & 0x7f);
+			Averages = 1;
+			time(&Time);
+			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
+			rval = true;
+		}
+		else if (Data.size() == 20)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
+		{
+			// GVH 5055 sample data
+			//[                   ] [A4:C1:38:85:8B:A4] UUIDs: 00005550-0000-1000-8000-00805f9b34fb
+			//alarms set at 0x31, 0x36, 0x3c, 0x42, 0x4d, 0x5d
+			//                                                                  0  1 2  3 4  5 6  7 8  9 0  1  2 3  4 5  6 7  8 9
+			// probe 1
+			// [                   ] [A4:C1:38:85:8B:A4] ManufacturerData: 8b85:a4 0064 0100 1a00 ffff 3100 01 ffff ffff 3600 0000
+			// probe 2
+			// [                   ] [A4:C1:38:85:8B:A4] ManufacturerData: 8b85:a4 0064 0200 ffff ffff 3100 01 1b00 ffff 3600 0000
+			// probe 3
+			// [                   ] [A4:C1:38:85:8B:A4] ManufacturerData: 8b85:a4 0064 4400 1a00 ffff 3c00 00 ffff ffff 4200 0000
+			// probe 4
+			// [                   ] [A4:C1:38:85:8B:A4] ManufacturerData: 8b85:a4 0064 4800 ffff ffff 3c00 00 1a00 ffff 4200 0000
+			// probe 5
+			// [                   ] [A4:C1:38:85:8B:A4] ManufacturerData: 8b85:a4 0064 9000 1a00 ffff 4d00 0c ffff ffff 5d00 0000
+			// probe 6
+			// [                   ] [A4:C1:38:85:8B:A4] ManufacturerData: 8b85:a4 0064 a000 ffff ffff 4d00 0c 1900 ffff 5d00 0000
+			// It's possible that Byte 11 indicates which probe data is being sent, 0x01:1-2, 0x00:3-4, 0x0c:5-6
+			//if (Data[11] == 0x01)
+			{
+				short iTemp = short(Data[6]) << 8 | short(Data[5]);	// Probe 1 Temperature
+				Temperature[0] = float(iTemp);
+				iTemp = short(Data[8]) << 8 | short(Data[7]);		// Probe 1 Low Alarm Temperature
+				iTemp = short(Data[10]) << 8 | short(Data[9]);		// Probe 1 High Alarm Temperature
+				Temperature[1] = float(iTemp);
+				iTemp = short(Data[13]) << 8 | short(Data[12]);		// Probe 2 Temperature
+				Temperature[2] = float(iTemp);
+				iTemp = short(Data[15]) << 8 | short(Data[14]);		// Probe 2 Low Alarm Temperature
+				iTemp = short(Data[17]) << 8 | short(Data[16]);		// Probe 2 High Alarm Temperature
+				Temperature[3] = float(iTemp);
+
+				Humidity = 0;
+				Battery = int(Data[2]);
+				Averages = 1;
+				time(&Time);
+				for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
+					TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
+				rval = true;
+			}
+		}
 	}
 	return(rval);
 }
