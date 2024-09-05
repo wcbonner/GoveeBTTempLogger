@@ -4075,6 +4075,8 @@ int main(int argc, char **argv)
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								MonitorLoggedData();
 							}
+							if (difftime(TimeNow, TimeStart) > 60*30) // Issue StartDiscovery command every 30 minutes to make sure it's not been turned off by another bluetooth process
+								bRun = bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true);
 						}
 						bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
 
