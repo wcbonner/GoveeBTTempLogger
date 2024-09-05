@@ -1583,7 +1583,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				else
 					std::cerr << "Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
 				std::ostringstream tempOString;
-				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << (Fahrenheit ? "°F)" : "°C)");
+				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << "\u00B0" << (Fahrenheit ? "F)" : "C)");
 				std::string YLegendTemperature(tempOString.str());
 				tempOString = std::ostringstream();
 				tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].GetHumidity() << "%)";
