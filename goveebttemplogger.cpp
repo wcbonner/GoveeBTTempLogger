@@ -3727,9 +3727,10 @@ static void usage(int argc, char **argv)
 	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
 	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
 	std::cout << "    -H | --HCI           Prefer deprecated BlueZ HCI interface instead of DBus" << std::endl;
+	std::cout << "    -M | --monitor       Monitor Logging Directory" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:dpnH";
+static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:dpnHM";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -3750,6 +3751,7 @@ static const struct option long_options[] = {
 		{ "passive",no_argument,       NULL, 'p' },
 		{ "no-bluetooth",no_argument,  NULL, 'n' },
 		{ "HCI",	no_argument,       NULL, 'H' },
+		{ "monitor",no_argument,       NULL, 'M' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -3757,6 +3759,7 @@ int main(int argc, char **argv)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	bool bUse_HCI_Interface(false);
+	bool bMonitorLoggingDirectory(false);
 	std::string ControllerAddress;
 	std::string MRTGAddress;
 	std::set<bdaddr_t> BT_WhiteList;
@@ -3857,6 +3860,9 @@ int main(int argc, char **argv)
 			break;
 		case 'H':
 			bUse_HCI_Interface = true;
+			break;
+		case 'M':
+			bMonitorLoggingDirectory = true;
 			break;
 		default:
 			usage(argc, argv);
@@ -4073,7 +4079,8 @@ int main(int argc, char **argv)
 								TimeStart = TimeNow;
 								GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
-								MonitorLoggedData();
+								if (bMonitorLoggingDirectory)
+									MonitorLoggedData();
 							}
 							if (difftime(TimeNow, TimeStart) > 60*30) // Issue StartDiscovery command every 30 minutes to make sure it's not been turned off by another bluetooth process
 								bRun = bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true);
@@ -4514,7 +4521,8 @@ int main(int argc, char **argv)
 											TimeStart = TimeNow;
 											GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 											GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
-											MonitorLoggedData();
+											if (bMonitorLoggingDirectory)
+												MonitorLoggedData();
 										}
 										if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
 										{
