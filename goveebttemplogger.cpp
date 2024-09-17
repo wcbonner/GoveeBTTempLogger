@@ -3082,6 +3082,11 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	}
 	return(TimeDownloadStart);
 }
+time_t ConnectAndDownload(DBusConnection* dbusConnection, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
+{
+	time_t TimeDownloadStart(0);
+	return(TimeDownloadStart);
+}
 /////////////////////////////////////////////////////////////////////////////
 const char * dbus_message_iter_type_to_string(const int type)
 {
@@ -4065,6 +4070,32 @@ int main(int argc, char **argv)
 									std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 								TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
 								WriteAllSVG();
+							}
+							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
+							{
+								for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
+								{
+									if (!it->second.empty())
+									{
+										int BatteryToRecord = it->second.front().GetBattery();
+										time_t LastDownloadTime = 0;
+										auto RecentDownload = GoveeLastDownload.find(it->first);
+										if (RecentDownload != GoveeLastDownload.end())
+											LastDownloadTime = RecentDownload->second;
+										// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+										if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+										{
+											time_t DownloadTime = ConnectAndDownload(dbus_conn, it->first, LastDownloadTime, BatteryToRecord);
+											if (DownloadTime > 0)
+											{
+												if (RecentDownload != GoveeLastDownload.end())
+													RecentDownload->second = DownloadTime;
+												else
+													GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(it->first, DownloadTime));
+											}
+										}
+									}
+								}
 							}
 							if (difftime(TimeNow, TimeStart) > LogFileTime)
 							{
