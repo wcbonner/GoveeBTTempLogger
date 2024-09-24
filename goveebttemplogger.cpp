@@ -280,7 +280,7 @@ public:
 	enum granularity {day, week, month, year};
 	void NormalizeTime(granularity type);
 	granularity GetTimeGranularity(void) const;
-	bool IsValid(void) const { return(Averages > 0); };
+	bool IsValid(void) const { return((Averages > 0) && (Model != ThermometerType::Unknown)); };
 	Govee_Temp& operator +=(const Govee_Temp& b);
 protected:
 	double Temperature[4];
@@ -413,7 +413,7 @@ std::string Govee_Temp::WriteCache(void) const
 std::string Govee_Temp::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
-	ssValue << "(Temp) " << std::dec << GetTemperature() << "\u00B0" << "C";
+	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
 	if ((Model == ThermometerType::H5182) || (Model == ThermometerType::H5184) || (Model == ThermometerType::H5055))
 	{
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
@@ -423,8 +423,8 @@ std::string Govee_Temp::WriteConsole(void) const
 	if (Model == ThermometerType::H5183)
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
 	if (!((Model == ThermometerType::H5183) || (Model == ThermometerType::H5182) || (Model == ThermometerType::H5184) || (Model == ThermometerType::H5055)))
-		ssValue << " (Humidity) " << GetHumidity() << "%";
-	ssValue << " (Battery) " << GetBattery() << "%";
+		ssValue << " (Humidity) " << std::setw(5) << std::right << GetHumidity() << std::left << "%";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(0) << GetBattery() << std::left << "%";
 	ssValue << " " << GetModelAsString();
 	return(ssValue.str());
 }
@@ -3413,7 +3413,7 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 	return(bStarted);
 }
 /////////////////////////////////////////////////////////////////////////////
-std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
+std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
 {
 	std::ostringstream ssOutput;
 	do
@@ -3517,17 +3517,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, bdaddr_t& dbusBTAdd
 												ssOutput << "'Victron Energy BV'";
 										}
 										ssOutput << std::endl;
-										if (dbusTemp.ReadMSG(ManufacturerID, ManufacturerData))
+										if (dbusTemp.GetModel() == ThermometerType::Unknown)
 										{
-											if (dbusTemp.GetModel() == ThermometerType::Unknown)
-											{
-												auto foo = GoveeThermometers.find(dbusBTAddress);
-												if (foo != GoveeThermometers.end())
-													dbusTemp.SetModel(foo->second);
-											}
-											else
-												GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+											auto foo = GoveeThermometers.find(dbusBTAddress);
+											if (foo != GoveeThermometers.end())
+												dbusTemp.SetModel(foo->second);
 										}
+										else
+											GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+										dbusTemp.ReadMSG(ManufacturerID, ManufacturerData);
 									}
 								}
 							}
@@ -3535,11 +3533,21 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, bdaddr_t& dbusBTAdd
 					} while (dbus_message_iter_next(&array3_iter));
 				}
 			}
+			else if (!Key.compare("RSSI"))
+			{
+				if (DBUS_TYPE_INT16 == dbus_message_Type)
+				{
+					dbus_message_iter_get_basic(&variant_iter, &value);
+					ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.i16 << std::endl;
+				}
+			}
+			else
+				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << std::endl;
 		} while (dbus_message_iter_next(&variant_iter));
 	} while (dbus_message_iter_next(&array_iter));
 	return(ssOutput.str());
 }
-void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn)
+void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn, const std::set<bdaddr_t>& BT_WhiteList)
 {
 	// This function is mainly useful after a rapid restart of the program. BlueZ keeps around information on devices for three minutes after scanning has been stopped.
 	std::ostringstream ssOutput;
@@ -3596,17 +3604,21 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn)
 										std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 										localBTAddress = string2ba(BluetoothAddress);
 									}
-									Govee_Temp localTemp;
-									ssOutput << bluez_dbus_msg_iter(array3_iter, localBTAddress, localTemp);
-									if (localTemp.IsValid())
+									auto BT_AddressInWhitelist = BT_WhiteList.find(localBTAddress);
+									if (BT_WhiteList.empty() || (BT_AddressInWhitelist != BT_WhiteList.end()))
 									{
-										std::queue<Govee_Temp> foo;
-										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
-										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-										UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
-										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
-										if (ConsoleVerbosity > 0)
-											ssOutput << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+										Govee_Temp localTemp;
+										ssOutput << bluez_dbus_msg_iter(array3_iter, localBTAddress, localTemp);
+										if (localTemp.IsValid())
+										{
+											std::queue<Govee_Temp> foo;
+											auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
+											ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+											UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+											if (ConsoleVerbosity > 0)
+												ssOutput << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+										}
 									}
 								}
 							} while (dbus_message_iter_next(&array2_iter));
@@ -3621,7 +3633,7 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn)
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
 }
-void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp)
+void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddress, Govee_Temp & dbusTemp, const std::set<bdaddr_t>& BT_WhiteList)
 {
 	std::ostringstream ssOutput;
 	if (std::string(dbus_message_get_signature(dbus_msg)).compare("oa{sa{sv}}"))
@@ -3643,29 +3655,33 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 			dbusBTAddress = string2ba(BluetoothAddress);
 		}
-		dbus_message_iter_next(&root_iter);
-		DBusMessageIter array1_iter;
-		dbus_message_iter_recurse(&root_iter, &array1_iter);
-		do
+		auto BT_AddressInWhitelist = BT_WhiteList.find(dbusBTAddress);
+		if (BT_WhiteList.empty() || (BT_AddressInWhitelist != BT_WhiteList.end()))
 		{
-			DBusMessageIter dict1_iter;
-			dbus_message_iter_recurse(&array1_iter, &dict1_iter);
-			DBusBasicValue value;
-			dbus_message_iter_get_basic(&dict1_iter, &value);
-			std::string val(value.str);
-			if (!val.compare("org.bluez.Device1"))
+			dbus_message_iter_next(&root_iter);
+			DBusMessageIter array1_iter;
+			dbus_message_iter_recurse(&root_iter, &array1_iter);
+			do
 			{
-				dbus_message_iter_next(&dict1_iter);
-				DBusMessageIter array2_iter;
-				dbus_message_iter_recurse(&dict1_iter, &array2_iter);
-				ssOutput << bluez_dbus_msg_iter(array2_iter, dbusBTAddress, dbusTemp);
-			}
-		} while (dbus_message_iter_next(&array1_iter));
+				DBusMessageIter dict1_iter;
+				dbus_message_iter_recurse(&array1_iter, &dict1_iter);
+				DBusBasicValue value;
+				dbus_message_iter_get_basic(&dict1_iter, &value);
+				std::string val(value.str);
+				if (!val.compare("org.bluez.Device1"))
+				{
+					dbus_message_iter_next(&dict1_iter);
+					DBusMessageIter array2_iter;
+					dbus_message_iter_recurse(&dict1_iter, &array2_iter);
+					ssOutput << bluez_dbus_msg_iter(array2_iter, dbusBTAddress, dbusTemp);
+				}
+			} while (dbus_message_iter_next(&array1_iter));
+		}
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
 }
-void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
+void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp, const std::set<bdaddr_t> & BT_WhiteList)
 {
 	std::ostringstream ssOutput;
 	if (std::string(dbus_message_get_signature(dbus_msg)).compare("sa{sv}as"))
@@ -3683,16 +3699,20 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
 			dbusBTAddress = string2ba(BluetoothAddress);
 		}
-		DBusMessageIter root_iter;
-		std::string root_object_path;
-		dbus_message_iter_init(dbus_msg, &root_iter);
-		DBusBasicValue value;
-		dbus_message_iter_get_basic(&root_iter, &value);
-		root_object_path = std::string(value.str);
-		dbus_message_iter_next(&root_iter);
-		DBusMessageIter array_iter;
-		dbus_message_iter_recurse(&root_iter, &array_iter);
-		ssOutput << bluez_dbus_msg_iter(array_iter, dbusBTAddress, dbusTemp);
+		auto BT_AddressInWhitelist = BT_WhiteList.find(dbusBTAddress);
+		if (BT_WhiteList.empty() || (BT_AddressInWhitelist != BT_WhiteList.end()))
+		{
+			DBusMessageIter root_iter;
+			std::string root_object_path;
+			dbus_message_iter_init(dbus_msg, &root_iter);
+			DBusBasicValue value;
+			dbus_message_iter_get_basic(&root_iter, &value);
+			root_object_path = std::string(value.str);
+			dbus_message_iter_next(&root_iter);
+			DBusMessageIter array_iter;
+			dbus_message_iter_recurse(&root_iter, &array_iter);
+			ssOutput << bluez_dbus_msg_iter(array_iter, dbusBTAddress, dbusTemp);
+		}
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
@@ -3901,6 +3921,13 @@ int main(int argc, char **argv)
 			std::cout << "[                   ] no-bluetooth: " << std::boolalpha << !UseBluetooth << std::endl;
 			std::cout << "[                   ]      HCI: " << std::boolalpha << bUse_HCI_Interface << std::endl;
 		}
+		if (!BT_WhiteList.empty())
+		{
+			std::cout << "[                   ] only listening to:";
+			for (auto& address : BT_WhiteList)
+				std::cout << " [" << ba2string(address) << "]";
+			std::cout << std::endl;
+		}
 	}
 	else
 		std::cerr << ProgramVersionString << " (starting)" << std::endl;
@@ -3990,7 +4017,7 @@ int main(int argc, char **argv)
 
 					bluez_power_on(dbus_conn, BlueZAdapter.c_str());
 					bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
-					bluez_dbus_FindExistingDevices(dbus_conn); // This pulls data from BlueZ on devices that BlueZ is already keeping track of
+					bluez_dbus_FindExistingDevices(dbus_conn, BT_WhiteList); // This pulls data from BlueZ on devices that BlueZ is already keeping track of
 					if (bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true))
 					{
 						dbus_connection_flush(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga10e68d9d2f41d655a4151ddeb807ff54
@@ -4041,22 +4068,18 @@ int main(int argc, char **argv)
 										bdaddr_t localBTAddress({ 0 });
 										Govee_Temp localTemp;
 										if (!dbus_msg_Member.compare("InterfacesAdded"))
-											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, localTemp);
+											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, localTemp, BT_WhiteList);
 										else if (!dbus_msg_Member.compare("PropertiesChanged"))
-											bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, localTemp);
-										auto BT_AddressInWhitelist = BT_WhiteList.find(localBTAddress);
-										if (BT_WhiteList.empty() || (BT_AddressInWhitelist != BT_WhiteList.end()))
+											bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, localTemp, BT_WhiteList);
+										if (localTemp.IsValid())
 										{
-											if (localTemp.IsValid())
-											{
-												std::queue<Govee_Temp> foo;
-												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
-												ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-												UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
-												GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
-												if (ConsoleVerbosity > 0)
-													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
-											}
+											std::queue<Govee_Temp> foo;
+											auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
+											ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+											UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+											if (ConsoleVerbosity > 0)
+												std::cout << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
 										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
@@ -4392,6 +4415,8 @@ int main(int argc, char **argv)
 																		for (auto index = 1; index < *(info->data + current_offset); index++)
 																			localName.push_back(char((info->data + current_offset + 1)[index]));
 																		localTemp.SetModel(localName);
+																		if (localTemp.GetModel() != ThermometerType::Unknown)
+																			GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(info->bdaddr, localTemp.GetModel()));
 																		if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																		{
 																			ConsoleOutLine << " (Name) " << localName;
