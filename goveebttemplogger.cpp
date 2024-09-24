@@ -510,7 +510,6 @@ std::string Govee_Temp::WriteConsole(void) const
 	ssValue << " " << GetModelAsString();
 	return(ssValue.str());
 }
-
 bool Govee_Temp::ReadCache(const std::string& data)
 {
 	bool rval = false;
@@ -527,7 +526,6 @@ bool Govee_Temp::ReadCache(const std::string& data)
 	ssValue >> HumidityMax;
 	ssValue >> Battery;
 	ssValue >> Averages;
-	SetModel(ssValue.str());
 	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
@@ -1409,9 +1407,15 @@ void ReadCacheDirectory(void)
 								FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
 								while (std::getline(TheFile, TheLine))
 								{
-									Govee_Temp value;
-									value.ReadCache(TheLine);
-									FakeMRTGFile.push_back(value);
+									Govee_Temp TheValue;
+									if (TheValue.GetModel() == ThermometerType::Unknown)
+									{
+										auto foo = GoveeThermometers.find(TheBlueToothAddress);
+										if (foo != GoveeThermometers.end())
+											TheValue.SetModel(foo->second);
+									}
+									TheValue.ReadCache(TheLine);
+									FakeMRTGFile.push_back(TheValue);
 								}
 								if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
 									GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, FakeMRTGFile));
