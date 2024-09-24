@@ -406,8 +406,7 @@ std::string Govee_Temp::WriteCache(void) const
 	ssValue << "\t" << HumidityMax;
 	ssValue << "\t" << Battery;
 	ssValue << "\t" << Averages;
-	//TODO: Write Model
-//	ssValue << "\t" << Model;
+	ssValue << "\t" << GetModelAsString();
 	return(ssValue.str());
 }
 std::string Govee_Temp::WriteConsole(void) const
@@ -445,7 +444,7 @@ bool Govee_Temp::ReadCache(const std::string& data)
 	ssValue >> HumidityMax;
 	ssValue >> Battery;
 	ssValue >> Averages;
-	// TODO: Read Model
+	SetModel(ssValue.str());
 	return(rval);
 }
 const std::string Govee_Temp::GetModelAsString(void) const
@@ -488,45 +487,45 @@ const std::string Govee_Temp::GetModelAsString(void) const
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
 {
 	ThermometerType rval = Model;
-	if (0 == Name.substr(0, 8).compare("GVH5100_"))
+	if (std::regex_search(Name, std::regex("GVH5100")))
 		Model = ThermometerType::H5100;
-	else if (0 == Name.substr(0, 8).compare("GVH5101_"))
+	else if (std::regex_search(Name, std::regex("GVH5101")))
 		Model = ThermometerType::H5101;
-	else if (0 == Name.substr(0, 8).compare("GVH5104_"))
+	else if (std::regex_search(Name, std::regex("GVH5104")))
 		Model = ThermometerType::H5104;
-	else if (0 == Name.substr(0, 8).compare("GVH5105_"))
+	else if (std::regex_search(Name, std::regex("GVH5105")))
 		Model = ThermometerType::H5105;
-	else if (0 == Name.substr(0, 8).compare("GVH5174_"))
+	else if (std::regex_search(Name, std::regex("GVH5174")))
 		Model = ThermometerType::H5174;
-	else if (0 == Name.substr(0, 8).compare("GVH5177_"))
+	else if (std::regex_search(Name, std::regex("GVH5177")))
 		Model = ThermometerType::H5177;
-	else if (0 == Name.substr(0, 8).compare("GVH5072_"))
+	else if (std::regex_search(Name, std::regex("GVH5072")))
 		Model = ThermometerType::H5072;
-	else if (0 == Name.substr(0, 8).compare("GVH5075_"))
+	else if (std::regex_search(Name, std::regex("GVH5075")))
 		Model = ThermometerType::H5075;
-	else if (0 == Name.substr(0, 12).compare("Govee_H5074_"))
+	else if (std::regex_search(Name, std::regex("Govee_H5074|GVH5074")))
 		Model = ThermometerType::H5074;
-	else if (0 == Name.substr(0, 12).compare("Govee_H5179_"))
+	else if (std::regex_search(Name, std::regex("Govee_H5179|GVH5179")))
 		Model = ThermometerType::H5179;
 	//The Bluetooth SIG maintains a list of "Assigned Numbers" that includes those UUIDs found in the sample app: https://www.bluetooth.com/specifications/assigned-numbers/
 	//Although UUIDs are 128 bits in length, the assigned numbers for Bluetooth LE are listed as 16 bit hex values because the lower 96 bits are consistent across a class of attributes.
 	//For example, all BLE characteristic UUIDs are of the form:
 	//0000XXXX-0000-1000-8000-00805f9b34fb
-	else if (0 == Name.compare("00008151-0000-1000-8000-00805f9b34fb"))
+	else if (std::regex_search(Name, std::regex("GVH5181|00008151-0000-1000-8000-00805f9b34fb")))
 		Model = ThermometerType::H5181;
-	else if (0 == Name.compare("00008251-0000-1000-8000-00805f9b34fb"))
+	else if (std::regex_search(Name, std::regex("GVH5182|00008251-0000-1000-8000-00805f9b34fb")))
 		Model = ThermometerType::H5182;
 		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] UUIDs: 00008251-0000-1000-8000-00805f9b34fb
 		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] ManufacturerData: *** Meat Thermometer ***  1330:2701000101e4018008341cdc8008341cdc
 		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
-	else if (0 == Name.compare("00008351-0000-1000-8000-00805f9b34fb"))
+	else if (std::regex_search(Name, std::regex("GVH5183|00008351-0000-1000-8000-00805f9b34fb")))
 		Model = ThermometerType::H5183;
 		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] UUIDs: 00008351-0000-1000-8000-00805f9b34fb
 		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] ManufacturerData: *** Meat Thermometer ***  a15d:b401000101e4008b083426480000 'Apple, Inc.' 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
 		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] (Temp) 21°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
-	else if (0 == Name.compare("00008451-0000-1000-8000-00805f9b34fb"))
+	else if (std::regex_search(Name, std::regex("GVH5184|00008451-0000-1000-8000-00805f9b34fb")))
 		Model = ThermometerType::H5184;
-	else if (0 == Name.compare("00005550-0000-1000-8000-00805f9b34fb"))
+	else if (std::regex_search(Name, std::regex("GVH5055|00005550-0000-1000-8000-00805f9b34fb")))
 		Model = ThermometerType::H5055;
 	return(rval);
 }
