@@ -222,7 +222,7 @@ const size_t MONTH_SAMPLE(2 * 60 * 60);	/* Sample every 2 hours */
 const size_t YEAR_SAMPLE(24 * 60 * 60);	/* Sample every 24 hours */
 /////////////////////////////////////////////////////////////////////////////
 // Class I'm using for storing raw data from the Govee thermometers
-enum class ThermometerType 
+enum class ThermometerType
 { 
 	Unknown = 0,
 	H5072 = 5072,
@@ -241,6 +241,89 @@ enum class ThermometerType
 	H5184 = 5184,
 	H5055 = 5055,
 };
+std::string ThermometerType2String(const ThermometerType GoveeModel)
+{
+	switch (GoveeModel)
+	{
+	case ThermometerType::H5072:
+		return(std::string("(GVH5072)"));
+	case ThermometerType::H5074:
+		return(std::string("(GVH5074)"));
+	case ThermometerType::H5075:
+		return(std::string("(GVH5075)"));
+	case ThermometerType::H5100:
+		return(std::string("(GVH5100)"));
+	case ThermometerType::H5101:
+		return(std::string("(GVH5101)"));
+	case ThermometerType::H5104:
+		return(std::string("(GVH5104)"));
+	case ThermometerType::H5105:
+		return(std::string("(GVH5105)"));
+	case ThermometerType::H5174:
+		return(std::string("(GVH5174)"));
+	case ThermometerType::H5177:
+		return(std::string("(GVH5177)"));
+	case ThermometerType::H5179:
+		return(std::string("(GVH5179)"));
+	case ThermometerType::H5181:
+		return(std::string("(GVH5181)"));
+	case ThermometerType::H5182:
+		return(std::string("(GVH5182)"));
+	case ThermometerType::H5183:
+		return(std::string("(GVH5183)"));
+	case ThermometerType::H5184:
+		return(std::string("(GVH5184)"));
+	case ThermometerType::H5055:
+		return(std::string("(GVH5055)"));
+	}
+	return(std::string("(ThermometerType::Unknown)"));
+}
+ThermometerType String2ThermometerType(const std::string Text)
+{
+	ThermometerType rval = ThermometerType::Unknown;
+	// https://regex101.com/ and https://en.cppreference.com/w/cpp/regex/regex_search
+	if (std::regex_search(Text, std::regex("GVH5100")))
+		rval = ThermometerType::H5100;
+	else if (std::regex_search(Text, std::regex("GVH5101")))
+		rval = ThermometerType::H5101;
+	else if (std::regex_search(Text, std::regex("GVH5104")))
+		rval = ThermometerType::H5104;
+	else if (std::regex_search(Text, std::regex("GVH5105")))
+		rval = ThermometerType::H5105;
+	else if (std::regex_search(Text, std::regex("GVH5174")))
+		rval = ThermometerType::H5174;
+	else if (std::regex_search(Text, std::regex("GVH5177")))
+		rval = ThermometerType::H5177;
+	else if (std::regex_search(Text, std::regex("GVH5072")))
+		rval = ThermometerType::H5072;
+	else if (std::regex_search(Text, std::regex("GVH5075")))
+		rval = ThermometerType::H5075;
+	else if (std::regex_search(Text, std::regex("Govee_H5074|GVH5074")))
+		rval = ThermometerType::H5074;
+	else if (std::regex_search(Text, std::regex("Govee_H5179|GVH5179")))
+		rval = ThermometerType::H5179;
+	//The Bluetooth SIG maintains a list of "Assigned Numbers" that includes those UUIDs found in the sample app: https://www.bluetooth.com/specifications/assigned-numbers/
+	//Although UUIDs are 128 bits in length, the assigned numbers for Bluetooth LE are listed as 16 bit hex values because the lower 96 bits are consistent across a class of attributes.
+	//For example, all BLE characteristic UUIDs are of the form:
+	//0000XXXX-0000-1000-8000-00805f9b34fb
+	else if (std::regex_search(Text, std::regex("GVH5181|00008151-0000-1000-8000-00805f9b34fb")))
+		rval = ThermometerType::H5181;
+	else if (std::regex_search(Text, std::regex("GVH5182|00008251-0000-1000-8000-00805f9b34fb")))
+		rval = ThermometerType::H5182;
+	//[2024-08-15T16:07:11] [C3:31:30:30:13:27] UUIDs: 00008251-0000-1000-8000-00805f9b34fb
+	//[2024-08-15T16:07:11] [C3:31:30:30:13:27] ManufacturerData: *** Meat Thermometer ***  1330:2701000101e4018008341cdc8008341cdc
+	//[2024-08-15T16:07:11] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
+	else if (std::regex_search(Text, std::regex("GVH5183|00008351-0000-1000-8000-00805f9b34fb")))
+		rval = ThermometerType::H5183;
+	//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] UUIDs: 00008351-0000-1000-8000-00805f9b34fb
+	//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] ManufacturerData: *** Meat Thermometer ***  a15d:b401000101e4008b083426480000 'Apple, Inc.' 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
+	//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] (Temp) 21°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
+	else if (std::regex_search(Text, std::regex("GVH5184|00008451-0000-1000-8000-00805f9b34fb")))
+		rval = ThermometerType::H5184;
+	else if (std::regex_search(Text, std::regex("GVH5055|00005550-0000-1000-8000-00805f9b34fb")))
+		rval = ThermometerType::H5055;
+	return(rval);
+}
 class  Govee_Temp {
 public:
 	time_t Time;
@@ -273,7 +356,7 @@ public:
 	double GetHumidityMax(void) const { return(std::max(Humidity, HumidityMax)); };
 	int GetBattery(void) const { return(Battery); };
 	ThermometerType GetModel(void) const { return(Model); };
-	const std::string GetModelAsString(void) const;
+	const std::string GetModelAsString(void) const { return(ThermometerType2String(Model)); };
 	ThermometerType SetModel(const std::string& Name);
 	ThermometerType SetModel(const unsigned short* UUID);
 	ThermometerType SetModel(const ThermometerType newModel) { ThermometerType oldModel = Model; Model = newModel; return(oldModel); };
@@ -447,87 +530,10 @@ bool Govee_Temp::ReadCache(const std::string& data)
 	SetModel(ssValue.str());
 	return(rval);
 }
-const std::string Govee_Temp::GetModelAsString(void) const
-{
-	switch (Model)
-	{
-	case ThermometerType::H5072:
-		return(std::string("(GVH5072)"));
-	case ThermometerType::H5074:
-		return(std::string("(GVH5074)"));
-	case ThermometerType::H5075:
-		return(std::string("(GVH5075)"));
-	case ThermometerType::H5100:
-		return(std::string("(GVH5100)"));
-	case ThermometerType::H5101:
-		return(std::string("(GVH5101)"));
-	case ThermometerType::H5104:
-		return(std::string("(GVH5104)"));
-	case ThermometerType::H5105:
-		return(std::string("(GVH5105)"));
-	case ThermometerType::H5174:
-		return(std::string("(GVH5174)"));
-	case ThermometerType::H5177:
-		return(std::string("(GVH5177)"));
-	case ThermometerType::H5179:
-		return(std::string("(GVH5179)"));
-	case ThermometerType::H5181:
-		return(std::string("(GVH5181)"));
-	case ThermometerType::H5182:
-		return(std::string("(GVH5182)"));
-	case ThermometerType::H5183:
-		return(std::string("(GVH5183)"));
-	case ThermometerType::H5184:
-		return(std::string("(GVH5184)"));
-	case ThermometerType::H5055:
-		return(std::string("(GVH5055)"));
-	}
-	return(std::string("(ThermometerType::Unknown)"));
-}
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
 {
 	ThermometerType rval = Model;
-	// https://regex101.com/ and https://en.cppreference.com/w/cpp/regex/regex_search
-	if (std::regex_search(Name, std::regex("GVH5100")))
-		Model = ThermometerType::H5100;
-	else if (std::regex_search(Name, std::regex("GVH5101")))
-		Model = ThermometerType::H5101;
-	else if (std::regex_search(Name, std::regex("GVH5104")))
-		Model = ThermometerType::H5104;
-	else if (std::regex_search(Name, std::regex("GVH5105")))
-		Model = ThermometerType::H5105;
-	else if (std::regex_search(Name, std::regex("GVH5174")))
-		Model = ThermometerType::H5174;
-	else if (std::regex_search(Name, std::regex("GVH5177")))
-		Model = ThermometerType::H5177;
-	else if (std::regex_search(Name, std::regex("GVH5072")))
-		Model = ThermometerType::H5072;
-	else if (std::regex_search(Name, std::regex("GVH5075")))
-		Model = ThermometerType::H5075;
-	else if (std::regex_search(Name, std::regex("Govee_H5074|GVH5074")))
-		Model = ThermometerType::H5074;
-	else if (std::regex_search(Name, std::regex("Govee_H5179|GVH5179")))
-		Model = ThermometerType::H5179;
-	//The Bluetooth SIG maintains a list of "Assigned Numbers" that includes those UUIDs found in the sample app: https://www.bluetooth.com/specifications/assigned-numbers/
-	//Although UUIDs are 128 bits in length, the assigned numbers for Bluetooth LE are listed as 16 bit hex values because the lower 96 bits are consistent across a class of attributes.
-	//For example, all BLE characteristic UUIDs are of the form:
-	//0000XXXX-0000-1000-8000-00805f9b34fb
-	else if (std::regex_search(Name, std::regex("GVH5181|00008151-0000-1000-8000-00805f9b34fb")))
-		Model = ThermometerType::H5181;
-	else if (std::regex_search(Name, std::regex("GVH5182|00008251-0000-1000-8000-00805f9b34fb")))
-		Model = ThermometerType::H5182;
-		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] UUIDs: 00008251-0000-1000-8000-00805f9b34fb
-		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] ManufacturerData: *** Meat Thermometer ***  1330:2701000101e4018008341cdc8008341cdc
-		//[2024-08-15T16:07:11] [C3:31:30:30:13:27] (Temp) 21°C (Alarm) 73.88°C (Temp) 21°C (Alarm) 73.88°C (Humidity) 0% (Battery) 100% (GVH5182)
-	else if (std::regex_search(Name, std::regex("GVH5183|00008351-0000-1000-8000-00805f9b34fb")))
-		Model = ThermometerType::H5183;
-		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] UUIDs: 00008351-0000-1000-8000-00805f9b34fb
-		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] ManufacturerData: *** Meat Thermometer ***  a15d:b401000101e4008b083426480000 'Apple, Inc.' 004c:0215494e54454c4c495f524f434b535f48575075f2ff0c
-		//[2024-08-15T15:58:15] [A4:C1:38:5D:A1:B4] (Temp) 21°C (Alarm) 98°C (Humidity) 0% (Battery) 100% (GVH5183)
-	else if (std::regex_search(Name, std::regex("GVH5184|00008451-0000-1000-8000-00805f9b34fb")))
-		Model = ThermometerType::H5184;
-	else if (std::regex_search(Name, std::regex("GVH5055|00005550-0000-1000-8000-00805f9b34fb")))
-		Model = ThermometerType::H5055;
+	Model = String2ThermometerType(Name);
 	return(rval);
 }
 ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
@@ -1972,6 +1978,12 @@ void ReadLoggedData(const std::filesystem::path& filename)
 				for (auto iter = SortableFile.begin(); iter != SortableFile.end(); iter++)
 				{
 					Govee_Temp TheValue(*iter);
+					if (TheValue.GetModel() == ThermometerType::Unknown)
+					{
+						auto foo = GoveeThermometers.find(TheBlueToothAddress);
+						if (foo != GoveeThermometers.end())
+							TheValue.SetModel(foo->second);
+					}
 					if (TheValue.IsValid())
 						UpdateMRTGData(TheBlueToothAddress, TheValue);
 				}
@@ -3941,6 +3953,34 @@ int main(int argc, char **argv)
 			if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
 				SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 			ReadTitleMap(SVGTitleMapFilename);
+			if (!CacheDirectory.empty())
+			{
+				std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt");
+				std::ifstream TheFile(CacheTypesFileName);
+				if (TheFile.is_open())
+				{
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601() << "] Reading: " << CacheTypesFileName.string() << std::endl;
+					else
+						std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
+					std::string TheLine;
+					while (std::getline(TheFile, TheLine))
+					{
+						const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
+						std::smatch BluetoothAddress;
+						if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
+						{
+							bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
+							const std::string delimiters(" \t");
+							auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+							i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+							std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
+							GoveeThermometers.insert(std::make_pair(TheBlueToothAddress, String2ThermometerType(theType)));
+						}
+					}
+					TheFile.close();
+				}
+			}
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
 			GenerateCacheFile(GoveeMRTGLogs); // update cache files if any new data was in logs
@@ -4140,6 +4180,21 @@ int main(int argc, char **argv)
 
 						GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
 						GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+						if (!CacheDirectory.empty())
+						{
+							std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt");
+							std::ofstream CacheFile(CacheTypesFileName, std::ios_base::out | std::ios_base::trunc);
+							if (CacheFile.is_open())
+							{
+								if (ConsoleVerbosity > 0)
+									std::cout << "[" << getTimeISO8601(true) << "] Writing: " << CacheTypesFileName.string() << std::endl;
+								else
+									std::cerr << "Writing: " << CacheTypesFileName.string() << std::endl;
+								for (auto i : GoveeThermometers)
+									CacheFile << ba2string(i.first) << "\t" << ThermometerType2String(i.second) << std::endl;
+								CacheFile.close();
+							}
+						}
 					}
 					bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 				}
