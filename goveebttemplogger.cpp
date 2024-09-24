@@ -487,6 +487,7 @@ const std::string Govee_Temp::GetModelAsString(void) const
 ThermometerType Govee_Temp::SetModel(const std::string& Name)
 {
 	ThermometerType rval = Model;
+	// https://regex101.com/ and https://en.cppreference.com/w/cpp/regex/regex_search
 	if (std::regex_search(Name, std::regex("GVH5100")))
 		Model = ThermometerType::H5100;
 	else if (std::regex_search(Name, std::regex("GVH5101")))
