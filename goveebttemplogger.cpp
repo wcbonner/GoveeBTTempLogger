@@ -1025,8 +1025,39 @@ bool operator ==(const bdaddr_t& a, const bdaddr_t& b)
 	return(A == B);
 }
 /////////////////////////////////////////////////////////////////////////////
-std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_str); std::string rVal(addr_str); return(rVal); }
-bdaddr_t string2ba(const std::string& a) { std::string ssBTAddress(a); if (ssBTAddress.length() == 12)for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)ssBTAddress.insert(index, ":"); bdaddr_t TheBlueToothAddress({ 0 }); if (ssBTAddress.length() == 17)str2ba(ssBTAddress.c_str(), &TheBlueToothAddress); return(TheBlueToothAddress); }
+std::string ba2string(const bdaddr_t& TheBlueToothAddress)
+{
+	std::ostringstream oss;
+	for (auto i = 5; i >= 0; i--)
+	{
+		oss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(TheBlueToothAddress.b[i]);
+		if (i > 0)
+			oss << ":";
+	}
+	return (oss.str());
+}
+const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
+bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
+{
+	bdaddr_t TheBlueToothAddress({ 0 });
+	if (TheBlueToothAddressString.length() == 12)
+	{
+		std::string ssBTAddress(TheBlueToothAddressString);
+		for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
+			ssBTAddress.insert(index, ":");
+		TheBlueToothAddress = string2ba(ssBTAddress);	// Recursive call
+	}
+	else if (std::regex_match(TheBlueToothAddressString, BluetoothAddressRegex))
+	{
+		std::stringstream ss(TheBlueToothAddressString);
+		std::string byteString;
+		int index(5);
+		// Because I've verified the string format with regex I can safely run this loop knowing it'll get 6 bytes
+		while (std::getline(ss, byteString, ':'))
+			TheBlueToothAddress.b[index--] = std::stoi(byteString, nullptr, 16);
+	}
+	return(TheBlueToothAddress);
+}
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
@@ -1047,7 +1078,7 @@ void SignalHandlerSIGHUP(int signal)
 void SignalHandlerSIGALRM(int signal)
 {
 	if (ConsoleVerbosity > 0)
-		std::cout << "[" << getTimeISO8601() << "] ***************** SIGALRM: Caught Alarm. *****************" << std::endl;
+		std::cout << "[" << getTimeISO8601(true) << "] ***************** SIGALRM: Caught Alarm. *****************" << std::endl;
 }
 /////////////////////////////////////////////////////////////////////////////
 bool ValidateDirectory(const std::filesystem::path& DirectoryName)
@@ -1163,7 +1194,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
-			std::cout << "[" << getTimeISO8601() << "] GenerateLogFile: " << LogDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] GenerateLogFile: " << LogDirectory << std::endl;
 		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
 		{
 			if (!it->second.empty()) // Only open the log file if there are entries to add
@@ -1361,7 +1392,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
-			std::cout << "[" << getTimeISO8601() << "] GenerateCacheFile: " << CacheDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] GenerateCacheFile: " << CacheDirectory << std::endl;
 		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
 			GenerateCacheFile(it->first, it->second);
 	}
@@ -1372,7 +1403,7 @@ void ReadCacheDirectory(void)
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
-			std::cout << "[" << getTimeISO8601() << "] ReadCacheDirectory: " << CacheDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] ReadCacheDirectory: " << CacheDirectory << std::endl;
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ CacheDirectory })
 			if (dir_entry.is_regular_file())
@@ -1589,7 +1620,7 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 			if (SVGFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
 				else
 					std::cerr << "Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
 				std::ostringstream tempOString;
@@ -1855,97 +1886,92 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 	}
 }
 // Takes a Bluetooth address and current datapoint and updates the mapped structure in memory simulating the contents of a MRTG log file.
-void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
+void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
 {
-	ThermometerType CacheThermometerType = ThermometerType::Unknown;
-	auto ThermometerTypeIter = GoveeThermometers.find(TheAddress);
-	if (ThermometerTypeIter != GoveeThermometers.end())
-		CacheThermometerType = ThermometerTypeIter->second;
-
-	std::vector<Govee_Temp> foo;
-	auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
-	std::vector<Govee_Temp> &FakeMRTGFile = ret.first->second;
-	if (FakeMRTGFile.empty())
+	if (TheValue.IsValid())	// Sanity Check
 	{
-		FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
-		FakeMRTGFile[0] = TheValue;	// current value
-		FakeMRTGFile[1] = TheValue;
-		for (auto index = 0; index < DAY_COUNT; index++)
-			FakeMRTGFile[index + 2].Time = FakeMRTGFile[index + 1].Time - DAY_SAMPLE;
-		for (auto index = 0; index < WEEK_COUNT; index++)
-			FakeMRTGFile[index + 2 + DAY_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT].Time - WEEK_SAMPLE;
-		for (auto index = 0; index < MONTH_COUNT; index++)
-			FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
-		for (auto index = 0; index < YEAR_COUNT; index++)
-			FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
-		for (auto iter : FakeMRTGFile)
-			iter.SetModel(CacheThermometerType);
-	}
-	else
-	{
-		if (TheValue.Time > FakeMRTGFile[0].Time)
+		std::vector<Govee_Temp> foo;
+		auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
+		std::vector<Govee_Temp>& FakeMRTGFile = ret.first->second;
+		if (FakeMRTGFile.empty())
 		{
+			FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
 			FakeMRTGFile[0] = TheValue;	// current value
-			FakeMRTGFile[1] += TheValue; // averaged value up to DAY_SAMPLE size
+			FakeMRTGFile[1] = TheValue;
+			for (auto index = 0; index < DAY_COUNT; index++)
+				FakeMRTGFile[index + 2].Time = FakeMRTGFile[index + 1].Time - DAY_SAMPLE;
+			for (auto index = 0; index < WEEK_COUNT; index++)
+				FakeMRTGFile[index + 2 + DAY_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT].Time - WEEK_SAMPLE;
+			for (auto index = 0; index < MONTH_COUNT; index++)
+				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
+			for (auto index = 0; index < YEAR_COUNT; index++)
+				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
 		}
-	}
-	bool ZeroAccumulator = false;
-	auto DaySampleFirst = FakeMRTGFile.begin() + 2;
-	auto DaySampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT;
-	auto WeekSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT;
-	auto WeekSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-	auto MonthSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT;
-	auto MonthSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-	auto YearSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-	auto YearSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
-	// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
-	while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
-	{
-		ZeroAccumulator = true;
-		// shuffle all the day samples toward the end
-		std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
-		*DaySampleFirst = FakeMRTGFile[1];
-		DaySampleFirst->NormalizeTime(Govee_Temp::granularity::day);
-		if (difftime(DaySampleFirst->Time, (DaySampleFirst+1)->Time) > DAY_SAMPLE)
-			DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
-		if (DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year)
+		else
 		{
-			if (ConsoleVerbosity > 2)
-				std::cout << "[" << getTimeISO8601() << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
-			// shuffle all the year samples toward the end
-			std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
-			*YearSampleFirst = Govee_Temp();
-			for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
-				*YearSampleFirst += *iter;
+			if (TheValue.Time > FakeMRTGFile[0].Time)
+			{
+				FakeMRTGFile[0] = TheValue;	// current value
+				FakeMRTGFile[1] += TheValue; // averaged value up to DAY_SAMPLE size
+			}
 		}
-		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
-			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
+		bool ZeroAccumulator = false;
+		auto DaySampleFirst = FakeMRTGFile.begin() + 2;
+		auto DaySampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT;
+		auto WeekSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT;
+		auto WeekSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
+		// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
+		while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
 		{
-			if (ConsoleVerbosity > 2)
-				std::cout << "[" << getTimeISO8601() << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
-			// shuffle all the month samples toward the end
-			std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
-			*MonthSampleFirst = Govee_Temp();
-			for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
-				*MonthSampleFirst += *iter;
+			ZeroAccumulator = true;
+			// shuffle all the day samples toward the end
+			std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
+			*DaySampleFirst = FakeMRTGFile[1];
+			DaySampleFirst->NormalizeTime(Govee_Temp::granularity::day);
+			if (difftime(DaySampleFirst->Time, (DaySampleFirst + 1)->Time) > DAY_SAMPLE)
+				DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
+			if (DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year)
+			{
+				if (ConsoleVerbosity > 2)
+					std::cout << "[" << getTimeISO8601(true) << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
+				// shuffle all the year samples toward the end
+				std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
+				*YearSampleFirst = Govee_Temp();
+				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
+					*YearSampleFirst += *iter;
+			}
+			if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
+			{
+				if (ConsoleVerbosity > 2)
+					std::cout << "[" << getTimeISO8601(true) << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
+				// shuffle all the month samples toward the end
+				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
+				*MonthSampleFirst = Govee_Temp();
+				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
+					*MonthSampleFirst += *iter;
+			}
+			if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
+				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::week))
+			{
+				if (ConsoleVerbosity > 2)
+					std::cout << "[" << getTimeISO8601(true) << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
+				// shuffle all the month samples toward the end
+				std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
+				*WeekSampleFirst = Govee_Temp();
+				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
+					*WeekSampleFirst += *iter;
+			}
 		}
-		if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
-			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
-			(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::week))
+		if (ZeroAccumulator)
 		{
-			if (ConsoleVerbosity > 2)
-				std::cout << "[" << getTimeISO8601() << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
-			// shuffle all the month samples toward the end
-			std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
-			*WeekSampleFirst = Govee_Temp();
-			for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
-				*WeekSampleFirst += *iter;
+			FakeMRTGFile[1] = Govee_Temp();
 		}
-	}
-	if (ZeroAccumulator)
-	{
-		FakeMRTGFile[1] = Govee_Temp();
-		FakeMRTGFile[1].SetModel(CacheThermometerType);
 	}
 }
 void ReadLoggedData(const std::filesystem::path& filename)
@@ -1958,8 +1984,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		std::string ssBTAddress(BluetoothAddressInFilename.str());
 		for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
 			ssBTAddress.insert(index, ":");
-		bdaddr_t TheBlueToothAddress({ 0 });
-		str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);
+		bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
 
 		// Only read the file if it's newer than what we may have cached
 		bool bReadFile = true;
@@ -1977,21 +2002,21 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		if (bReadFile)
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Reading: " << filename.string() << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << filename.string() << std::endl;
 			else
 				std::cerr << "Reading: " << filename.string() << std::endl;
 			std::ifstream TheFile(filename);
 			if (TheFile.is_open())
 			{
 				std::vector<std::string> SortableFile;
-				std::string TheLine;
-				while (std::getline(TheFile, TheLine))
-					SortableFile.push_back(TheLine);
+				std::string RawLine;
+				while (std::getline(TheFile, RawLine))
+					SortableFile.push_back(RawLine);
 				TheFile.close();
 				sort(SortableFile.begin(), SortableFile.end());
-				for (auto iter = SortableFile.begin(); iter != SortableFile.end(); iter++)
+				for (auto SortedLine = SortableFile.begin(); SortedLine != SortableFile.end(); SortedLine++)
 				{
-					Govee_Temp TheValue(*iter);
+					Govee_Temp TheValue(*SortedLine);
 					if (TheValue.GetModel() == ThermometerType::Unknown)
 					{
 						auto foo = GoveeThermometers.find(TheBlueToothAddress);
@@ -2012,7 +2037,7 @@ void ReadLoggedData(void)
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
-			std::cout << "[" << getTimeISO8601() << "] ReadLoggedData: " << LogDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] ReadLoggedData: " << LogDirectory << std::endl;
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
@@ -2061,7 +2086,7 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 			{
 				LastModified = TitleMapFileStat.st_mtim.tv_sec;	// only update our time if the file is actually read
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Reading: " << TitleMapFilename.string() << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Reading: " << TitleMapFilename.string() << std::endl;
 				else
 					std::cerr << "Reading: " << TitleMapFilename.string() << std::endl;
 				std::string TheLine;
@@ -2139,7 +2164,7 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] Reading: " << LogDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] Reading: " << LogDirectory << std::endl;
 		std::set<std::string> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
@@ -2157,7 +2182,7 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 			if (SVGIndexFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Writing: " << SVGIndexFilename << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << SVGIndexFilename << std::endl;
 				SVGIndexFile << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << std::endl;
 				SVGIndexFile << "<html>" << std::endl;
 				SVGIndexFile << "<head>" << std::endl;
@@ -2185,7 +2210,7 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 				SVGIndexFile << std::endl;
 
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Writing:";
+					std::cout << "[" << getTimeISO8601(true) << "] Writing:";
 				for (auto & ssBTAddress : files)
 				{
 					SVGIndexFile << "\t<div id=\"" << ssBTAddress << "\">" << std::endl; 
@@ -2204,7 +2229,7 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 				SVGIndexFile << "</body>" << std::endl;
 				SVGIndexFile << "</html>" << std::endl;
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Done" << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Done" << std::endl;
 			}
 		}
 	}
@@ -2404,7 +2429,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			if (TestAddress == *BT_WhiteList.begin()) // if first element in whitelist is FFFFFFFFFF
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+					std::cout << "[" << getTimeISO8601(true) << "] BlueTooth Address Filter:";
 				else
 					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
 						std::cerr << "BlueTooth Address Filter:";
@@ -2428,7 +2453,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			else
 			{
 				if (ConsoleVerbosity > 1)
-					std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+					std::cout << "[" << getTimeISO8601(true) << "] BlueTooth Address Filter:";
 				for (auto & iter : BT_WhiteList)
 				{
 					const bdaddr_t FilterAddress(iter);
@@ -2475,7 +2500,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 			else
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Scanning Started. ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Scanning Started. ScanInterval(" << double(bt_ScanInterval) * 0.625 << " msec) ScanWindow(" << double(bt_ScanWindow) * 0.625 << " msec) ScanType(" << uint(bt_ScanType) << ")" << std::endl;
 				else
 				{
 					if (difftime(TimeNow, LastScanEnableMessage) > (60 * 5)) // Reduce Spamming Syslog
@@ -2503,7 +2528,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 		//if (hci_le_set_scan_parameters(BlueToothDevice_Handle, bt_ScanType, htobs(18), htobs(18), LE_RANDOM_ADDRESS, bt_ScanFilterPolicy, bt_TimeOut) < 0)
 		//	hci_le_set_ext_scan_parameters(BlueToothDevice_Handle, bt_ScanType, htobs(18), htobs(18), LE_RANDOM_ADDRESS, bt_ScanFilterPolicy, bt_TimeOut);
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] Scanning Stopped." << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] Scanning Stopped." << std::endl;
 	}
 	return(btRVal);
 }
@@ -2565,7 +2590,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			&handle,
 			15000);	// A 15 second timeout gives me a better chance of success
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
 		#ifdef BT_READ_REMOTE_FEATURES
 		if ((iRet == 0) && (handle != 0))
 		{
@@ -2576,7 +2601,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 				char* cp = lmp_featurestostr(features, "", 50);
 				if (cp != NULL)
 				{
-					std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "]     Features: " << cp << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]     Features: " << cp << std::endl;
 					bt_free(cp);
 				}
 			}
@@ -2590,7 +2615,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			iRet = hci_read_remote_version(BlueToothDevice_Handle, handle, &ver, 15000);
 			if (iRet != -1)
 			{
-				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "]      Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]      Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
 				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "]   Subversion: " << std::hex << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
 				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "] Manufacturer: " << bt_compidtostr(ver.manufacturer) << std::endl;
 			}
@@ -2616,7 +2641,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			if (l2cap_socket < 0)
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
 			}
 			else
 			{
@@ -2629,7 +2654,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 				if (bind(l2cap_socket, (struct sockaddr*)&srcaddr, sizeof(srcaddr)) < 0)
 				{
 					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+						std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
 					close(l2cap_socket);
 				}
 				else
@@ -2644,13 +2669,13 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 					if (connect(l2cap_socket, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
 					{
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
 						close(l2cap_socket);
 					}
 					else
 					{
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
 
 						unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
 						std::vector<BlueToothService> BTServices;
@@ -2659,7 +2684,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						GATT_DeclarationPacket primary_service_declaration = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, GATT_PRIM_SVC_UUID };
 						do {
 							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.ending_handle << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.ending_handle << std::endl;
 							if (-1 == send(l2cap_socket, &primary_service_declaration, sizeof(primary_service_declaration), 0))
 								buf[0] = BT_ATT_OP_ERROR_RSP;
 							else
@@ -2679,7 +2704,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 												bt_uuid_t theUUID;
 												bt_uuid16_create(&theUUID, attribute_data->UUID);
 												if (ConsoleVerbosity > 1)
-													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
 												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
 												BlueToothService bts = { theUUID, attribute_data->starting_handle, attribute_data->ending_handle };
 												BTServices.push_back(bts);
@@ -2691,7 +2716,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 												bt_uuid_t theUUID;
 												bt_uuid128_create(&theUUID, attribute_data->UUID);
 												if (ConsoleVerbosity > 1)
-													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
 												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
 												BlueToothService bts = { theUUID, attribute_data->starting_handle, attribute_data->ending_handle };
 												BTServices.push_back(bts);
@@ -2702,7 +2727,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 						} while (buf[0] != BT_ATT_OP_ERROR_RSP);
 						if (ConsoleVerbosity > 1)
-							std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 
 						// Next I go through my stored set of SERVICES requesting CHARACTERISTICS based on the combination of starting handle and ending handle
 						for (auto bts = BTServices.begin(); bts != BTServices.end(); bts++)
@@ -2710,7 +2735,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							GATT_DeclarationPacket gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, bts->starting_handle, bts->ending_handle, GATT_INCLUDE_UUID };
 							do {
 								if (ConsoleVerbosity > 1)
-									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Type Request, GATT Include Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.ending_handle << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Type Request, GATT Include Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.ending_handle << std::endl;
 								if (-1 == send(l2cap_socket, &gatt_include_declaration, sizeof(gatt_include_declaration), 0))
 									buf[0] = BT_ATT_OP_ERROR_RSP;
 								else
@@ -2726,12 +2751,12 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 							} while (buf[0] != BT_ATT_OP_ERROR_RSP);
 							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 
 							GATT_DeclarationPacket gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, bts->starting_handle, bts->ending_handle, GATT_CHARAC_UUID };
 							do {
 								if (ConsoleVerbosity > 1)
-									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.ending_handle << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.ending_handle << std::endl;
 								if (-1 == send(l2cap_socket, &gatt_characteristic_declaration, sizeof(gatt_characteristic_declaration), 0))
 									buf[0] = BT_ATT_OP_ERROR_RSP;
 								else
@@ -2781,7 +2806,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 												}
 												if (ConsoleVerbosity > 1)
 												{
-													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << Characteristic.starting_handle;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << Characteristic.starting_handle;
 													std::cout << "..0x" << std::setw(4) << std::setfill('0') << Characteristic.ending_handle;
 													std::cout << " Characteristic Properties: 0x" << std::setw(2) << std::setfill('0') << unsigned(Characteristic.properties);
 													std::cout << " UUID: " << bt_UUID_2_String(&Characteristic.theUUID) << std::endl;
@@ -2794,7 +2819,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 							} while (buf[0] != BT_ATT_OP_ERROR_RSP);
 							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 						}
 
 						if (ConsoleVerbosity > 0)
@@ -2833,7 +2858,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									gatt_information.ending_handle++;
 									gatt_information.ending_handle++;
 									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> Find Information Request, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.ending_handle << std::endl;
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Find Information Request, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.ending_handle << std::endl;
 									if (-1 == send(l2cap_socket, &gatt_information, sizeof(gatt_information), 0))
 										buf[0] = BT_ATT_OP_ERROR_RSP;
 									else
@@ -2854,7 +2879,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													bt_uuid16_create(&theUUID, attribute_data->UUID);
 													if (ConsoleVerbosity > 0)
 													{
-														std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== Handle: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->handle;
+														std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handle: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->handle;
 														std::cout << " UUID: " << bt_UUID_2_String(&theUUID);
 														std::cout << std::endl;
 													}
@@ -2888,7 +2913,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									pkt.handle++;
 									if (ConsoleVerbosity > 1)
 									{
-										std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
 										std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 										for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
 											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
@@ -2906,14 +2931,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											if (buf[0] == BT_ATT_OP_WRITE_RSP)
 											{
 												if (ConsoleVerbosity > 1)
-													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
 											}
 											else if (buf[0] == BT_ATT_OP_ERROR_RSP)
 											{
 												struct __attribute__((__packed__)) bt_error { uint8_t opcode; uint8_t req_opcode; uint16_t handle; uint8_t errcode; } * result = (bt_error*) & (buf[0]);
 												if (ConsoleVerbosity > 1)
 												{
-													std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_ERROR_RSP";
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_ERROR_RSP";
 													std::cout << " Handle: " << std::hex << std::setw(4) << std::setfill('0') << result->handle;
 													std::cout << " Error: " << std::dec << result->errcode;
 													std::cout << std::endl;
@@ -2986,7 +3011,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							{
 								if (ConsoleVerbosity > 1)
 								{
-									std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
 									std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 									for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
 										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
@@ -3009,14 +3034,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									if (buf[0] == BT_ATT_OP_WRITE_RSP)
 									{
 										if (ConsoleVerbosity > 1)
-											std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
 									}
 									else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 									{
 										struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
 										if (ConsoleVerbosity > 1)
 										{
-											std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
 											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 										}
 										if (data->handle == bt_Handle_ReturnData)
@@ -3069,7 +3094,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								else
 								{
 									if (ConsoleVerbosity > 1)
-										std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Reading from device. RetryCount = " << std::dec << RetryCount << std::endl;
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Reading from device. RetryCount = " << std::dec << RetryCount << std::endl;
 									usleep(100000); // 1,000,000 = 1 second.
 									if (--RetryCount < 0)
 										bDownloadInProgress = false;
@@ -3077,7 +3102,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 						}
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Closing l2cap_socket" << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Closing l2cap_socket" << std::endl;
 						close(l2cap_socket);
 					}
 				}
@@ -3087,7 +3112,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 		{
 			hci_disconnect(BlueToothDevice_Handle, handle, HCI_OE_USER_ENDED_CONNECTION, 2000);
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] hci_disconnect" << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] hci_disconnect" << std::endl;
 		}
 		if (setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter)) < 0)
 			std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
@@ -3101,7 +3126,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 		TimeStart -= static_cast<long>(60) * offset;
 		TimeStop -= static_cast<long>(60) * offset;
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] [" << ba2string(GoveeBTAddress) << "] Download from device. " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Download from device. " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
 		else
 			std::cerr << "Download from device: [" << ba2string(GoveeBTAddress) << "] " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
 		TimeDownloadStart -= static_cast<long>(60) * offset;
@@ -3460,7 +3485,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
 				{
 					dbus_message_iter_get_basic(&variant_iter, &value);
-					ssOutput << "[" << getTimeISO8601() << "] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+					ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
 					dbusTemp.SetModel(std::string(value.str));
 					if (dbusTemp.GetModel() != ThermometerType::Unknown)
 						GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
@@ -3617,7 +3642,7 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn, const std::set<bd
 								if (!dict2_string.compare("org.bluez.Device1"))
 								{
 									if (ConsoleVerbosity > 1)
-										ssOutput << "[" << getTimeISO8601() << "] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
+										ssOutput << "[" << getTimeISO8601(true) << "] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
 									dbus_message_iter_next(&dict2_iter);
 									DBusMessageIter array3_iter;
 									dbus_message_iter_recurse(&dict2_iter, &array3_iter);
@@ -3643,7 +3668,7 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn, const std::set<bd
 											UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 											if (ConsoleVerbosity > 0)
-												ssOutput << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+												ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
 										}
 									}
 								}
@@ -3930,7 +3955,7 @@ int main(int argc, char **argv)
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	if (ConsoleVerbosity > 0)
 	{
-		std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << std::endl;
+		std::cout << "[" << getTimeISO8601(true) << "] " << ProgramVersionString << std::endl;
 		if (ConsoleVerbosity > 1)
 		{
 			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
@@ -3974,7 +3999,7 @@ int main(int argc, char **argv)
 				if (TheFile.is_open())
 				{
 					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601() << "] Reading: " << CacheTypesFileName.string() << std::endl;
+						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
 					else
 						std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
 					std::string TheLine;
@@ -4011,14 +4036,13 @@ int main(int argc, char **argv)
 			if (TheFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Reading LastDownload: " << filename.string() << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Reading LastDownload: " << filename.string() << std::endl;
 				else
 					std::cerr << "Reading LastDownload: " << filename.string() << std::endl;
 				std::string TheLine;
 				while (std::getline(TheFile, TheLine))
 				{
 					// rudimentary line checking. It has a BT Address and has a Tab character
-					const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
 					std::smatch BluetoothAddress;
 					if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 					{
@@ -4044,13 +4068,13 @@ int main(int argc, char **argv)
 			DBusConnection* dbus_conn = dbus_bus_get(DBUS_BUS_SYSTEM, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga77ba5250adb84620f16007e1b023cf26
 			if (dbus_error_is_set(&dbus_error)) // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#gab0ed62e9fc2685897eb2d41467c89405
 			{
-				std::cout << "[" << getTimeISO8601() << "] Error connecting to the D-Bus system bus: " << dbus_error.message << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Error connecting to the D-Bus system bus: " << dbus_error.message << std::endl;
 				dbus_error_free(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#gaac6c14ead14829ee4e090f39de6a7568
 			}
 			else
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+					std::cout << "[" << getTimeISO8601(true) << "] Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 				else
 					std::cerr << "Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 				std::map<bdaddr_t, std::string> BlueZAdapterMap;
@@ -4058,7 +4082,7 @@ int main(int argc, char **argv)
 				if (bUse_HCI_Interface && BlueZAdapterMap.empty())
 				{
 					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601() << "] Could not get list of adapters from BlueZ over DBus. Reverting to HCI interface." << std::endl;
+						std::cout << "[" << getTimeISO8601(true) << "] Could not get list of adapters from BlueZ over DBus. Reverting to HCI interface." << std::endl;
 					else
 						std::cerr << "Could not get list of adapters from BlueZ over DBus. Reverting to HCI interface." << std::endl;
 				}
@@ -4103,7 +4127,7 @@ int main(int argc, char **argv)
 							if (!dbus_connection_read_write(dbus_conn, 1000)) // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga371163b4955a6e0bf0f1f70f38390c14
 							{
 								if (ConsoleVerbosity > 0)
-									std::cout << "[" << getTimeISO8601() << "] D-Bus connection was closed" << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] D-Bus connection was closed" << std::endl;
 								else
 									std::cerr << "D-Bus connection was closed" << std::endl;
 								bRun = false;
@@ -4133,7 +4157,7 @@ int main(int argc, char **argv)
 											UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 											if (ConsoleVerbosity > 0)
-												std::cout << "[" << getTimeISO8601() << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
 										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
@@ -4144,7 +4168,7 @@ int main(int argc, char **argv)
 							if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
 							{
 								if (ConsoleVerbosity > 0)
-									std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 								TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
 								WriteAllSVG();
 							}
@@ -4177,7 +4201,7 @@ int main(int argc, char **argv)
 							if (difftime(TimeNow, TimeStart) > LogFileTime)
 							{
 								if (ConsoleVerbosity > 0)
-									std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeStart = TimeNow;
 								GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
@@ -4313,13 +4337,13 @@ int main(int argc, char **argv)
 						if (ConsoleVerbosity > 0)
 						{
 							if (!ControllerAddress.empty())
-								std::cout << "[" << getTimeISO8601() << "] Using Controller Address: " << ControllerAddress << std::endl;
-							std::cout << "[" << getTimeISO8601() << "] LocalName: " << LocalName << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] Using Controller Address: " << ControllerAddress << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] LocalName: " << LocalName << std::endl;
 							if (BT_WhiteList.empty())
-								std::cout << "[" << getTimeISO8601() << "] No BlueTooth Address Filter" << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] No BlueTooth Address Filter" << std::endl;
 							else
 							{
-								std::cout << "[" << getTimeISO8601() << "] BlueTooth Address Filter:";
+								std::cout << "[" << getTimeISO8601(true) << "] BlueTooth Address Filter:";
 								for (auto iter = BT_WhiteList.begin(); iter != BT_WhiteList.end(); iter++)
 									std::cout << " [" << ba2string(*iter) << "]";
 								std::cout << std::endl;
@@ -4378,9 +4402,9 @@ int main(int argc, char **argv)
 												if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
 												{
 													if (ConsoleVerbosity > 3)
-														std::cout << "[" << getTimeISO8601() << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
+														std::cout << "[" << getTimeISO8601(true) << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
 													std::ostringstream ConsoleOutLine;
-													ConsoleOutLine << "[" << getTimeISO8601() << "]" << std::setw(3) << bufDataLen;
+													ConsoleOutLine << "[" << getTimeISO8601(true) << "]" << std::setw(3) << bufDataLen;
 
 													// At this point I should have an HCI Event in buf (hci_event_hdr)
 													evt_le_meta_event* meta = (evt_le_meta_event*)(buf + (HCI_EVENT_HDR_SIZE + 1));
@@ -4426,7 +4450,7 @@ int main(int argc, char **argv)
 																if (data_len + 1 > info->length)
 																{
 																	if (ConsoleVerbosity > 0)
-																		std::cout << "[" << getTimeISO8601() << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
+																		std::cout << "[" << getTimeISO8601(true) << "] EIR data length is longer than EIR packet length. " << data_len << " + 1 > " << info->length << std::endl;
 																	data_error = true;
 																}
 																else
@@ -4526,6 +4550,12 @@ int main(int argc, char **argv)
 																			if (localTemp.ReadMSG((info->data + current_offset)))	// This line decodes temperature from advertisment
 																			{
 																				TemperatureInAdvertisment = true;
+																				if (localTemp.GetModel() == ThermometerType::Unknown)
+																				{
+																					auto foo = GoveeThermometers.find(info->bdaddr);
+																					if (foo != GoveeThermometers.end())
+																						localTemp.SetModel(foo->second);
+																				}
 																				ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
 																				if ((localTemp.GetModel() == ThermometerType::H5181) || (localTemp.GetModel() == ThermometerType::H5183))
 																					ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
@@ -4629,14 +4659,14 @@ int main(int argc, char **argv)
 										if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
 										{
 											if (ConsoleVerbosity > 0)
-												std::cout << "[" << getTimeISO8601() << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
+												std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 											TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
 											WriteAllSVG();
 										}
 										if (difftime(TimeNow, TimeStart) > LogFileTime)
 										{
 											if (ConsoleVerbosity > 0)
-												std::cout << "[" << getTimeISO8601() << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
+												std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 											TimeStart = TimeNow;
 											GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 											GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
@@ -4646,7 +4676,7 @@ int main(int argc, char **argv)
 										if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
 										{
 											if (ConsoleVerbosity > 0)
-												std::cout << "[" << getTimeISO8601() << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+												std::cout << "[" << getTimeISO8601(true) << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
 											btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList);
 											if (btRVal < 0)
 											{
@@ -4693,7 +4723,7 @@ int main(int argc, char **argv)
 	else if ((!UseBluetooth) && (!LogDirectory.empty()) && (!SVGDirectory.empty()))
 	{
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601() << "] " << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] " << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
 		else
 			std::cerr << ProgramVersionString << " Running in --no-bluetooth mode" << std::endl;
 
@@ -4721,13 +4751,13 @@ int main(int argc, char **argv)
 			sigaddset(&set, SIGHUP);
 			alarm(5 * 60);
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601() << "] Alarm Set" << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] Alarm Set" << std::endl;
 			int sig = 0;
 			int s = sigwait(&set, &sig);
 			if (sig == SIGALRM)
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601() << "] Alarm Recieved" << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Alarm Recieved" << std::endl;
 				MonitorLoggedData(LogFileTime * 2);
 				WriteAllSVG();
 			}
