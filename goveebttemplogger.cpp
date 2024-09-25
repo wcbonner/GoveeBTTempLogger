@@ -1429,7 +1429,6 @@ void ReadCacheDirectory(void)
 						// TODO: check to make sure the version is compatible
 						if (std::regex_match(TheLine, CacheFirstLineRegex))
 						{
-							const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
 							std::smatch BluetoothAddress;
 							if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 							{
@@ -1976,15 +1975,12 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
 }
 void ReadLoggedData(const std::filesystem::path& filename)
 {
-	const std::regex BluetoothAddressRegex("[[:xdigit:]]{12}");
+	const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
 	std::smatch BluetoothAddressInFilename;
 	std::string Stem(filename.stem().string());
-	if (std::regex_search(Stem, BluetoothAddressInFilename, BluetoothAddressRegex))
+	if (std::regex_search(Stem, BluetoothAddressInFilename, ModifiedBluetoothAddressRegex))
 	{
-		std::string ssBTAddress(BluetoothAddressInFilename.str());
-		for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
-			ssBTAddress.insert(index, ":");
-		bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
+		bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddressInFilename.str()));
 
 		// Only read the file if it's newer than what we may have cached
 		bool bReadFile = true;
@@ -2093,13 +2089,10 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 
 				while (std::getline(TheFile, TheLine))
 				{
-					const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
 					std::smatch BluetoothAddress;
 					if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 					{
-						bdaddr_t TheBlueToothAddress({ 0 });
-						str2ba(BluetoothAddress.str().c_str(), &TheBlueToothAddress);
-						
+						bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
 						const std::string delimiters(" \t");
 						auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
 						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
@@ -2170,10 +2163,10 @@ void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesyst
 			if (dir_entry.is_regular_file())
 				if (std::regex_match(dir_entry.path().filename().string(), LogFileRegex))
 					{
-						const std::regex BluetoothAddressRegex("[[:xdigit:]]{12}");
+						const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
 						std::smatch BluetoothAddressInFilename;
 						std::string Stem(dir_entry.path().stem().string());
-						if (std::regex_search(Stem, BluetoothAddressInFilename, BluetoothAddressRegex))
+						if (std::regex_search(Stem, BluetoothAddressInFilename, ModifiedBluetoothAddressRegex))
 							files.insert(BluetoothAddressInFilename.str());
 					}
 		if (!files.empty())
@@ -3647,9 +3640,9 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn, const std::set<bd
 									DBusMessageIter array3_iter;
 									dbus_message_iter_recurse(&dict2_iter, &array3_iter);
 									bdaddr_t localBTAddress({ 0 });
-									const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+									const std::regex ModifiedBluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
 									std::smatch AddressMatch;
-									if (std::regex_search(dict1_object_path, AddressMatch, BluetoothAddressRegex))
+									if (std::regex_search(dict1_object_path, AddressMatch, ModifiedBluetoothAddressRegex))
 									{
 										std::string BluetoothAddress(AddressMatch.str());
 										std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
@@ -3698,9 +3691,9 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 		std::string root_object_path(value.str);
 
 		std::string BluetoothAddress;
-		const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+		const std::regex ModifiedBluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
 		std::smatch AddressMatch;
-		if (std::regex_search(root_object_path, AddressMatch, BluetoothAddressRegex))
+		if (std::regex_search(root_object_path, AddressMatch, ModifiedBluetoothAddressRegex))
 		{
 			BluetoothAddress = AddressMatch.str();
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
@@ -3742,9 +3735,9 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		// TODO: convert dbus_msg_Path to dbusBTAddress using regex
 		const std::string dbus_msg_Path(dbus_message_get_path(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga18adf731bb42d324fe2624407319e4af
 		std::string BluetoothAddress;
-		const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+		const std::regex ModifiedBluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
 		std::smatch AddressMatch;
-		if (std::regex_search(dbus_msg_Path, AddressMatch, BluetoothAddressRegex))
+		if (std::regex_search(dbus_msg_Path, AddressMatch, ModifiedBluetoothAddressRegex))
 		{
 			BluetoothAddress = AddressMatch.str();
 			std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
@@ -4005,7 +3998,6 @@ int main(int argc, char **argv)
 					std::string TheLine;
 					while (std::getline(TheFile, TheLine))
 					{
-						const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
 						std::smatch BluetoothAddress;
 						if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 						{
