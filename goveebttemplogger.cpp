@@ -1857,6 +1857,11 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 // Takes a Bluetooth address and current datapoint and updates the mapped structure in memory simulating the contents of a MRTG log file.
 void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 {
+	ThermometerType CacheThermometerType = ThermometerType::Unknown;
+	auto ThermometerTypeIter = GoveeThermometers.find(TheAddress);
+	if (ThermometerTypeIter != GoveeThermometers.end())
+		CacheThermometerType = ThermometerTypeIter->second;
+
 	std::vector<Govee_Temp> foo;
 	auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
 	std::vector<Govee_Temp> &FakeMRTGFile = ret.first->second;
@@ -1873,6 +1878,8 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 			FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
 		for (auto index = 0; index < YEAR_COUNT; index++)
 			FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
+		for (auto iter : FakeMRTGFile)
+			iter.SetModel(CacheThermometerType);
 	}
 	else
 	{
@@ -1936,7 +1943,10 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, Govee_Temp& TheValue)
 		}
 	}
 	if (ZeroAccumulator)
+	{
 		FakeMRTGFile[1] = Govee_Temp();
+		FakeMRTGFile[1].SetModel(CacheThermometerType);
+	}
 }
 void ReadLoggedData(const std::filesystem::path& filename)
 {
