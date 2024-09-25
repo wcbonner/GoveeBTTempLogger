@@ -941,6 +941,7 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 		HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
 		Battery = std::min(Battery, b.Battery);
 		Averages += b.Averages; // existing average + new average
+		Model = b.Model; // This is important in case "a" was initialized but not valid
 	}
 	return(*this);
 }
@@ -1401,20 +1402,19 @@ void ReadCacheDirectory(void)
 							std::smatch BluetoothAddress;
 							if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 							{
-								bdaddr_t TheBlueToothAddress({ 0 });
-								str2ba(BluetoothAddress.str().c_str(), &TheBlueToothAddress);
+								bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
+								ThermometerType CacheThermometerType = ThermometerType::Unknown;
+								auto foo = GoveeThermometers.find(TheBlueToothAddress);
+								if (foo != GoveeThermometers.end())
+									CacheThermometerType = foo->second;
 								std::vector<Govee_Temp> FakeMRTGFile;
 								FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
 								while (std::getline(TheFile, TheLine))
 								{
 									Govee_Temp TheValue;
-									if (TheValue.GetModel() == ThermometerType::Unknown)
-									{
-										auto foo = GoveeThermometers.find(TheBlueToothAddress);
-										if (foo != GoveeThermometers.end())
-											TheValue.SetModel(foo->second);
-									}
 									TheValue.ReadCache(TheLine);
+									if (TheValue.GetModel() == ThermometerType::Unknown)
+										TheValue.SetModel(CacheThermometerType);
 									FakeMRTGFile.push_back(TheValue);
 								}
 								if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
