@@ -2004,6 +2004,11 @@ void ReadLoggedData(const std::filesystem::path& filename)
 			std::ifstream TheFile(filename);
 			if (TheFile.is_open())
 			{
+				ThermometerType CacheThermometerType = ThermometerType::Unknown;
+				auto foo = GoveeThermometers.find(TheBlueToothAddress);
+				if (foo != GoveeThermometers.end())
+					CacheThermometerType = foo->second;
+
 				std::vector<std::string> SortableFile;
 				std::string RawLine;
 				while (std::getline(TheFile, RawLine))
@@ -2014,11 +2019,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 				{
 					Govee_Temp TheValue(*SortedLine);
 					if (TheValue.GetModel() == ThermometerType::Unknown)
-					{
-						auto foo = GoveeThermometers.find(TheBlueToothAddress);
-						if (foo != GoveeThermometers.end())
-							TheValue.SetModel(foo->second);
-					}
+						TheValue.SetModel(CacheThermometerType);
 					if (TheValue.IsValid())
 						UpdateMRTGData(TheBlueToothAddress, TheValue);
 				}
@@ -2115,7 +2116,11 @@ void WriteAllSVG()
 		std::string btAddress(ba2string(TheAddress));
 		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 			btAddress.erase(pos, 1);
-		std::string ssTitle(btAddress);
+		ThermometerType CacheThermometerType = ThermometerType::Unknown;
+		auto foo = GoveeThermometers.find(TheAddress);
+		if (foo != GoveeThermometers.end())
+			CacheThermometerType = foo->second;
+		std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
 		if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
 			ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
 		std::filesystem::path OutputPath;
@@ -3985,9 +3990,36 @@ int main(int argc, char **argv)
 			if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
 				SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 			ReadTitleMap(SVGTitleMapFilename);
-			if (!CacheDirectory.empty())
+			if (!CacheDirectory.empty()) // 2024-09-25 This location was a bad choice and has been deprecated to the logfile location
 			{
 				std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt");
+				std::ifstream TheFile(CacheTypesFileName);
+				if (TheFile.is_open())
+				{
+					if (ConsoleVerbosity > 0)
+						std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
+					else
+						std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
+					std::string TheLine;
+					while (std::getline(TheFile, TheLine))
+					{
+						std::smatch BluetoothAddress;
+						if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
+						{
+							bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
+							const std::string delimiters(" \t");
+							auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
+							i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+							std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
+							GoveeThermometers.insert(std::make_pair(TheBlueToothAddress, String2ThermometerType(theType)));
+						}
+					}
+					TheFile.close();
+				}
+			}
+			if (!LogDirectory.empty())
+			{
+				std::filesystem::path CacheTypesFileName(LogDirectory / "gvh-thermometer-types.txt");
 				std::ifstream TheFile(CacheTypesFileName);
 				if (TheFile.is_open())
 				{
@@ -4210,9 +4242,9 @@ int main(int argc, char **argv)
 
 						GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
 						GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
-						if (!CacheDirectory.empty())
+						if (!LogDirectory.empty())
 						{
-							std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt");
+							std::filesystem::path CacheTypesFileName(LogDirectory / "gvh-thermometer-types.txt");
 							std::ofstream CacheFile(CacheTypesFileName, std::ios_base::out | std::ios_base::trunc);
 							if (CacheFile.is_open())
 							{
