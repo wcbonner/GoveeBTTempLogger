@@ -78,10 +78,19 @@ cmake --build GoveeBTTempLogger/build
 pushd GoveeBTTempLogger/build && cpack . && popd
 ```
 
-The install package will install a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured using environment variables via
+The install package will creates a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
 
-There are several `ExecStartPre` lines to confirm the directories used exist. To use different directories, both this location and the parameter on the ExecStart line need to be changed.
+
+The [postinst](https://github.com/wcbonner/GoveeBTTempLogger/blob/master/postinst) install routine creates a user and three directories.
+It also will change the permissions on those dirctories to be owned by and writable by the newly created user.
+```
+adduser --system --ingroup www-data goveebttemplogger
+mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
+sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
+```
 
 The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
 
@@ -89,17 +98,15 @@ The systemd unit file section `ExecStart` to start the service has been broken i
 [Service]
 Type=simple
 Restart=always
-RestartSec=5
-ExecStartPre=/bin/mkdir -p /var/log/goveebttemplogger
-ExecStartPre=/bin/mkdir -p /var/www/html/goveebttemplogger
-ExecStartPre=/bin/mkdir -p /var/cache/goveebttemplogger
+RestartSec=30
+User=goveebttemplogger
+Group=www-data
 ExecStart=/usr/local/bin/goveebttemplogger \
     --verbose 0 \
     --log /var/log/goveebttemplogger \
     --time 60 \
     --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
-    --cache /var/cache/goveebttemplogger \
-    --download
+    --cache /var/cache/goveebttemplogger
 KillSignal=SIGINT
 ```
 
