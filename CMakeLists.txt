@@ -21,7 +21,7 @@ if (POLICY CMP0115)
 endif()
 
 project (GoveeBTTempLogger
-    VERSION 3.20240925.1
+    VERSION 3.20240925.8
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -55,7 +55,7 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 target_include_directories(goveebttemplogger PUBLIC
-    "${PROJECT_BINARY_DIR}" 
+    "${PROJECT_BINARY_DIR}"
     ${EXTRA_INCLUDES}
     ${dbus_INCLUDE_DIRS}
     )
