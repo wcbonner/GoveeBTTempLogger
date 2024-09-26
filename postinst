@@ -1,7 +1,13 @@
 #!/bin/sh
 # POSTINST script for goveebttemplogger
 
-echo "\033[36m HI I'M A POSTINST SCRIPT `date +"%s"` \033[39m"
+echo "\033[36m HI I'M A POSTINST SCRIPT `date --rfc-3339='seconds'` running as \033[91m`whoami`\033[39m"
+adduser --system --ingroup www-data goveebttemplogger
+mkdir --mode 0775 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chown --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chmod --recursive 0664 /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+chmod 0775 /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
+sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
 systemctl daemon-reload
 systemctl enable goveebttemplogger.service
 systemctl start goveebttemplogger.service
