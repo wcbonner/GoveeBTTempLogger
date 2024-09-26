@@ -6,7 +6,6 @@ adduser --system --ingroup www-data goveebttemplogger
 mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
-# chmod 0755 /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
 systemctl daemon-reload
 systemctl enable goveebttemplogger.service
