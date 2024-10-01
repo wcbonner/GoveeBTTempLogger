@@ -7,6 +7,11 @@ mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/gove
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
+if [ -f /var/log/goveebttemplogger/gvh507x_*.txt ]; then
+    mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger/backup
+    /usr/local/bin/gvh-organizelogs --log /var/log/goveebttemplogger/ --backup /var/log/goveebttemplogger/backup/
+    chown --recursive goveebttemplogger:www-data /var/log/goveebttemplogger
+fi
 systemctl daemon-reload
 systemctl enable goveebttemplogger.service
 systemctl start goveebttemplogger.service

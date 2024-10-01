@@ -1146,7 +1146,8 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 	//OutputFilename << "gvh507x_";
 	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
 	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
-	OutputFilename << "gvh507x_";
+	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
+	OutputFilename << "gvh-";
 	std::string btAddress(ba2string(a));
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
@@ -1158,34 +1159,7 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
 			OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
 	OutputFilename << ".txt";
-	std::filesystem::path OldFormatFileName(LogDirectory / OutputFilename.str());
-
-	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
-	OutputFilename.str("");
-	OutputFilename << "gvh-";
-	OutputFilename << btAddress;
-	if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
-		OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
-	OutputFilename << ".txt";
 	std::filesystem::path NewFormatFileName(LogDirectory / OutputFilename.str());
-
-	// This is a temporary hack to transparently change log file name formats
-	std::ifstream OldFile(OldFormatFileName);
-	if (OldFile.is_open())
-	{
-		OldFile.close();
-		try 
-		{ 
-			std::filesystem::rename(OldFormatFileName, NewFormatFileName);
-			std::cerr << "[                   ] Renamed " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
-		}
-		catch (const std::filesystem::filesystem_error& ia)
-		{ 
-			std::cerr << "[                   ] " << ia.what() << std::endl;
-			std::cerr << "[                   ] Unable to Rename " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
-		}
-	}
-
 	return(NewFormatFileName);
 }
 bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap, std::map<bdaddr_t, time_t> &PersistenceData)
