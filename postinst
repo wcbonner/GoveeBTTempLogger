@@ -1,13 +1,20 @@
 #!/bin/sh
 # POSTINST script for goveebttemplogger
 
+#simple function to deal with multiple files existing and glob
+exists() {
+    [ -e "$1" ]
+}
+
 echo "\033[36m HI I'M A POSTINST SCRIPT `date --rfc-3339='seconds'` running as \033[91m`whoami`\033[39m"
 adduser --system --ingroup www-data goveebttemplogger
 mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
-if [ -f /var/log/goveebttemplogger/gvh507x_*.txt ]; then
+# the next line doesn't handle multiple files existing, I created the function above that handles multiple files
+# if [ -f /var/log/goveebttemplogger/gvh507x_*.txt ]; then
+if exists /var/log/goveebttemplogger/gvh507x_*.txt; then
     mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger/backup
     /usr/local/bin/gvh-organizelogs --log /var/log/goveebttemplogger/ --backup /var/log/goveebttemplogger/backup/
     chown --recursive goveebttemplogger:www-data /var/log/goveebttemplogger
