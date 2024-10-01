@@ -158,8 +158,39 @@ bool operator ==(const bdaddr_t& a, const bdaddr_t& b)
 	return(A == B);
 }
 /////////////////////////////////////////////////////////////////////////////
-std::string ba2string(const bdaddr_t& a) { char addr_str[18]; ba2str(&a, addr_str); std::string rVal(addr_str); return(rVal); }
-bdaddr_t string2ba(const std::string& a) { std::string ssBTAddress(a);if (ssBTAddress.length() == 12)for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)ssBTAddress.insert(index, ":");bdaddr_t TheBlueToothAddress({ 0 });if (ssBTAddress.length() == 17)str2ba(ssBTAddress.c_str(), &TheBlueToothAddress);return(TheBlueToothAddress); }
+std::string ba2string(const bdaddr_t& TheBlueToothAddress)
+{
+	std::ostringstream oss;
+	for (auto i = 5; i >= 0; i--)
+	{
+		oss << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(TheBlueToothAddress.b[i]);
+		if (i > 0)
+			oss << ":";
+	}
+	return (oss.str());
+}
+const std::regex BluetoothAddressRegex("((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2}");
+bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
+{
+	bdaddr_t TheBlueToothAddress({ 0 });
+	if (TheBlueToothAddressString.length() == 12)
+	{
+		std::string ssBTAddress(TheBlueToothAddressString);
+		for (auto index = ssBTAddress.length() - 2; index > 0; index -= 2)
+			ssBTAddress.insert(index, ":");
+		TheBlueToothAddress = string2ba(ssBTAddress);	// Recursive call
+	}
+	else if (std::regex_match(TheBlueToothAddressString, BluetoothAddressRegex))
+	{
+		std::stringstream ss(TheBlueToothAddressString);
+		std::string byteString;
+		int index(5);
+		// Because I've verified the string format with regex I can safely run this loop knowing it'll get 6 bytes
+		while (std::getline(ss, byteString, ':'))
+			TheBlueToothAddress.b[index--] = std::stoi(byteString, nullptr, 16);
+	}
+	return(TheBlueToothAddress);
+}
 /////////////////////////////////////////////////////////////////////////////
 // Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
 std::filesystem::path GenerateLogFileName(const bdaddr_t& a, time_t timer = 0)
@@ -171,7 +202,8 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t& a, time_t timer = 0)
 	//OutputFilename << "gvh507x_";
 	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
 	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
-	OutputFilename << "gvh507x_";
+	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
+	OutputFilename << "gvh-";
 	std::string btAddress(ba2string(a));
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
@@ -183,34 +215,7 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t& a, time_t timer = 0)
 		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
 			OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
 	OutputFilename << ".txt";
-	std::filesystem::path OldFormatFileName(LogDirectory / OutputFilename.str());
-
-	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
-	OutputFilename.str("");
-	OutputFilename << "gvh-";
-	OutputFilename << btAddress;
-	if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
-		OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
-	OutputFilename << ".txt";
 	std::filesystem::path NewFormatFileName(LogDirectory / OutputFilename.str());
-
-	// This is a temporary hack to transparently change log file name formats
-	std::ifstream OldFile(OldFormatFileName);
-	if (OldFile.is_open())
-	{
-		OldFile.close();
-		try
-		{
-			std::filesystem::rename(OldFormatFileName, NewFormatFileName);
-			std::cerr << "[                   ] Renamed " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
-		}
-		catch (const std::filesystem::filesystem_error& ia)
-		{
-			std::cerr << "[                   ] " << ia.what() << std::endl;
-			std::cerr << "[                   ] Unable to Rename " << OldFormatFileName << " to " << NewFormatFileName << std::endl;
-		}
-	}
-
 	return(NewFormatFileName);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -279,7 +284,7 @@ int main(int argc, char** argv)
 		usage(argc, argv);
 	else
 	{
-		const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
@@ -300,98 +305,101 @@ int main(int argc, char** argv)
 				{
 					std::deque<std::string> DataLines;
 					std::cout << "[" << getTimeISO8601() << "] Reading: " << FQFileName;
-					int count(0);
-					std::string ssBTAddress;
-					if (FQFileName.stem().string().find("gvh-") != std::string::npos)
-						ssBTAddress = FQFileName.stem().string().substr(4, 12);	// new filename format (2023-04-03)
-					bdaddr_t TheBlueToothAddress(string2ba(ssBTAddress));
-					// Read All Data From Existing Log, removing nulls if possible
-					std::string TheLine;
-					while (std::getline(TheFile, TheLine))
+					const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
+					std::smatch BluetoothAddressInFilename;
+					std::string Stem(FQFileName.stem());
+					if (std::regex_search(Stem, BluetoothAddressInFilename, ModifiedBluetoothAddressRegex))
 					{
-						// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
-						for (auto pos = TheLine.find('\000'); pos != std::string::npos; pos = TheLine.find('\000'))
-							TheLine.erase(pos);
-						DataLines.push_back(TheLine);
-						count++;
-					}
-					std::cout << " (" << count << " lines)";
-					TheFile.close();
-					// Rename Existing Log to backup.
-					bool bBackedUp = false;
-					try
-					{
-						std::filesystem::rename(FQFileName, BackupName);
-						std::cout << " Renamed " << FQFileName << " to " << BackupName << std::endl;
-						bBackedUp = true;
-					}
-					catch (const std::filesystem::filesystem_error& ia)
-					{
-						std::cout << " " << ia.what() << std::endl;
-						std::cout << " Unable to Rename " << FQFileName << " to " << BackupName << std::endl;
-					}
+						bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddressInFilename.str()));
+						int count(0);
+						// Read All Data From Existing Log, removing nulls if possible
+						std::string TheLine;
+						while (std::getline(TheFile, TheLine))
+						{
+							// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
+							for (auto pos = TheLine.find('\000'); pos != std::string::npos; pos = TheLine.find('\000'))
+								TheLine.erase(pos);
+							DataLines.push_back(TheLine);
+							count++;
+						}
+						std::cout << " (" << count << " lines)";
+						TheFile.close();
+						// Rename Existing Log to backup.
+						bool bBackedUp = false;
+						try
+						{
+							std::filesystem::rename(FQFileName, BackupName);
+							std::cout << " Renamed " << FQFileName << " to " << BackupName << std::endl;
+							bBackedUp = true;
+						}
+						catch (const std::filesystem::filesystem_error& ia)
+						{
+							std::cout << " " << ia.what() << std::endl;
+							std::cout << " Unable to Rename " << FQFileName << " to " << BackupName << std::endl;
+						}
 
-					if (bBackedUp)
-					{
-						// Sort all Data
-						sort(DataLines.begin(), DataLines.end());
-						// Distribute Data to appropriate new Log Files
-						std::ofstream LogFile;
-						time_t TheTime(0), LastTime(0);
-						int LastYear(0), LastMonth(0);
-						std::filesystem::path LastFileName;
-						std::string LastLine;
-						while (!DataLines.empty())
+						if (bBackedUp)
 						{
-							if (DataLines.begin()->length() > 18)	// line is longer than an ISO8601 String
+							// Sort all Data
+							sort(DataLines.begin(), DataLines.end());
+							// Distribute Data to appropriate new Log Files
+							std::ofstream LogFile;
+							time_t TheTime(0), LastTime(0);
+							int LastYear(0), LastMonth(0);
+							std::filesystem::path LastFileName;
+							std::string LastLine;
+							while (!DataLines.empty())
 							{
-								if (0 != LastLine.compare(*DataLines.begin()))	// line is unique
+								if (DataLines.begin()->length() > 18)	// line is longer than an ISO8601 String
 								{
-									TheTime = ISO8601totime(*DataLines.begin());
-									struct tm UTC;
-									if (nullptr != gmtime_r(&TheTime, &UTC))
+									if (0 != LastLine.compare(*DataLines.begin()))	// line is unique
 									{
-										if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
+										TheTime = ISO8601totime(*DataLines.begin());
+										struct tm UTC;
+										if (nullptr != gmtime_r(&TheTime, &UTC))
 										{
-											LastYear = UTC.tm_year;
-											LastMonth = UTC.tm_mon;
-											if (LogFile.is_open())
+											if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
 											{
-												std::cout << " (" << count << " lines)" << std::endl;
-												LogFile.close();
-												if (!LastFileName.empty())
+												LastYear = UTC.tm_year;
+												LastMonth = UTC.tm_mon;
+												if (LogFile.is_open())
 												{
-													struct utimbuf ut;
-													ut.actime = LastTime;
-													ut.modtime = LastTime;
-													utime(LastFileName.c_str(), &ut);
+													std::cout << " (" << count << " lines)" << std::endl;
+													LogFile.close();
+													if (!LastFileName.empty())
+													{
+														struct utimbuf ut;
+														ut.actime = LastTime;
+														ut.modtime = LastTime;
+														utime(LastFileName.c_str(), &ut);
+													}
 												}
+												LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
+												LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
+												std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
+												count = 0;
 											}
-											LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
-											LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
-											std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
-											count = 0;
+											LogFile << *DataLines.begin() << std::endl;
+											LastTime = TheTime;
+											count++;
 										}
-										LogFile << *DataLines.begin() << std::endl;
-										LastTime = TheTime;
-										count++;
+										LastLine = *DataLines.begin();
 									}
-									LastLine = *DataLines.begin();
 								}
+								DataLines.pop_front();
 							}
-							DataLines.pop_front();
+							std::cout << " (" << count << " lines)" << std::endl;
+							LogFile.close();
+							if (!LastFileName.empty())
+							{
+								struct utimbuf ut;
+								ut.actime = LastTime;
+								ut.modtime = LastTime;
+								utime(LastFileName.c_str(), &ut);
+							}
 						}
-						std::cout << " (" << count << " lines)" << std::endl;
-						LogFile.close();
-						if (!LastFileName.empty())
-						{
-							struct utimbuf ut;
-							ut.actime = LastTime;
-							ut.modtime = LastTime;
-							utime(LastFileName.c_str(), &ut);
-						}
+						files.pop_front();
 					}
-					files.pop_front();
 				}
 			}
 		}
