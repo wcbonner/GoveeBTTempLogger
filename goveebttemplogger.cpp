@@ -3399,6 +3399,7 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 {
 	bool bStarted = false;
 	// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/adapter-api.txt
+	// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/org.bluez.Adapter.rst
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", bStartDiscovery ? "StartDiscovery" : "StopDiscovery");
 	if (!dbus_msg)
 	{
@@ -3652,6 +3653,112 @@ void bluez_dbus_FindExistingDevices(DBusConnection* dbus_conn, const std::set<bd
 			}
 			dbus_message_unref(dbus_reply);
 		}
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+}
+void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const std::map<bdaddr_t, ThermometerType> & KnownDevices)
+{
+	// This link helped figure out how to remove a device
+	// https://www.linumiz.com/bluetooth-removedevice-to-remove-the-device/
+	std::ostringstream ssOutput;
+	std::queue<std::string> ObjectsToDelete;
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+	if (dbus_msg)
+	{
+		// Initialize D-Bus error
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+		dbus_message_unref(dbus_msg);
+		if (dbus_reply)
+		{
+			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
+			{
+				const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply));
+				int indent(16);
+				if (!dbus_reply_Signature.compare("a{oa{sa{sv}}}"))
+				{
+					DBusMessageIter root_iter;
+					dbus_message_iter_init(dbus_reply, &root_iter);
+					do {
+						DBusMessageIter array1_iter;
+						dbus_message_iter_recurse(&root_iter, &array1_iter);
+						do {
+							indent += 4;
+							DBusMessageIter dict1_iter;
+							dbus_message_iter_recurse(&array1_iter, &dict1_iter);
+							DBusBasicValue value;
+							dbus_message_iter_get_basic(&dict1_iter, &value);
+							std::string dict1_object_path(value.str);
+							dbus_message_iter_next(&dict1_iter);
+							DBusMessageIter array2_iter;
+							dbus_message_iter_recurse(&dict1_iter, &array2_iter);
+							do
+							{
+								DBusMessageIter dict2_iter;
+								dbus_message_iter_recurse(&array2_iter, &dict2_iter);
+								dbus_message_iter_get_basic(&dict2_iter, &value);
+								std::string dict2_string(value.str);
+								if (!dict2_string.compare("org.bluez.Device1"))
+								{
+									if (ConsoleVerbosity > 0)
+										ssOutput << "[" << getTimeISO8601(true) << "] " << std::right << std::setw(indent) << "Object Path: " << dict1_object_path << std::endl;
+									dbus_message_iter_next(&dict2_iter);
+									DBusMessageIter array3_iter;
+									dbus_message_iter_recurse(&dict2_iter, &array3_iter);
+									const std::regex ModifiedBluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+									std::smatch AddressMatch;
+									if (std::regex_search(dict1_object_path, AddressMatch, ModifiedBluetoothAddressRegex))
+									{
+										std::string BluetoothAddress(AddressMatch.str());
+										std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
+										bdaddr_t localBTAddress(string2ba(BluetoothAddress));
+										auto BT_Device = KnownDevices.find(localBTAddress);
+										if (BT_Device != KnownDevices.end())
+											ObjectsToDelete.push(dict1_object_path);
+									}
+								}
+							} while (dbus_message_iter_next(&array2_iter));
+							indent -= 4;
+						} while (dbus_message_iter_next(&array1_iter));
+					} while (dbus_message_iter_next(&root_iter));
+				}
+			}
+			dbus_message_unref(dbus_reply);
+		}
+	}
+	while (!ObjectsToDelete.empty())
+	{
+		std::string ObjectPath(ObjectsToDelete.front());
+		DBusMessage* dbus_msg_remove = dbus_message_new_method_call("org.bluez", ObjectPath.c_str(), "org.freedesktop.DBus.ObjectManager", "RemoveDevice");
+		if (dbus_msg_remove)
+		{
+			if (ConsoleVerbosity > 1)
+				ssOutput << "[" << getTimeISO8601(true) << "] " << "RemoveDevice: " << ObjectPath << std::endl;
+			// Initialize D-Bus error
+			DBusError dbus_error;
+			dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+			DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_remove, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+			dbus_message_unref(dbus_msg_remove);
+		}
+		//GError* error = NULL;
+		//auto result = g_dbus_connection_call_sync(dbus_conn,
+		//	"org.bluez",
+		//	/* TODO Find the adapter path runtime */
+		//	"/org/bluez/hci0",
+		//	"org.bluez.Adapter1",
+		//	"RemoveDevice",
+		//	g_variant_new("(o)", object),
+		//	NULL,
+		//	G_DBUS_CALL_FLAGS_NONE,
+		//	-1,
+		//	NULL,
+		//	&error);
+		//if (error != NULL)
+		//	g_print("Not able to remove %s\n", object);
+		//g_variant_unref(result);
+		ObjectsToDelete.pop();
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
@@ -4119,6 +4226,7 @@ int main(int argc, char **argv)
 						bRun = true;
 						time_t TimeStart(0), TimeSVG(0), TimeAdvertisment(0);
 						time(&TimeStart);
+						time_t TimeLog(TimeStart);
 						while (bRun)
 						{
 							// Wait for access to the D-Bus
@@ -4196,18 +4304,29 @@ int main(int argc, char **argv)
 									}
 								}
 							}
-							if (difftime(TimeNow, TimeStart) > LogFileTime)
+							if (difftime(TimeNow, TimeLog) > LogFileTime)
 							{
 								if (ConsoleVerbosity > 0)
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
-								TimeStart = TimeNow;
+								TimeLog = TimeNow;
 								GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
 							}
-							if (difftime(TimeNow, TimeStart) > 60*30) // Issue StartDiscovery command every 30 minutes to make sure it's not been turned off by another bluetooth process
-								bRun = bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true);
+#ifdef DEBUG
+							if (difftime(TimeNow, TimeStart) > 60) // Issue StartDiscovery command every minute to make sure it's not been turned off by another bluetooth process
+#else
+							if (difftime(TimeNow, TimeStart) > 60 * 30) // Issue StartDiscovery command every 30 minutes to make sure it's not been turned off by another bluetooth process
+#endif // DEBUG
+							{
+								if (ConsoleVerbosity > 0)
+									std::cout << "[" << getTimeISO8601(true) << "] " << "Restarting Scanning" << std::endl;
+								//bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
+								//bluez_dbus_RemoveKnownDevices(dbus_conn, GoveeThermometers);
+								//bRun = bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true);
+								TimeStart = TimeNow;
+							}
 						}
 						bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
 
