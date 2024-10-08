@@ -1169,20 +1169,20 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	{
 		if (ConsoleVerbosity > 1)
 			std::cout << "[" << getTimeISO8601(true) << "] GenerateLogFile: " << LogDirectory << std::endl;
-		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
+		for (auto& [TheAddress, LogData] : AddressTemperatureMap)
 		{
-			if (!it->second.empty()) // Only open the log file if there are entries to add
+			if (!LogData.empty()) // Only open the log file if there are entries to add
 			{
-				std::filesystem::path filename(GenerateLogFileName(it->first));
+				std::filesystem::path filename(GenerateLogFileName(TheAddress));
 				std::ofstream LogFile(filename, std::ios_base::out | std::ios_base::app | std::ios_base::ate);
 				if (LogFile.is_open())
 				{
 					time_t MostRecentData(0);
-					while (!it->second.empty())
+					while (!LogData.empty())
 					{
-						LogFile << it->second.front().WriteTXT() << std::endl;
-						MostRecentData = std::max(it->second.front().Time, MostRecentData);
-						it->second.pop();
+						LogFile << LogData.front().WriteTXT() << std::endl;
+						MostRecentData = std::max(LogData.front().Time, MostRecentData);
+						LogData.pop();
 					}
 					LogFile.close();
 					struct utimbuf Log_ut;
@@ -1196,14 +1196,14 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 		if (!PersistenceData.empty())
 		{
 			if (ConsoleVerbosity > 0)
-				for (auto & iter : PersistenceData)
-					std::cout << "[-------------------] [" << ba2string(iter.first) << "] " << timeToISO8601(iter.second) << std::endl;
+				for (auto const& [TheAddress, TheTime] : PersistenceData)
+					std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << timeToISO8601(TheTime) << std::endl;
 			// If PersistenceData has updated information, write new data to file
 			std::filesystem::path filename(LogDirectory / GVHLastDownloadFileName);
 			time_t MostRecentDownload(0);
-			for (auto & it : PersistenceData)
-				if (MostRecentDownload < it.second)
-					MostRecentDownload = it.second;
+			for (auto const& [TheAddress, TheTime] : PersistenceData)
+				if (MostRecentDownload < TheTime)
+					MostRecentDownload = TheTime;
 			bool NewData(true);
 			struct stat64 StatBuffer;
 			StatBuffer.st_mtim.tv_sec = 0;
@@ -1218,8 +1218,8 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				std::ofstream PersistenceFile(filename, std::ios_base::out | std::ios_base::trunc);
 				if (PersistenceFile.is_open())
 				{
-					for (auto & it : PersistenceData)
-						PersistenceFile << ba2string(it.first) << "\t" << timeToISO8601(it.second) << std::endl;
+					for (auto const& [TheAddress, TheTime] : PersistenceData)
+						PersistenceFile << ba2string(TheAddress) << "\t" << timeToISO8601(TheTime) << std::endl;
 					PersistenceFile.close();
 					struct utimbuf Persistut;
 					Persistut.actime = MostRecentDownload;
@@ -1232,13 +1232,9 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	else
 	{
 		// clear the queued data if LogDirectory not specified
-		for (auto it = AddressTemperatureMap.begin(); it != AddressTemperatureMap.end(); ++it)
-		{
-			while (!it->second.empty())
-			{
-				it->second.pop();
-			}
-		}
+		for (auto& [TheAddress, LogData] : AddressTemperatureMap)
+			while (!LogData.empty())
+				LogData.pop();
 	}
 	return(rval);
 }
@@ -1300,10 +1296,9 @@ bool GetLogEntry(const bdaddr_t &InAddress, const int Minutes, Govee_Temp & OutV
 	}
 	return(rval);
 }
-void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
+void GetMRTGOutput(const std::string& TheBlueToothAddressString, const int Minutes)
 {
-	bdaddr_t TheAddress = { 0 };
-	str2ba(TextAddress.c_str(), &TheAddress);
+	bdaddr_t TheAddress = { string2ba(TheBlueToothAddressString) };
 	Govee_Temp TheValue;
 	if (GetLogEntry(TheAddress, Minutes, TheValue))
 	{
@@ -1311,16 +1306,16 @@ void GetMRTGOutput(const std::string &TextAddress, const int Minutes)
 		std::cout << TheValue.GetHumidity() * 1000.0 << std::endl; // current state of the second variable, normally 'outgoing bytes count'
 		std::cout << ((TheValue.GetTemperature() * 9.0 / 5.0) + 32.0) * 1000.0 << std::endl; // current state of the first variable, normally 'incoming bytes count'
 		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
-		std::cout << TextAddress << std::endl; // string, name of the target.
+		std::cout << TheBlueToothAddressString << std::endl; // string, name of the target.
 	}
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
 /////////////////////////////////////////////////////////////////////////////
-std::filesystem::path GenerateCacheFileName(const bdaddr_t& a)
+std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress)
 {
-	std::string btAddress(ba2string(a));
+	std::string btAddress(ba2string(TheBlueToothAddress));
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
 	std::ostringstream OutputFilename;
@@ -1330,12 +1325,12 @@ std::filesystem::path GenerateCacheFileName(const bdaddr_t& a)
 	std::filesystem::path CacheFileName(CacheDirectory / OutputFilename.str());
 	return(CacheFileName);
 }
-bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMRTGLog)
+bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Govee_Temp>& GoveeMRTGLog)
 {
 	bool rval(false);
 	if (!GoveeMRTGLog.empty())
 	{
-		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(a));
+		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(TheBlueToothAddress));
 		struct stat64 Stat({ 0 });	// Zero the stat64 structure when it's allocated
 		stat64(MRTGCacheFile.c_str(), &Stat);	// This shouldn't change Stat if the file doesn't exist.
 		if (difftime(GoveeMRTGLog[0].Time, Stat.st_mtim.tv_sec) > 60 * 60) // If Cache File has data older than 60 minutes, write it
@@ -1347,8 +1342,8 @@ bool GenerateCacheFile(const bdaddr_t& a, const std::vector<Govee_Temp>& GoveeMR
 					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << MRTGCacheFile.string() << std::endl;
 				else
 					std::cerr << "Writing: " << MRTGCacheFile.string() << std::endl;
-				CacheFile << "Cache: " << ba2string(a) << " " << ProgramVersionString << std::endl;
-				for (auto i : GoveeMRTGLog)
+				CacheFile << "Cache: " << ba2string(TheBlueToothAddress) << " " << ProgramVersionString << std::endl;
+				for (auto & i : GoveeMRTGLog)
 					CacheFile << i.WriteCache() << std::endl;
 				CacheFile.close();
 				struct utimbuf ut;
@@ -1367,7 +1362,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 	{
 		if (ConsoleVerbosity > 1)
 			std::cout << "[" << getTimeISO8601(true) << "] GenerateCacheFile: " << CacheDirectory << std::endl;
-		for (auto [Key, Value] : AddressTemperatureMap)
+		for (auto const& [Key, Value] : AddressTemperatureMap)
 			GenerateCacheFile(Key, Value);
 	}
 }
@@ -1989,9 +1984,9 @@ void ReadLoggedData(const std::filesystem::path& filename)
 					SortableFile.push_back(RawLine);
 				TheFile.close();
 				sort(SortableFile.begin(), SortableFile.end());
-				for (auto SortedLine = SortableFile.begin(); SortedLine != SortableFile.end(); SortedLine++)
+				for (auto const& SortedLine : SortableFile)
 				{
-					Govee_Temp TheValue(*SortedLine);
+					Govee_Temp TheValue(SortedLine);
 					if (TheValue.GetModel() == ThermometerType::Unknown)
 						TheValue.SetModel(CacheThermometerType);
 					if (TheValue.IsValid())
@@ -2084,7 +2079,7 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 void WriteAllSVG()
 {
 	ReadTitleMap(SVGTitleMapFilename);
-	for (auto [TheAddress, MRTG] : GoveeMRTGLogs)
+	for (auto const& [TheAddress, MRTG] : GoveeMRTGLogs)
 	{
 		std::string btAddress(ba2string(TheAddress));
 		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
@@ -4053,8 +4048,8 @@ int main(int argc, char **argv)
 		if (!BT_WhiteList.empty())
 		{
 			std::cout << "[                   ] only listening to:";
-			for (auto& address : BT_WhiteList)
-				std::cout << " [" << ba2string(address) << "]";
+			for (auto const& TheAddress : BT_WhiteList)
+				std::cout << " [" << ba2string(TheAddress) << "]";
 			std::cout << std::endl;
 		}
 	}
@@ -4070,9 +4065,9 @@ int main(int argc, char **argv)
 			if (SVGTitleMapFilename.empty()) // If this wasn't set as a parameter, look in the SVG Directory for a default titlemap
 				SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 			ReadTitleMap(SVGTitleMapFilename);
-			if (!CacheDirectory.empty()) // 2024-09-25 This location was a bad choice and has been deprecated to the logfile location
+			if (!CacheDirectory.empty())
 			{
-				std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt");
+				std::filesystem::path CacheTypesFileName(CacheDirectory / "gvh-types-cache.txt"); // 2024-09-25 This location was a bad choice and has been deprecated to the logfile location (gvh-thermometer-types.txt)
 				std::ifstream TheFile(CacheTypesFileName);
 				if (TheFile.is_open())
 				{
@@ -4194,7 +4189,7 @@ int main(int argc, char **argv)
 				{
 					std::string BlueZAdapter(BlueZAdapterMap.cbegin()->second);
 					if (!ControllerAddress.empty())
-						if (auto search = BlueZAdapterMap.find(string2ba(ControllerAddress)); search != BlueZAdapterMap.end())
+						if (auto const & search = BlueZAdapterMap.find(string2ba(ControllerAddress)); search != BlueZAdapterMap.end())
 							BlueZAdapter = search->second;
 
 					bluez_power_on(dbus_conn, BlueZAdapter.c_str());
@@ -4279,25 +4274,25 @@ int main(int argc, char **argv)
 							}
 							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
 							{
-								for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
+								for (auto const& [TheAddress, LogData] : GoveeTemperatures)
 								{
-									if (!it->second.empty())
+									if (!LogData.empty())
 									{
-										int BatteryToRecord = it->second.front().GetBattery();
+										int BatteryToRecord = LogData.front().GetBattery();
 										time_t LastDownloadTime = 0;
-										auto RecentDownload = GoveeLastDownload.find(it->first);
+										auto RecentDownload = GoveeLastDownload.find(TheAddress);
 										if (RecentDownload != GoveeLastDownload.end())
 											LastDownloadTime = RecentDownload->second;
 										// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 										if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 										{
-											time_t DownloadTime = ConnectAndDownload(dbus_conn, it->first, LastDownloadTime, BatteryToRecord);
+											time_t DownloadTime = ConnectAndDownload(dbus_conn, TheAddress, LastDownloadTime, BatteryToRecord);
 											if (DownloadTime > 0)
 											{
 												if (RecentDownload != GoveeLastDownload.end())
 													RecentDownload->second = DownloadTime;
 												else
-													GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(it->first, DownloadTime));
+													GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(TheAddress, DownloadTime));
 											}
 										}
 									}
