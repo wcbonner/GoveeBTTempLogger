@@ -37,6 +37,8 @@ pkg_check_modules( dbus REQUIRED dbus-1 )
 add_executable (goveebttemplogger
     goveebttemplogger.cpp
     goveebttemplogger-version.h
+    goveebttemplogger-hci.cpp
+    goveebttemplogger-hci.h
     att-types.h
     uuid.c
     uuid.h
