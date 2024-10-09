@@ -458,7 +458,7 @@ ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
 		Model = ThermometerType::H5055;
 	return(rval);
 }
-bool Govee_Temp::ReadMSG(const uint8_t * const data)
+bool Govee_Temp::ReadMSG(const uint8_t * const data) // Decode raw data from the HCI interface
 {
 	bool rval = false;
 	const size_t data_len = data[0];
@@ -852,51 +852,6 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 		Model = b.Model; // This is important in case "a" was initialized but not valid
 	}
 	return(*this);
-}
-/////////////////////////////////////////////////////////////////////////////
-std::string iBeacon(const uint8_t * const data)
-{
-	std::ostringstream ssValue;
-	const size_t data_len = data[0];
-	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
-	{
-		if ((data[2] == 0x4c) && (data[3] == 0x00))
-		{
-			ssValue << " (Apple)"; 
-			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
-			{
-				ssValue << " (UUID) ";
-				for (auto index = 6; index < 22; index++)
-					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
-				ssValue << " (Major) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[22]);
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[23]);
-				ssValue << " (Minor) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[24]);
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[25]);
-				ssValue << " (RSSI) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[26]);
-				// https://en.wikipedia.org/wiki/IBeacon
-				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
-				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
-				// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
-			}
-			else
-			{
-				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
-				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
-				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
-				ssValue << " ";
-				for (size_t index = 4; index < data_len; index++)
-					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
-				// Apple Company Code: 0x004C
-				// UUID 16 bytes
-				// Major 2 bytes
-				// Minor 2 bytes
-			}
-		}
-	}
-	return(ssValue.str());
 }
 /////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
