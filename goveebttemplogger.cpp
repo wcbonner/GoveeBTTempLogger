@@ -53,8 +53,6 @@
 // https://www.argenox.com/library/bluetooth-low-energy/using-raspberry-pi-ble/
 //
 
-//#define _BLUEZ_HCI_
-
 #include <algorithm>
 #include <cfloat>
 #include <climits>
@@ -4527,10 +4525,12 @@ static void usage(int argc, char **argv)
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
-	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
 	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
-	std::cout << "    -H | --HCI           Prefer deprecated BlueZ HCI interface instead of DBus" << std::endl;
 	std::cout << "    -M | --monitor       Monitor Logging Directory" << std::endl;
+	#ifdef _BLUEZ_HCI_
+	std::cout << "    -H | --HCI           Prefer deprecated BlueZ HCI interface instead of DBus" << std::endl;
+	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
+	#endif // _BLUEZ_HCI_
 	std::cout << std::endl;
 }
 static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:dpnHM";

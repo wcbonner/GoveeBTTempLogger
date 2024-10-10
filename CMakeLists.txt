@@ -20,8 +20,10 @@ if (POLICY CMP0115)
   cmake_policy(SET CMP0115 NEW)
 endif()
 
+add_compile_definitions(_BLUEZ_HCI_)
+
 project (GoveeBTTempLogger
-    VERSION 3.20241008.0
+    VERSION 3.20241010.0
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -37,14 +39,13 @@ pkg_check_modules( dbus REQUIRED dbus-1 )
 add_executable (goveebttemplogger
     goveebttemplogger.cpp
     goveebttemplogger-version.h
-    goveebttemplogger-hci.cpp
-    goveebttemplogger-hci.h
     att-types.h
     uuid.c
     uuid.h
     wimiso8601.cpp
     wimiso8601.h
     )
+
 
 target_link_libraries(goveebttemplogger
     -lbluetooth

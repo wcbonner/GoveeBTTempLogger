@@ -78,7 +78,6 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
-    <ClCompile Include="goveebttemplogger-hci.cpp" />
     <ClCompile Include="goveebttemplogger.cpp" />
     <ClCompile Include="gvh-organizelogs.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
@@ -118,8 +117,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="att-types.h" />
-    <ClInclude Include="goveebttemplogger-hci.h" />
-    <ClInclude Include="goveebttemplogger.h" />
     <ClInclude Include="uuid.h" />
     <ClInclude Include="wimiso8601.h" />
   </ItemGroup>
