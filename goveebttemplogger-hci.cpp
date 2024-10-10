@@ -1089,7 +1089,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	}
 	return(TimeDownloadStart);
 }
-void HCI_BlueZ_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, const bool bMonitorLoggingDirectory, const bool HCI_Passive_Scanning)
+void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, const bool bMonitorLoggingDirectory, const bool HCI_Passive_Scanning)
 {
 	bt_ListDevices();
 	int BlueToothDevice_ID;
@@ -1538,9 +1538,6 @@ void HCI_BlueZ_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			}
 			hci_close_dev(BlueToothDevice_Handle);
 		}
-
-		GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
-		GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 
 		if (ConsoleVerbosity > 0)
 		{
