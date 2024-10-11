@@ -1,8 +1,6 @@
 # GoveeBTTempLogger
 Govee H5074, H5075, H5100, H5101, H5104, H5105, H5174, H5177, and H5179 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
 
-Uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee thermometers.
-
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
 GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, targeting ARM processor running on Linux. I'm using a Raspberry Pi 4 as my linux host. I've verified the same code works on a Raspbery Pi ZeroW, Raspberry Pi Zero2W, Raspberry Pi 3b, and a Raspberry Pi 5.
@@ -17,9 +15,9 @@ sudo /usr/local/bin/goveebttemplogger --log /var/log/goveebttemplogger/ --index 
 ```
 
 ## Major update to version 3.
-Conversion to Bluetooth using BlueZ over DBus! This is a work in progress. 
+Conversion to Bluetooth using BlueZ over DBus!
 DBus is the approved method of Bluetooth communication. 
-It seems to use more CPU than the pure HCI code. 
+It seems to use more CPU than the pure HCI code.
 When I tried building this on a machine running Raspbian GNU/Linux 10 (buster) the system builds but the BlueZ DBus routines to find the bluetooth adapter fail. 
 For this reason, I've left the old HCI commands in the code and fallback to running HCI if DBus fails. 
 
@@ -30,6 +28,18 @@ When running DBus, there is no way to run in passive scanning mode. The --passiv
 When running HCI mode, the whitelist created with the --only option is sent to the bluetooth hardware and only those devices are sent from the hardware to the software.
 In DBus mode whitelisting does not appear to be available.
 In DBus mode I'm filtering the output based on the whitelist.
+
+### 2024-10-10 HCI Code in #ifdef sections
+The code has been rearranged slightly for clarity, moving all of the HCI access code into #ifdef blocks. 
+The CMakeLists.txt file defines \_BLUEZ_HCI\_ to keep the code in the application. 
+Removing or commenting out the line add_compile_definitions(_BLUEZ_HCI_) will compile without the Bluetooth HCI libraries.
+I should also be able to ignore the files att-types.h, uuid.c, and uuid.h. I'm proficient at CMake to do this yet.
+
+HCI code uses libbluetooth functionality from BlueZ on linux to open the default Bluetooth device and listen for low energy advertisments from Govee thermometers.
+
+### 2024-10-01 Run As goveebttemplogger
+Updated the postinst debian install script to add a user goveebttemplogger and make changes to the permissions on the default directories appropriately.
+Changed the service file to specify running the program as user goveebttemplogger. This is possible because accessing BlueZ via DBus does not require root access.
 
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
@@ -155,10 +165,10 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -b (--battery) Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -x (--minmax) Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly
  * -d (--download) Periodically attempt to connect and download stored data
- * -p (--passive) Bluetooth LE Passive Scanning
  * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
- * -H (--HCI) Prefer deprecated BlueZ HCI interface instead of DBus
  * -M (--monitor) Monitor Logged Data for updated data
+ * -H (--HCI) Prefer deprecated BlueZ HCI interface instead of DBus
+ * -p (--passive) Bluetooth LE Passive Scanning
 
  ## Log File Format
 
