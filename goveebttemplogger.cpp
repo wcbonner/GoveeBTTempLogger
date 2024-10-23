@@ -343,7 +343,9 @@ public:
 	std::string WriteCache(void) const;
 	std::string WriteConsole(void) const;
 	bool ReadCache(const std::string& data);
+	#ifdef _BLUEZ_HCI_
 	bool ReadMSG(const uint8_t* const data);
+	#endif // _BLUEZ_HCI_
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
 	Govee_Temp() : Time(0), Temperature{ 0, 0, 0, 0 }, TemperatureMin{ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }, TemperatureMax{ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }, Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0), Model(ThermometerType::Unknown) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
@@ -388,7 +390,7 @@ protected:
 	int Averages;
 	ThermometerType Model;
 };
-Govee_Temp::Govee_Temp(const std::string & data)
+Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 {
 	std::istringstream TheLine(data);
 	// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
@@ -562,6 +564,7 @@ ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
 		Model = ThermometerType::H5055;
 	return(rval);
 }
+#ifdef _BLUEZ_HCI_
 bool Govee_Temp::ReadMSG(const uint8_t * const data) // Decode raw data from the HCI interface
 {
 	bool rval = false;
@@ -701,7 +704,8 @@ bool Govee_Temp::ReadMSG(const uint8_t * const data) // Decode raw data from the
 	}
 	return(rval);
 }
-bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)
+#endif // _BLUEZ_HCI_
+bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
 {
 	bool rval = false;
 	if ((Manufacturer == 0xec88) && (Data.size() == 7))// Govee_H5074_xxxx
@@ -716,7 +720,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Temperature[0] = float(iTemp) / 100.0;
 		Humidity = float(iHumidity) / 100.0;
 		Battery = int(Data[5]);
-		Averages = 1;
+		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
@@ -739,7 +744,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 			Temperature[0] = -1.0 * Temperature[0];
 		Humidity = float(iTemp % 1000) / 10.0;
 		Battery = int(Data[4]);
-		Averages = 1;
+		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
@@ -759,7 +765,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		if (bNegative)						// apply sign bit
 			Temperature[0] = -1.0 * Temperature[0];
 		Battery = int(Data[5]);
-		Averages = 1;
+		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
@@ -776,7 +783,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Temperature[0] = float(iTemp) / 100.0;
 		Humidity = float(iHumidity) / 100.0;
 		Battery = int(Data[8]);
-		Averages = 1;
+		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
