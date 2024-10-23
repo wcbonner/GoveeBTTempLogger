@@ -3843,10 +3843,19 @@ void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 			dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_BOOLEAN, &cpTrue);
 			dbus_message_iter_close_container(&iterDict, &iterVariant);
 			dbus_message_iter_close_container(&iterArray, &iterDict);
+			dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+			const char* cpRSSI = "RSSI";
+			dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, &cpRSSI);
+			dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_INT16_AS_STRING, &iterVariant);
+			dbus_int16_t cpRSSIValue = -100;
+			dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_INT16, &cpRSSIValue);
+			dbus_message_iter_close_container(&iterDict, &iterVariant);
+			dbus_message_iter_close_container(&iterArray, &iterDict);
 			dbus_message_iter_close_container(&iterParameter, &iterArray);
 		}
 		else
 		{
+			//dbus_message_append_args(dbus_msg, DBUS_TYPE_ARRAY, "{}", NULL, 0, DBUS_TYPE_INVALID);
 			DBusMessageIter iterParameter;
 			dbus_message_iter_init_append(dbus_msg, &iterParameter);
 			DBusMessageIter iterArray;
@@ -4493,10 +4502,12 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						if (ConsoleVerbosity > 1)
 							std::cout << "[" << getTimeISO8601(true) << "] " << "Restarting Scanning" << std::endl;
 						bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
+						//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 						bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
 #ifdef DEBUG
 						bluez_dbus_FindExistingDevices(dbus_conn, BT_WhiteList); // This pulls data from BlueZ on devices that BlueZ is already keeping track of
 #endif // DEBUG
+						bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
 						bRun = bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true);
 						TimeStart = TimeNow;
 					}
@@ -4504,7 +4515,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 				bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
 
 			}
-			bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
+			//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 		}
 		// Close the connection. When using the System Bus, unreference the connection instead of closing it
 		dbus_connection_unref(dbus_conn);
