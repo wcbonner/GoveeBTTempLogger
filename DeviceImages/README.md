@@ -3,7 +3,7 @@ I've found it hard to remember which device is which when referring to them by p
 
 ## H5074
 ![image](h5074-phone.jpg) ![image](h5074.jpg)
-(-20℃-60℃)
+-20℃ ~ 60℃ (-4℉~140℉)
 Powered by 1 CR2477 cell battery
 
 ## H5075
