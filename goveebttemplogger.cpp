@@ -3992,7 +3992,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 						{
 							DBusBasicValue value;
 							dbus_message_iter_get_basic(&dict1_iter, &value);
-							uint16_t ManufacturerID(value.u16);
+							const uint16_t ManufacturerID(value.u16);
 							if (ConsoleVerbosity > 5)
 							{
 								// Total Hack 
