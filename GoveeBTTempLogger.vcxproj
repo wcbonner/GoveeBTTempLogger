@@ -178,7 +178,7 @@
     </Link>
     <ClCompile />
     <ClCompile>
-      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;_BLUEZ_HCI_</PreprocessorDefinitions>
       <CppLanguageStandard>c++17</CppLanguageStandard>
       <AdditionalIncludeDirectories>%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/</AdditionalIncludeDirectories>
     </ClCompile>
