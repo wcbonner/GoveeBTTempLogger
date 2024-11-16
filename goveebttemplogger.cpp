@@ -4367,9 +4367,9 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 		else
 		{
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+				std::cout << "[" << getTimeISO8601(true) << "] D-Bus connection \"" << dbus_bus_get_unique_name(dbus_conn) << "\" Opened" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 			else
-				std::cerr << "Connected to D-Bus as \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+				std::cerr << "D-Bus connection \"" << dbus_bus_get_unique_name(dbus_conn) << "\" Opened" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 			std::map<bdaddr_t, std::string> BlueZAdapterMap;
 			bluez_find_adapters(dbus_conn, BlueZAdapterMap);
 			if (BlueZAdapterMap.empty())
@@ -4415,9 +4415,9 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						{
 							time(&TimeNow);
 							if (ConsoleVerbosity > 0)
-								std::cout << "[" << getTimeISO8601(true) << "] D-Bus connection was closed" << std::endl;
+								std::cout << "[" << timeToISO8601(TimeNow, true) << "] D-Bus connection Closed" << std::endl;
 							else
-								std::cerr << "D-Bus connection was closed" << std::endl;
+								std::cerr << "D-Bus connection Closed" << std::endl;
 							bRun = false;
 						}
 						else
@@ -4496,9 +4496,9 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								MonitorLoggedData();
 						}
 #ifdef DEBUG
-					} while (bRun && difftime(TimeNow, TimeStart) < 30); // Issue StartDiscovery command every minute to make sure it's not been turned off by another bluetooth process
+					} while (bRun && difftime(TimeNow, TimeStart) < 30); // Maintain DBus connection for no more than 30 seconds
 #else
-					} while (bRun && difftime(TimeNow, TimeStart) < (60 * 30)); // Issue StartDiscovery command every minute to make sure it's not been turned off by another bluetooth process
+					} while (bRun && difftime(TimeNow, TimeStart) < (60 * 30));  // Maintain DBus connection for no more than 30 minutes
 #endif // DEBUG
 					bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
 					bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
@@ -4506,9 +4506,9 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 				}
 			}
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] Closing D-Bus connection: \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+				std::cout << "[" << getTimeISO8601(true) << "] D-Bus connection \"" << dbus_bus_get_unique_name(dbus_conn) << "\" Closed" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 			else
-				std::cerr << "Closing D-Bus connection: \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
+				std::cerr << "D-Bus connection \"" << dbus_bus_get_unique_name(dbus_conn) << "\" Closed" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
 			dbus_connection_close(dbus_conn);	// https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga2522ac5075dfe0a1535471f6e045e1ee
 			dbus_connection_unref(dbus_conn);	// https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga6385ff09bc108238c4429e7c195dab25
 		}
