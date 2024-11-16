@@ -4513,6 +4513,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			dbus_connection_unref(dbus_conn);	// https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga6385ff09bc108238c4429e7c195dab25
 		}
 	}
+	GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
