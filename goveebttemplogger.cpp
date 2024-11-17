@@ -3772,18 +3772,18 @@ bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::stri
 		std::cerr << ssOutput.str();
 	return(!AdapterMap.empty());
 }
-void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const bool PowerOn = true)
+bool bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const bool PowerOn = true)
 {
-
+	bool rVal(true);
+	std::ostringstream ssOutput;
 	// This was hacked from looking at https://git.kernel.org/pub/scm/network/connman/connman.git/tree/gdbus/client.c#n667
 	// https://www.mankier.com/5/org.bluez.Adapter#Interface-boolean_Powered_%5Breadwrite%5D
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.freedesktop.DBus.Properties", "Set"); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#ga98ddc82450d818138ef326a284201ee0
 	if (!dbus_msg)
 	{
 		if (ConsoleVerbosity > 0)
-			std::cout << "[                   ] Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
-		else
-			std::cerr << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+			ssOutput << "[                   ] ";
+		ssOutput << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
 	}
 	else
 	{
@@ -3798,16 +3798,37 @@ void bluez_power_on(DBusConnection* dbus_conn, const char* adapter_path, const b
 		dbus_bool_t cpTrue = PowerOn ? TRUE : FALSE;
 		dbus_message_iter_append_basic(&variant, DBUS_TYPE_BOOLEAN, &cpTrue);
 		dbus_message_iter_close_container(&iterParameter, &variant); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf00482f63d4af88b7851621d1f24087a
-		dbus_connection_send(dbus_conn, dbus_msg, NULL); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#gae1cb64f4cf550949b23fd3a756b2f7d0
+
+		// Initialize D-Bus error
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
 		if (ConsoleVerbosity > 0)
-			std::cout << "[                   ] " << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn << std::endl;
+			ssOutput << "[                   ] ";
+		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn;
+		if (!dbus_reply)
+		{
+			if (dbus_error_is_set(&dbus_error))
+			{
+				ssOutput << " Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+				dbus_error_free(&dbus_error);
+				rVal = false;
+			}
+		}
 		else
-			std::cerr << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << powered << ": " << std::boolalpha << PowerOn << std::endl;
-		dbus_message_unref(dbus_msg); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gab69441efe683918f6a82469c8763f464
+			dbus_message_unref(dbus_reply);
+		dbus_message_unref(dbus_msg);  // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gab69441efe683918f6a82469c8763f464
+		ssOutput << std::endl;
 	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(rVal);
 }
-void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const bool DuplicateData = true, const bool bFilter = true)
+bool bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const bool DuplicateData = true, const bool bFilter = true)
 {
+	bool rVal(true);
 	std::ostringstream ssOutput;
 	// https://www.mankier.com/5/org.bluez.Adapter#Interface-void_SetDiscoveryFilter(dict_filter)
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", "SetDiscoveryFilter");
@@ -3878,6 +3899,7 @@ void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 			{
 				ssOutput << " Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
 				dbus_error_free(&dbus_error);
+				rVal = false;
 			}
 		}
 		else
@@ -3889,6 +3911,7 @@ void bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 		std::cout << ssOutput.str();
 	else
 		std::cerr << ssOutput.str();
+	return(rVal);
 }
 bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const bool bStartDiscovery = true)
 {
@@ -4388,122 +4411,126 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 					if (auto const& search = BlueZAdapterMap.find(string2ba(ControllerAddress)); search != BlueZAdapterMap.end())
 						BlueZAdapter = search->second;
 
-				bluez_power_on(dbus_conn, BlueZAdapter.c_str());
-				bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
-				bluez_dbus_FindExistingDevices(dbus_conn, BT_WhiteList); // This pulls data from BlueZ on devices that BlueZ is already keeping track of
-				if (bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true))
+				if (bluez_power_on(dbus_conn, BlueZAdapter.c_str()))
 				{
-					dbus_connection_flush(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga10e68d9d2f41d655a4151ddeb807ff54
-					std::vector<std::string> MatchRules;
-					MatchRules.push_back("type='signal',sender='org.bluez',member='InterfacesAdded'");
-					MatchRules.push_back("type='signal',sender='org.bluez',member='PropertiesChanged'");
-					for (auto& MatchRule : MatchRules)
+					bluez_filter_le(dbus_conn, BlueZAdapter.c_str());
+					bluez_dbus_FindExistingDevices(dbus_conn, BT_WhiteList); // This pulls data from BlueZ on devices that BlueZ is already keeping track of
+					if (bluez_discovery(dbus_conn, BlueZAdapter.c_str(), true))
 					{
-						dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-						dbus_bus_add_match(dbus_conn, MatchRule.c_str(), &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga4eb6401ba014da3dbe3dc4e2a8e5b3ef
-						if (dbus_error_is_set(&dbus_error))
+						dbus_connection_flush(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga10e68d9d2f41d655a4151ddeb807ff54
+						std::vector<std::string> MatchRules;
+						MatchRules.push_back("type='signal',sender='org.bluez',member='InterfacesAdded'");
+						MatchRules.push_back("type='signal',sender='org.bluez',member='PropertiesChanged'");
+						for (auto& MatchRule : MatchRules)
 						{
-							std::cout << "Error adding a match rule on the D-Bus system bus: " << dbus_error.message << std::endl;
-							dbus_error_free(&dbus_error);
-						}
-					}
-					time_t TimeNow(0);
-					do
-					{
-						// Wait for access to the D-Bus
-						if (!dbus_connection_read_write(dbus_conn, 1000)) // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga371163b4955a6e0bf0f1f70f38390c14
-						{
-							time(&TimeNow);
-							if (ConsoleVerbosity > 0)
-								std::cout << "[" << timeToISO8601(TimeNow, true) << "] D-Bus connection Closed" << std::endl;
-							else
-								std::cerr << "D-Bus connection Closed" << std::endl;
-							bRun = false;
-						}
-						else
-						{
-							time(&TimeNow);
-							// Pop first message on D-Bus connection
-							DBusMessage* dbus_msg = dbus_connection_pop_message(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga1e40d994ea162ce767e78de1c4988566
-
-							// If there is nothing to receive we get a NULL
-							if (dbus_msg != nullptr)
+							dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+							dbus_bus_add_match(dbus_conn, MatchRule.c_str(), &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga4eb6401ba014da3dbe3dc4e2a8e5b3ef
+							if (dbus_error_is_set(&dbus_error))
 							{
-								if (DBUS_MESSAGE_TYPE_SIGNAL == dbus_message_get_type(dbus_msg))
-								{
-									const std::string dbus_msg_Member(dbus_message_get_member(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
-									bdaddr_t localBTAddress({ 0 });
-									Govee_Temp localTemp;
-									if (!dbus_msg_Member.compare("InterfacesAdded"))
-										bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, localTemp, BT_WhiteList);
-									else if (!dbus_msg_Member.compare("PropertiesChanged"))
-										bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, localTemp, BT_WhiteList);
-									if (localTemp.IsValid())
-									{
-										std::queue<Govee_Temp> foo;
-										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
-										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-										UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
-										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
-										if (ConsoleVerbosity > 0)
-											std::cout << "[" << timeToISO8601(TimeNow, true) << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
-									}
-								}
-								dbus_message_unref(dbus_msg); // Free the message
+								std::cout << "Error adding a match rule on the D-Bus system bus: " << dbus_error.message << std::endl;
+								dbus_error_free(&dbus_error);
 							}
 						}
-						if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
+						time_t TimeNow(0);
+						do
 						{
-							if (ConsoleVerbosity > 0)
-								std::cout << "[" << timeToISO8601(TimeNow, true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
-							TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-							WriteAllSVG();
-						}
-						if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
-						{
-							for (auto const& [TheAddress, LogData] : GoveeTemperatures)
+							// Wait for access to the D-Bus
+							if (!dbus_connection_read_write(dbus_conn, 1000)) // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga371163b4955a6e0bf0f1f70f38390c14
 							{
-								if (!LogData.empty())
+								time(&TimeNow);
+								if (ConsoleVerbosity > 0)
+									std::cout << "[" << timeToISO8601(TimeNow, true) << "] D-Bus connection Closed" << std::endl;
+								else
+									std::cerr << "D-Bus connection Closed" << std::endl;
+								bRun = false;
+							}
+							else
+							{
+								time(&TimeNow);
+								// Pop first message on D-Bus connection
+								DBusMessage* dbus_msg = dbus_connection_pop_message(dbus_conn); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga1e40d994ea162ce767e78de1c4988566
+
+								// If there is nothing to receive we get a NULL
+								if (dbus_msg != nullptr)
 								{
-									int BatteryToRecord = LogData.front().GetBattery();
-									time_t LastDownloadTime = 0;
-									auto RecentDownload = GoveeLastDownload.find(TheAddress);
-									if (RecentDownload != GoveeLastDownload.end())
-										LastDownloadTime = RecentDownload->second;
-									// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-									if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+									if (DBUS_MESSAGE_TYPE_SIGNAL == dbus_message_get_type(dbus_msg))
 									{
-										time_t DownloadTime = ConnectAndDownload(dbus_conn, TheAddress, LastDownloadTime, BatteryToRecord);
-										if (DownloadTime > 0)
+										const std::string dbus_msg_Member(dbus_message_get_member(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
+										bdaddr_t localBTAddress({ 0 });
+										Govee_Temp localTemp;
+										if (!dbus_msg_Member.compare("InterfacesAdded"))
+											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, localTemp, BT_WhiteList);
+										else if (!dbus_msg_Member.compare("PropertiesChanged"))
+											bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, localTemp, BT_WhiteList);
+										if (localTemp.IsValid())
 										{
-											if (RecentDownload != GoveeLastDownload.end())
-												RecentDownload->second = DownloadTime;
-											else
-												GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(TheAddress, DownloadTime));
+											std::queue<Govee_Temp> foo;
+											auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(localBTAddress, foo));
+											ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+											UpdateMRTGData(localBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+											if (ConsoleVerbosity > 0)
+												std::cout << "[" << timeToISO8601(TimeNow, true) << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+										}
+									}
+									dbus_message_unref(dbus_msg); // Free the message
+								}
+							}
+							if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
+							{
+								if (ConsoleVerbosity > 0)
+									std::cout << "[" << timeToISO8601(TimeNow, true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
+								TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
+								WriteAllSVG();
+							}
+							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
+							{
+								for (auto const& [TheAddress, LogData] : GoveeTemperatures)
+								{
+									if (!LogData.empty())
+									{
+										int BatteryToRecord = LogData.front().GetBattery();
+										time_t LastDownloadTime = 0;
+										auto RecentDownload = GoveeLastDownload.find(TheAddress);
+										if (RecentDownload != GoveeLastDownload.end())
+											LastDownloadTime = RecentDownload->second;
+										// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+										if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+										{
+											time_t DownloadTime = ConnectAndDownload(dbus_conn, TheAddress, LastDownloadTime, BatteryToRecord);
+											if (DownloadTime > 0)
+											{
+												if (RecentDownload != GoveeLastDownload.end())
+													RecentDownload->second = DownloadTime;
+												else
+													GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(TheAddress, DownloadTime));
+											}
 										}
 									}
 								}
 							}
-						}
-						if (difftime(TimeNow, TimeLog) > LogFileTime)
-						{
-							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
-							TimeLog = TimeNow;
-							GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
-							GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
-							if (bMonitorLoggingDirectory)
-								MonitorLoggedData();
-						}
+							if (difftime(TimeNow, TimeLog) > LogFileTime)
+							{
+								if (ConsoleVerbosity > 1)
+									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
+								TimeLog = TimeNow;
+								GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+								if (bMonitorLoggingDirectory)
+									MonitorLoggedData();
+							}
 #ifdef DEBUG
-					} while (bRun && difftime(TimeNow, TimeStart) < 30); // Maintain DBus connection for no more than 30 seconds
+						} while (bRun && difftime(TimeNow, TimeStart) < 30); // Maintain DBus connection for no more than 30 seconds
 #else
-					} while (bRun && difftime(TimeNow, TimeStart) < (60 * 30));  // Maintain DBus connection for no more than 30 minutes
+						} while (bRun && difftime(TimeNow, TimeStart) < (60 * 30));  // Maintain DBus connection for no more than 30 minutes
 #endif // DEBUG
-					bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
-					bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
-					//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
+						bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
+						bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
+						//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
+					}
 				}
+				else
+					usleep(1000000); // 1,000,000 = 1 second.
 			}
 			if (ConsoleVerbosity > 0)
 				std::cout << "[" << getTimeISO8601(true) << "] D-Bus connection \"" << dbus_bus_get_unique_name(dbus_conn) << "\" Closed" << std::endl; // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga8c10339a1e62f6a2e5752d9c2270d37b
