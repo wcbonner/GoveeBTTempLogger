@@ -343,9 +343,6 @@ public:
 	std::string WriteCache(void) const;
 	std::string WriteConsole(void) const;
 	bool ReadCache(const std::string& data);
-	#ifdef _BLUEZ_HCI_
-	bool ReadMSG(const uint8_t* const data);
-	#endif // _BLUEZ_HCI_
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
 	Govee_Temp() : Time(0), Temperature{ 0, 0, 0, 0 }, TemperatureMin{ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }, TemperatureMax{ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }, Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0), Model(ThermometerType::Unknown) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
@@ -564,147 +561,6 @@ ThermometerType Govee_Temp::SetModel(const unsigned short* UUID)
 		Model = ThermometerType::H5055;
 	return(rval);
 }
-#ifdef _BLUEZ_HCI_
-bool Govee_Temp::ReadMSG(const uint8_t * const data) // Decode raw data from the HCI interface
-{
-	bool rval = false;
-	const size_t data_len = data[0];
-	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
-	{
-		if ((data_len == 9) && (data[2] == 0x88) && (data[3] == 0xEC)) // GVH5075_xxxx
-		{
-			if (Model == ThermometerType::Unknown)
-				Model = ThermometerType::H5075;
-			// This data came from https://github.com/Thrilleratplay/GoveeWatcher
-			// 88ec00 03519e 64 00 Temp: 21.7502°C Temp: 71.1504°F Humidity: 50.2%
-			// 2 3 4  5 6 7  8
-			int iTemp = int(data[5]) << 16 | int(data[6]) << 8 | int(data[7]);
-			bool bNegative = iTemp & 0x800000;	// check sign bit
-			iTemp = iTemp & 0x7ffff;			// mask off sign bit
-			Temperature[0] = float(iTemp / 1000) / 10.0; // issue #49 fix. 
-			// After converting the hexadecimal number into decimal the first three digits are the 
-			// temperature and the last three digits are the humidity.So "03519e" converts to "217502" 
-			// which means 21.7 °C and 50.2 % humidity without any rounding.
-			if (bNegative)						// apply sign bit
-				Temperature[0] = -1.0 * Temperature[0];
-			Humidity = float(iTemp % 1000) / 10.0;
-			Battery = int(data[8]);
-			Averages = 1;
-			time(&Time);
-			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
-			rval = true;
-		}
-		else if ((data_len == 10) && (data[2] == 0x88) && (data[3] == 0xEC))// Govee_H5074_xxxx
-		{
-			if (Model == ThermometerType::Unknown)
-				Model = ThermometerType::H5074;
-			// This data came from https://github.com/neilsheps/GoveeTemperatureAndHumidity
-			// 88EC00 0902 CD15 64 02 (Temp) 41.378°F (Humidity) 55.81% (Battery) 100%
-			// 2 3 4  5 6  7 8  9
-			short iTemp = short(data[6]) << 8 | short(data[5]);
-			int iHumidity = int(data[8]) << 8 | int(data[7]);
-			Temperature[0] = float(iTemp) / 100.0;
-			Humidity = float(iHumidity) / 100.0;
-			Battery = int(data[9]);
-			Averages = 1;
-			time(&Time);
-			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
-			rval = true;
-		}
-		else if ((data_len == 12) && (data[2] == 0x01) && (data[3] == 0x88) && (data[4] == 0xEC)) // Govee_H5179
-		{
-			if (Model == ThermometerType::Unknown)
-				Model = ThermometerType::H5179;
-			// This is from data provided in https://github.com/wcbonner/GoveeBTTempLogger/issues/36
-			// 0188EC00 0101 0A0A B018 64 (Temp) 25.7°C (Humidity) 63.2% (Battery) 100% (GVH5179)
-			// 2 3 4 5  6 7  8 9  1011 12
-			short iTemp = short(data[9]) << 8 | short(data[8]);
-			int iHumidity = int(data[11]) << 8 | int(data[10]);
-			Temperature[0] = float(iTemp) / 100.0;
-			Humidity = float(iHumidity) / 100.0;
-			Battery = int(data[12]);
-			Averages = 1;
-			time(&Time);
-			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
-			rval = true;
-		}
-		else if ((data_len == 9) && (data[2] == 0x01) && (data[3] == 0x00)) // GVH5177_xxxx or GVH5174_xxxx or GVH5100_xxxx
-		{
-			// This is a guess based on the H5075 3 byte encoding
-			// 01000101 029D1B 64 (Temp) 62.8324°F (Humidity) 29.1% (Battery) 100%
-			// 2 3 4 5  6 7 8  9
-			// It appears that the H5174 uses the exact same data format as the H5177, with the difference being the broadcase name starting with GVH5174_
-			int iTemp = int(data[6]) << 16 | int(data[7]) << 8 | int(data[8]);
-			bool bNegative = iTemp & 0x800000;	// check sign bit
-			iTemp = iTemp & 0x7ffff;			// mask off sign bit
-			Temperature[0] = float(iTemp) / 10000.0;
-			Humidity = float(iTemp % 1000) / 10.0;
-			if (bNegative)						// apply sign bit
-				Temperature[0] = -1.0 * Temperature[0];
-			Battery = int(data[9]);
-			Averages = 1;
-			time(&Time);
-			TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
-			rval = true;
-		}
-		else if (data_len == 17 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5183 (UUID) 5183 B5183011
-		{
-			if (Model == ThermometerType::Unknown)
-				Model = ThermometerType::H5183;
-			// Govee Bluetooth Wireless Meat Thermometer, Digital Grill Thermometer with 1 Probe, 230ft Remote Temperature Monitor, Smart Kitchen Cooking Thermometer, Alert Notifications for BBQ, Oven, Smoker, Cakes
-			// https://www.amazon.com/gp/product/B092ZTD96V
-			// The probe measuring range is 0° to 300°C /32° to 572°F.
-			// 5DA1B4 01000101 E4 01 80 0708 13 24 00 00
-			// 2 3 4  5 6 7 8  9  0  1  2 3  4  5  6  7
-			// (Manu) 5DA1B4 01000101 81 0180 07D0 1324 0000 (Temp) 20°C (Temp) 49°C (Battery) 1% (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: 00)  (Other: BF) 
-			// the first three bytes are the last three bytes of the bluetooth address.
-			// then next four bytes appear to be a signature for the device type.
-			// Model = ThermometerType::H5181;
-			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker Cooking BBQ Kitchen Oven
-			// https://www.amazon.com/dp/B092ZTJW37/
-			short iTemp = short(data[12]) << 8 | short(data[13]);
-			Temperature[0] = float(iTemp) / 100.0;
-			iTemp = short(data[14]) << 8 | short(data[15]);
-			Temperature[1] = float(iTemp) / 100.0; // This appears to be the alarm temperature.
-			Humidity = 0;
-			Battery = int(data[9] & 0x7F);
-			Averages = 1;
-			time(&Time);
-			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
-				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-			rval = true;
-		}
-		else if (data_len == 20 && (data[5] == 0x01) && (data[6] == 0x00) && (data[7] == 0x01) && (data[8] == 0x01)) // GVH5182 (UUID) 5182 (Manu) 30132701000101E4018606A413F78606A41318
-		{
-			if (Model == ThermometerType::Unknown)
-				Model = ThermometerType::H5182;
-			// Govee Bluetooth Meat Thermometer, 230ft Range Wireless Grill Thermometer Remote Monitor with Temperature Probe Digital Grilling Thermometer with Smart Alerts for Smoker , Cooking, BBQ, Kitchen, Oven
-			// https://www.amazon.com/gp/product/B094N2FX9P
-			// 301327 01000101 64 01 80 05DC 1324 86 06A4 FFFF
-			// 2 3 4  5 6 7 8  9  0  1  2 3  4 5  6  7 8  9 0
-			// (Manu) 301327 01000101 3A 01 86 076C FFFF 86 076C FFFF (Temp) 19°C (Temp) -0.01°C (Temp) 19°C (Temp) -0.01°C (Battery) 58%
-			// If the probe is not connected to the device, the temperature data is set to FFFF.
-			// If the alarm is not set for the probe, the data is set to FFFF.
-			short iTemp = short(data[12]) << 8 | short(data[13]);	// Probe 1 Temperature
-			Temperature[0] = float(iTemp) / 100.0;
-			iTemp = short(data[14]) << 8 | short(data[15]);			// Probe 1 Alarm Temperature
-			Temperature[1] = float(iTemp) / 100.0;
-			iTemp = short(data[17]) << 8 | short(data[18]);			// Probe 2 Temperature
-			Temperature[2] = float(iTemp) / 100.0;
-			iTemp = short(data[19]) << 8 | short(data[20]);			// Probe 2 Alarm Temperature
-			Temperature[3] = float(iTemp) / 100.0;
-			Humidity = 0;
-			Battery = int(data[9] & 0x7F);
-			Averages = 1;
-			time(&Time);
-			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
-				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-			rval = true;
-		}
-	}
-	return(rval);
-}
-#endif // _BLUEZ_HCI_
 bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
 {
 	bool rval = false;
@@ -3280,7 +3136,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											std::cerr << "[                   ] Error: bufDataLen (" << bufDataLen << ") > HCI_MAX_EVENT_SIZE (" << HCI_MAX_EVENT_SIZE << ")" << std::endl;
 										if (bufDataLen > (HCI_EVENT_HDR_SIZE + 1 + LE_ADVERTISING_INFO_SIZE))
 										{
-											if (ConsoleVerbosity > 3)
+											if (ConsoleVerbosity > 4)
 												std::cout << "[" << getTimeISO8601(true) << "] Read: " << std::dec << bufDataLen << " Bytes" << std::endl;
 											std::ostringstream ConsoleOutLine;
 											ConsoleOutLine << "[" << getTimeISO8601(true) << "]" << std::setw(3) << bufDataLen;
@@ -3297,7 +3153,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												ba2str(&info->bdaddr, addr);
 												ConsoleOutLine << " [" << addr << "]";
 												std::string localName;
-												if (ConsoleVerbosity > 2)
+												if (ConsoleVerbosity > 3)
 												{
 													ConsoleOutLine << " (bdaddr_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->bdaddr_type);
 													ConsoleOutLine << " (evt_type) " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(info->evt_type);
@@ -3337,13 +3193,13 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 															switch (*(info->data + current_offset + 1))
 															{
 															case 0x01:	// Flags
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																if (ConsoleVerbosity > 2)
 																{
 																	ConsoleOutLine << " (Flags) ";
 																	//for (uint8_t index = 0x80; index > 0; index >> 1)
 																	//	ConsoleOutLine << (index & *(info->data + current_offset + 2));
 																	//ConsoleOutLine << ((index & *(info->data + current_offset + 2)) ? "1" : "0");
-																	if (ConsoleVerbosity > 3)
+																	if (ConsoleVerbosity > 4)
 																	{
 																		if (*(info->data + current_offset + 2) & 0x01)
 																			ConsoleOutLine << "[LE Limited Discoverable Mode]";
@@ -3374,7 +3230,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 															case 0x05:	// Complete List of 32-bit Service Class UUID
 															case 0x06:	// Incomplete List of 128-bit Service Class UUIDs
 															case 0x07:	// Complete List of 128-bit Service Class UUID
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																if (ConsoleVerbosity > 2)
 																{
 																	ConsoleOutLine << " (UUID) ";
 																	for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -3388,14 +3244,15 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	localName.push_back(char((info->data + current_offset + 1)[index]));
 																localTemp.SetModel(localName);
 																if (localTemp.GetModel() != ThermometerType::Unknown)
-																	GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(info->bdaddr, localTemp.GetModel()));
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																{
-																	ConsoleOutLine << " (Name) " << localName;
+																	GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(info->bdaddr, localTemp.GetModel()));
+																	AddressInGoveeSet = true;
 																}
+																if (ConsoleVerbosity > 2)
+																	ConsoleOutLine << " (Name) " << localName;
 																break;
 															case 0x0A:	// Tx Power Level
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																if (ConsoleVerbosity > 2)
 																{
 																	ConsoleOutLine << " (Tx Power) ";
 																	for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -3403,7 +3260,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																}
 																break;
 															case 0x16:	// Service Data or Service Data - 16-bit UUID
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																if (ConsoleVerbosity > 2)
 																{
 																	ConsoleOutLine << " (Service Data) ";
 																	for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -3411,7 +3268,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																}
 																break;
 															case 0x19:	// Appearance
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																if (ConsoleVerbosity > 2)
 																{
 																	ConsoleOutLine << " (Appearance) ";
 																	for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -3419,50 +3276,48 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																}
 																break;
 															case 0xFF:	// Manufacturer Specific Data
-																if (AddressInGoveeSet || (ConsoleVerbosity > 1))
 																{
-																	ConsoleOutLine << " (Manu) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
-																}
-																{
-																	if (localTemp.ReadMSG((info->data + current_offset)))	// This line decodes temperature from advertisment
+																	const uint16_t ManufacturerID(uint16_t((info->data + current_offset + 1)[1]) | uint16_t((info->data + current_offset + 1)[2]) << 8);
+																	std::vector<uint8_t> ManufacturerData;
+																	for (auto index = 3; index < *(info->data + current_offset); index++)
+																		ManufacturerData.push_back((info->data + current_offset + 1)[index]);
+																	if (ConsoleVerbosity > 1)
 																	{
-																		TemperatureInAdvertisment = true;
+																		ConsoleOutLine << " (Manu) " << std::setfill('0') << std::hex << std::setw(4) << ManufacturerID << ":";
+																		for (auto& Data : ManufacturerData)
+																			ConsoleOutLine << std::setw(2) << int(Data);
+																	}
+																	if (localTemp.GetModel() == ThermometerType::Unknown)
+																	{
+																		auto foo = GoveeThermometers.find(info->bdaddr);
+																		if (foo != GoveeThermometers.end())
+																			localTemp.SetModel(foo->second);
+																	}
+																	if (localTemp.ReadMSG(ManufacturerID, ManufacturerData))
+																	{
 																		if (localTemp.GetModel() == ThermometerType::Unknown)
 																		{
 																			auto foo = GoveeThermometers.find(info->bdaddr);
 																			if (foo != GoveeThermometers.end())
 																				localTemp.SetModel(foo->second);
 																		}
-																		ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature() << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																		if ((localTemp.GetModel() == ThermometerType::H5181) || (localTemp.GetModel() == ThermometerType::H5183))
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																		else if (localTemp.GetModel() == ThermometerType::H5182)
+																		if (TemperatureInAdvertisment = localTemp.IsValid())
 																		{
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 1) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 2) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
-																			ConsoleOutLine << " (Temp) " << std::dec << localTemp.GetTemperature(false, 3) << "\u00B0" << "C";	// http://www.fileformat.info/info/unicode/char/b0/index.htm
+																			ConsoleOutLine << " " << localTemp.WriteConsole();
+																			std::queue<Govee_Temp> foo;
+																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
+																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
+																			AddressInGoveeSet = true;
+																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
+																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																		}
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2103";	// https://stackoverflow.com/questions/23777226/how-to-display-degree-celsius-in-a-string-in-c/23777678
-																		//ConsoleOutLine << " (Temp) " << std::dec << localTemp.Temperature << "\u2109";	// http://www.fileformat.info/info/unicode/char/2109/index.htm
-																		if (localTemp.GetHumidity() != 0)
-																			ConsoleOutLine << " (Humidity) " << localTemp.GetHumidity() << "%";
-																		ConsoleOutLine << " (Battery) " << localTemp.GetBattery() << "%";
-																		ConsoleOutLine << " " << localTemp.GetModelAsString();
-																		std::queue<Govee_Temp> foo;
-																		auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
-																		ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-																		AddressInGoveeSet = true;
-																		UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
-																		GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																	}
-																	else if (AddressInGoveeSet || (ConsoleVerbosity > 1))
+																	else if (ConsoleVerbosity > 1)
 																		ConsoleOutLine << iBeacon(info->data + current_offset);
 																}
 																break;
 															default:
-																if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
+																if ((AddressInGoveeSet && (ConsoleVerbosity > 1)) || (ConsoleVerbosity > 2))
 																{
 																	ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
 																	for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -3473,7 +3328,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 														}
 													}
 												}
-												if ((AddressInGoveeSet && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 1))
+												if ((TemperatureInAdvertisment && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 2))
 													std::cout << ConsoleOutLine.str() << std::endl;
 												if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
 												{
@@ -3510,7 +3365,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											}
 											else
 											{
-												if (ConsoleVerbosity > 2)
+												if (ConsoleVerbosity > 3)
 												{
 													std::cout << "[-------------------]";
 													for (auto index = 0; index < bufDataLen; index++)
@@ -3537,14 +3392,14 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								time(&TimeNow);
 								if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
 								{
-									if (ConsoleVerbosity > 0)
+									if (ConsoleVerbosity > 1)
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 									TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
 									WriteAllSVG();
 								}
 								if (difftime(TimeNow, TimeStart) > LogFileTime)
 								{
-									if (ConsoleVerbosity > 0)
+									if (ConsoleVerbosity > 1)
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
 									GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
@@ -3572,23 +3427,18 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 				}
 			}
 			hci_close_dev(BlueToothDevice_Handle);
+			GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
 		}
 
-		if (ConsoleVerbosity > 0)
+		if (ConsoleVerbosity > 1)
 		{
 			// dump contents of accumulated map (should now be empty because all the data was flushed to log files)
-			for (auto it = GoveeTemperatures.begin(); it != GoveeTemperatures.end(); ++it)
+			for (auto& it : GoveeTemperatures)
 			{
-				if (!it->second.empty())
+				while (!it.second.empty())
 				{
-					char addr[19] = { 0 };
-					ba2str(&it->first, addr);
-					std::cout << "[" << addr << "]" << std::endl;
-				}
-				while (!it->second.empty())
-				{
-					std::cout << it->second.front().WriteTXT() << std::endl;
-					it->second.pop();
+					std::cout << "[" << ba2string(it.first) << "] " << it.second.front().WriteTXT() << std::endl;
+					it.second.pop();
 				}
 			}
 		}
@@ -3972,12 +3822,20 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 		DBusMessageIter variant_iter;
 		dbus_message_iter_recurse(&dict2_iter, &variant_iter);
 		auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
-		if (!Key.compare("Name"))
+		if (!Key.compare("Address"))
 		{
 			if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
 				ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+			}
+		}
+		else if (!Key.compare("Name"))
+		{
+			if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+			{
+				dbus_message_iter_get_basic(&variant_iter, &value);
+				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
 				dbusTemp.SetModel(std::string(value.str));
 				if (dbusTemp.GetModel() != ThermometerType::Unknown)
 					GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
