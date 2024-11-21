@@ -4299,13 +4299,13 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						{
 							if (ConsoleVerbosity > 0)
 								ssOutput << "[                   ] ";
-							ssOutput << "Add Match Rule: \"" << MatchRule << "\" ";
+							ssOutput << "Add Match Rule: \"" << MatchRule << "\"";
 							bool MatchRuleError(false);
 							dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 							dbus_bus_add_match(dbus_conn, MatchRule.c_str(), &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga4eb6401ba014da3dbe3dc4e2a8e5b3ef
 							if (dbus_error_is_set(&dbus_error))
 							{
-								ssOutput << "Error adding a match rule on the D-Bus system bus: " << dbus_error.message;
+								ssOutput << " Error: " << dbus_error.message;
 								dbus_error_free(&dbus_error);
 								MatchRuleError = true;
 							}
@@ -4366,7 +4366,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 							}
 							if ((!SVGDirectory.empty()) && (difftime(TimeNow, TimeSVG) > DAY_SAMPLE))
 							{
-								if (ConsoleVerbosity > 0)
+								if (ConsoleVerbosity > 1)
 									std::cout << "[" << timeToISO8601(TimeNow, true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 								TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
 								WriteAllSVG();
@@ -4416,13 +4416,13 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						{
 							if (ConsoleVerbosity > 0)
 								ssOutput << "[                   ] ";
-							ssOutput << "Remove Match Rule: \"" << MatchRule << "\" ";
+							ssOutput << "Remove Match Rule: \"" << MatchRule << "\"";
 							bool MatchRuleError(false);
 							dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 							dbus_bus_remove_match(dbus_conn, MatchRule.c_str(), &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusBus.html#ga4eb6401ba014da3dbe3dc4e2a8e5b3ef
 							if (dbus_error_is_set(&dbus_error))
 							{
-								ssOutput << "Error removing a match rule on the D-Bus system bus: " << dbus_error.message;
+								ssOutput << " Error: " << dbus_error.message;
 								dbus_error_free(&dbus_error);
 								MatchRuleError = true;
 							}
