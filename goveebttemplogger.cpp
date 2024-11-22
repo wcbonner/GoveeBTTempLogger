@@ -2411,6 +2411,8 @@ void bt_ListDevices(void)
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
 {
+	if (ConsoleVerbosity > 2)
+		std::cout << "[                   ] " << __func__ << " " << ba2string(GoveeBTAddress) << std::endl;
 	time_t TimeDownloadStart(0);
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
@@ -3447,11 +3449,6 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 	}
 }
 #endif // _BLUEZ_HCI_
-time_t ConnectAndDownload(DBusConnection* dbusConnection, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
-{
-	time_t TimeDownloadStart(0);
-	return(TimeDownloadStart);
-}
 /////////////////////////////////////////////////////////////////////////////
 const char * dbus_message_iter_type_to_string(const int type)
 {
@@ -3824,40 +3821,13 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 		DBusMessageIter variant_iter;
 		dbus_message_iter_recurse(&dict2_iter, &variant_iter);
 		auto dbus_message_Type = dbus_message_iter_get_arg_type(&variant_iter);
-		if (!Key.compare("Address"))
+		if (!Key.compare("RSSI"))
 		{
-			if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+			if (DBUS_TYPE_INT16 == dbus_message_Type)
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.i16 << std::endl;
 			}
-		}
-		else if (!Key.compare("Name"))
-		{
-			if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
-			{
-				dbus_message_iter_get_basic(&variant_iter, &value);
-				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
-				dbusTemp.SetModel(std::string(value.str));
-				if (dbusTemp.GetModel() != ThermometerType::Unknown)
-					GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
-			}
-		}
-		else if (!Key.compare("UUIDs"))
-		{
-			DBusMessageIter array3_iter;
-			dbus_message_iter_recurse(&variant_iter, &array3_iter);
-			do
-			{
-				if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array3_iter))
-				{
-					dbus_message_iter_get_basic(&array3_iter, &value);
-					ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
-					dbusTemp.SetModel(std::string(value.str));
-					if (dbusTemp.GetModel() != ThermometerType::Unknown)
-						GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
-				}
-			} while (dbus_message_iter_next(&array3_iter));
 		}
 		else if (!Key.compare("ManufacturerData"))
 		{
@@ -3936,12 +3906,55 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				} while (dbus_message_iter_next(&array3_iter));
 			}
 		}
-		else if (!Key.compare("RSSI"))
+		else if (!Key.compare("Address"))
 		{
-			if (DBUS_TYPE_INT16 == dbus_message_Type)
+			if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.i16 << std::endl;
+				ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+			}
+		}
+		else if (!Key.compare("Name"))
+		{
+			if ((DBUS_TYPE_STRING == dbus_message_Type) || (DBUS_TYPE_OBJECT_PATH == dbus_message_Type))
+			{
+				dbus_message_iter_get_basic(&variant_iter, &value);
+				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+				dbusTemp.SetModel(std::string(value.str));
+				if (dbusTemp.GetModel() != ThermometerType::Unknown)
+					GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+			}
+		}
+		else if (!Key.compare("UUIDs"))
+		{
+			DBusMessageIter array3_iter;
+			dbus_message_iter_recurse(&variant_iter, &array3_iter);
+			do
+			{
+				if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array3_iter))
+				{
+					dbus_message_iter_get_basic(&array3_iter, &value);
+					ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << value.str << std::endl;
+					dbusTemp.SetModel(std::string(value.str));
+					if (dbusTemp.GetModel() != ThermometerType::Unknown)
+						GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, dbusTemp.GetModel()));
+				}
+			} while (dbus_message_iter_next(&array3_iter));
+		}
+		else if (!Key.compare("Connected"))
+		{
+			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
+			{
+				dbus_message_iter_get_basic(&variant_iter, &value);
+				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << std::boolalpha << bool(value.bool_val) << std::endl;
+			}
+		}
+		else if (!Key.compare("ServicesResolved"))
+		{
+			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
+			{
+				dbus_message_iter_get_basic(&variant_iter, &value);
+				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << std::boolalpha << bool(value.bool_val) << std::endl;
 			}
 		}
 		else
@@ -4229,6 +4242,77 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		std::cout << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
+std::string bluez_bdaddr2path(const char* adapter_path, const bdaddr_t& dbusBTAddress)
+{
+	std::ostringstream ssrVal;
+	ssrVal << adapter_path << "/dev";
+	for (auto i = 5; i >= 0; i--)
+		ssrVal << "_" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(dbusBTAddress.b[i]);
+	return(ssrVal.str());
+}
+time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
+{
+	if (ConsoleVerbosity > 2)
+		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	time_t TimeDownloadStart(0);
+	std::ostringstream ssOutput;
+	std::string ObjectPath(bluez_bdaddr2path(adapter_path, dbusBTAddress));
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPath.c_str(), "org.bluez.Device1", "Connect");
+	if (!dbus_msg)
+	{
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[                   ] ";
+		ssOutput << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+	}
+	else
+	{
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[                   ] ";
+		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
+		if (!dbus_reply)
+		{
+			if (dbus_error_is_set(&dbus_error))
+			{
+				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+				dbus_error_free(&dbus_error);
+			}
+		}
+		else
+		{
+			ssOutput << std::endl;
+			// TODO: Examine reply
+			dbus_message_unref(dbus_reply);
+
+			// This should be connected. 
+			DBusMessage* dbus_msg_disconnect = dbus_message_new_method_call("org.bluez", ObjectPath.c_str(), "org.bluez.Device1", "Disconnect");
+			dbus_error_init(&dbus_error);
+			DBusMessage* dbus_reply_disconnect = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_disconnect, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[                   ] ";
+			ssOutput << dbus_message_get_path(dbus_msg_disconnect) << ": " << dbus_message_get_interface(dbus_msg_disconnect) << ": " << dbus_message_get_member(dbus_msg_disconnect);
+			if (!dbus_reply)
+			{
+				if (dbus_error_is_set(&dbus_error))
+				{
+					ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+					dbus_error_free(&dbus_error);
+				}
+			}
+			dbus_message_unref(dbus_msg_disconnect);
+		}
+		dbus_message_unref(dbus_msg);
+		ssOutput << std::endl;
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(TimeDownloadStart);
+}
+/////////////////////////////////////////////////////////////////////////////
 int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, bool bMonitorLoggingDirectory)
 {
 	int rVal(0);
@@ -4387,7 +4471,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 										if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 										{
-											time_t DownloadTime = ConnectAndDownload(dbus_conn, TheAddress, LastDownloadTime, BatteryToRecord);
+											time_t DownloadTime = ConnectAndDownload(dbus_conn, BlueZAdapter.c_str(), TheAddress, LastDownloadTime, BatteryToRecord);
 											if (DownloadTime > 0)
 											{
 												if (RecentDownload != GoveeLastDownload.end())
