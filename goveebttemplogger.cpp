@@ -1046,7 +1046,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
-			std::cout << "[" << getTimeISO8601(true) << "] GenerateLogFile: " << LogDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] GenerateLogFile: " << LogDirectory.native() << std::endl;
 		for (auto& [TheAddress, LogData] : AddressTemperatureMap)
 		{
 			if (!LogData.empty()) // Only open the log file if there are entries to add
@@ -1068,12 +1068,14 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 					Log_ut.modtime = MostRecentData;
 					utime(filename.c_str(), &Log_ut);
 					rval = true;
+					if (ConsoleVerbosity > 1)
+						std::cout << "[" << getTimeISO8601(true) << "] Writing: " << filename.native() << std::endl;
 				}
 			}
 		}
 		if (!PersistenceData.empty())
 		{
-			if (ConsoleVerbosity > 0)
+			if (ConsoleVerbosity > 2)
 				for (auto const& [TheAddress, TheTime] : PersistenceData)
 					std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << timeToISO8601(TheTime) << std::endl;
 			// If PersistenceData has updated information, write new data to file
@@ -1217,9 +1219,9 @@ bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Go
 			if (CacheFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << MRTGCacheFile.string() << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << MRTGCacheFile.native() << std::endl;
 				else
-					std::cerr << "Writing: " << MRTGCacheFile.string() << std::endl;
+					std::cerr << "Writing: " << MRTGCacheFile.native() << std::endl;
 				CacheFile << "Cache: " << ba2string(TheBlueToothAddress) << " " << ProgramVersionString << std::endl;
 				for (auto & i : GoveeMRTGLog)
 					CacheFile << i.WriteCache() << std::endl;
@@ -1239,7 +1241,7 @@ void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTempe
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
-			std::cout << "[" << getTimeISO8601(true) << "] GenerateCacheFile: " << CacheDirectory << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] GenerateCacheFile: " << CacheDirectory.native() << std::endl;
 		for (auto const& [Key, Value] : AddressTemperatureMap)
 			GenerateCacheFile(Key, Value);
 	}
@@ -3427,7 +3429,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 				}
 			}
 			hci_close_dev(BlueToothDevice_Handle);
-			GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+			GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
 		}
 
 		if (ConsoleVerbosity > 1)
@@ -4452,7 +4454,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			dbus_connection_unref(dbus_conn);	// https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga6385ff09bc108238c4429e7c195dab25
 		}
 	}
-	GenerateLogFile(GoveeTemperatures, GoveeLastDownload);
+	GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -4782,8 +4784,6 @@ int main(int argc, char **argv)
 		if (bUse_HCI_Interface)	// The HCI interface for bluetooth is deprecated, with BlueZ over DBus being preferred
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
 		#endif // _BLUEZ_HCI_
-		GenerateLogFile(GoveeTemperatures, GoveeLastDownload); // flush contents of accumulated map to logfiles
-		GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 		if (!LogDirectory.empty())
 		{
 			std::filesystem::path CacheTypesFileName(LogDirectory / "gvh-thermometer-types.txt");
@@ -4791,9 +4791,9 @@ int main(int argc, char **argv)
 			if (CacheFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << CacheTypesFileName.string() << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << CacheTypesFileName.native() << std::endl;
 				else
-					std::cerr << "Writing: " << CacheTypesFileName.string() << std::endl;
+					std::cerr << "Writing: " << CacheTypesFileName.native() << std::endl;
 				for (auto i : GoveeThermometers)
 					CacheFile << ba2string(i.first) << "\t" << ThermometerType2String(i.second) << std::endl;
 				CacheFile.close();
