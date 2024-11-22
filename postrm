@@ -1,7 +1,7 @@
 #!/bin/sh
 # POSTRM script for goveebttemplogger
 
-echo "\033[36m HI I'M A POSTRM SCRIPT `date --rfc-3339='seconds'` running as \033[91m`whoami`\033[39m"
+echo "\033[36m HI I'M A POSTRM SCRIPT ${0} `date --rfc-3339='seconds'` running as \033[91m`whoami`\033[39m"
 systemctl daemon-reload
 
 exit 0
