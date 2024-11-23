@@ -5723,9 +5723,9 @@ int main(int argc, char **argv)
 			if (TheFile.is_open())
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] Reading LastDownload: " << filename.string() << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] Reading: " << filename.string() << std::endl;
 				else
-					std::cerr << "Reading LastDownload: " << filename.string() << std::endl;
+					std::cerr << "Reading: " << filename.string() << std::endl;
 				std::string TheLine;
 				while (std::getline(TheFile, TheLine))
 				{
