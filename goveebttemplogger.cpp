@@ -1105,6 +1105,8 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 					Persistut.actime = MostRecentDownload;
 					Persistut.modtime = MostRecentDownload;
 					utime(filename.c_str(), &Persistut);
+					if (ConsoleVerbosity > 1)
+						std::cout << "[" << getTimeISO8601(true) << "] Writing: " << filename.native() << std::endl;
 				}
 			}
 		}
@@ -2661,6 +2663,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													std::cout << "..0x" << std::setw(4) << std::setfill('0') << Characteristic.ending_handle;
 													std::cout << " Characteristic Properties: 0x" << std::setw(2) << std::setfill('0') << unsigned(Characteristic.properties);
 													std::cout << " UUID: " << bt_UUID_2_String(&Characteristic.theUUID) << std::endl;
+													std::cout << "[                   ] [" << ba2string(GoveeBTAddress) << "] <== Service: 0x" << std::hex << std::setw(2) << std::setfill('0') << bts->ending_handle << " Characteristic: 0x" << std::setw(4) << Characteristic.ending_handle << " UUID: " << bt_UUID_2_String(&Characteristic.theUUID) << std::endl;
 												}
 												gatt_characteristic_declaration.starting_handle = Characteristic.ending_handle;
 												bts->characteristics.push_back(Characteristic);
@@ -4254,10 +4257,17 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 {
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	bool bContinueProcessing(true);
 	time_t TimeDownloadStart(0);
 	std::ostringstream ssOutput;
-	std::string ObjectPath(bluez_bdaddr2path(adapter_path, dbusBTAddress));
-	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPath.c_str(), "org.bluez.Device1", "Connect");
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+	std::ostringstream ssJunk;
+	ssJunk << bluez_bdaddr2path(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
+	const std::string ObjectPathGattCharacteristic(ssJunk.str());
+	const std::string ObjectPathDevice(bluez_bdaddr2path(adapter_path, dbusBTAddress));
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Connect");
 	if (!dbus_msg)
 	{
 		if (ConsoleVerbosity > 0)
@@ -4278,16 +4288,893 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 			{
 				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
 				dbus_error_free(&dbus_error);
+				bContinueProcessing = false;
 			}
 		}
 		else
 		{
 			ssOutput << std::endl;
+			bContinueProcessing = false;
 			// TODO: Examine reply
-			dbus_message_unref(dbus_reply);
+/*
+https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/org.bluez.GattCharacteristic.rst
+https://github.com/Heckie75/govee-h5075-thermo-hygrometer
 
-			// This should be connected. 
-			DBusMessage* dbus_msg_disconnect = dbus_message_new_method_call("org.bluez", ObjectPath.c_str(), "org.bluez.Device1", "Disconnect");
+
+wim@WimPi5:~ $  dbus-send --system --dest=org.bluez --print-reply / org.freedesktop.DBus.ObjectManager.GetManagedObjects
+method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=155158 reply_serial=2
+
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.Device1"
+			   array [
+				  dict entry(
+					 string "Address"
+					 variant                         string "A4:C1:38:DC:CC:3D"
+				  )
+				  dict entry(
+					 string "AddressType"
+					 variant                         string "public"
+				  )
+				  dict entry(
+					 string "Name"
+					 variant                         string "GVH5174_CC3D"
+				  )
+				  dict entry(
+					 string "Alias"
+					 variant                         string "GVH5174_CC3D"
+				  )
+				  dict entry(
+					 string "Paired"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Bonded"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Trusted"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Blocked"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "LegacyPairing"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "RSSI"
+					 variant                         int16 -55
+				  )
+				  dict entry(
+					 string "Connected"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "UUIDs"
+					 variant                         array [
+						   string "00001800-0000-1000-8000-00805f9b34fb"
+						   string "00001801-0000-1000-8000-00805f9b34fb"
+						   string "0000180a-0000-1000-8000-00805f9b34fb"
+						   string "00010203-0405-0607-0809-0a0b0c0d1912"
+						   string "494e5445-4c4c-495f-524f-434b535f4857"
+						]
+				  )
+				  dict entry(
+					 string "Modalias"
+					 variant                         string "usb:v248Ap8266d0001"
+				  )
+				  dict entry(
+					 string "Adapter"
+					 variant                         object path "/org/bluez/hci0"
+				  )
+				  dict entry(
+					 string "ManufacturerData"
+					 variant                         array [
+						   dict entry(
+							  uint16 1
+							  variant                                  array of bytes [
+									01 01 02 c1 2f 0b
+								 ]
+						   )
+						   dict entry(
+							  uint16 76
+							  variant                                  array of bytes [
+									02 15 49 4e 54 45 4c 4c 49 5f 52 4f 43 4b
+									53 5f 48 57 50 75 f2 ff c2
+								 ]
+						   )
+						]
+				  )
+				  dict entry(
+					 string "ServicesResolved"
+					 variant                         boolean false
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service001c"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattService1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00010203-0405-0607-0809-0a0b0c0d1912"
+				  )
+				  dict entry(
+					 string "Device"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D"
+				  )
+				  dict entry(
+					 string "Primary"
+					 variant                         boolean true
+				  )
+				  dict entry(
+					 string "Includes"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service001c/char001d"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattCharacteristic1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00010203-0405-0607-0809-0a0b0c0d2b12"
+				  )
+				  dict entry(
+					 string "Service"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service001c"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+				  dict entry(
+					 string "Flags"
+					 variant                         array [
+						   string "read"
+						   string "write-without-response"
+						]
+				  )
+				  dict entry(
+					 string "WriteAcquired"
+					 variant                         boolean false
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service001c/char001d/desc001f"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002901-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service001c/char001d"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattService1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "494e5445-4c4c-495f-524f-434b535f4857"
+				  )
+				  dict entry(
+					 string "Device"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D"
+				  )
+				  dict entry(
+					 string "Primary"
+					 variant                         boolean true
+				  )
+				  dict entry(
+					 string "Includes"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0018"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattCharacteristic1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "494e5445-4c4c-495f-524f-434b535f2013"
+				  )
+				  dict entry(
+					 string "Service"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+				  dict entry(
+					 string "Notifying"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Flags"
+					 variant                         array [
+						   string "read"
+						   string "notify"
+						]
+				  )
+				  dict entry(
+					 string "NotifyAcquired"
+					 variant                         boolean false
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0018/desc001b"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002901-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0018"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0018/desc001a"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002902-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0018"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0014"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattCharacteristic1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "494e5445-4c4c-495f-524f-434b535f2012"
+				  )
+				  dict entry(
+					 string "Service"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+				  dict entry(
+					 string "Notifying"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Flags"
+					 variant                         array [
+						   string "read"
+						   string "write"
+						   string "notify"
+						]
+				  )
+				  dict entry(
+					 string "NotifyAcquired"
+					 variant                         boolean false
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0014/desc0017"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002901-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0014"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0014/desc0016"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002902-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0014"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0010"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattCharacteristic1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "494e5445-4c4c-495f-524f-434b535f2011"
+				  )
+				  dict entry(
+					 string "Service"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+				  dict entry(
+					 string "Notifying"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Flags"
+					 variant                         array [
+						   string "read"
+						   string "write"
+						   string "notify"
+						]
+				  )
+				  dict entry(
+					 string "NotifyAcquired"
+					 variant                         boolean false
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0010/desc0013"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002901-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0010"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0010/desc0012"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002902-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000f/char0010"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000c"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattService1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "0000180a-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Device"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D"
+				  )
+				  dict entry(
+					 string "Primary"
+					 variant                         boolean true
+				  )
+				  dict entry(
+					 string "Includes"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000c/char000d"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattCharacteristic1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002a50-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Service"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service000c"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+				  dict entry(
+					 string "Flags"
+					 variant                         array [
+						   string "read"
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service0008"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattService1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00001801-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Device"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D"
+				  )
+				  dict entry(
+					 string "Primary"
+					 variant                         boolean true
+				  )
+				  dict entry(
+					 string "Includes"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service0008/char0009"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattCharacteristic1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002a05-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Service"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service0008"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+				  dict entry(
+					 string "Notifying"
+					 variant                         boolean false
+				  )
+				  dict entry(
+					 string "Flags"
+					 variant                         array [
+						   string "indicate"
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+	  dict entry(
+		 object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service0008/char0009/desc000b"
+		 array [
+			dict entry(
+			   string "org.freedesktop.DBus.Introspectable"
+			   array [
+			   ]
+			)
+			dict entry(
+			   string "org.bluez.GattDescriptor1"
+			   array [
+				  dict entry(
+					 string "UUID"
+					 variant                         string "00002902-0000-1000-8000-00805f9b34fb"
+				  )
+				  dict entry(
+					 string "Characteristic"
+					 variant                         object path "/org/bluez/hci0/dev_A4_C1_38_DC_CC_3D/service0008/char0009"
+				  )
+				  dict entry(
+					 string "Value"
+					 variant                         array [
+						]
+				  )
+			   ]
+			)
+			dict entry(
+			   string "org.freedesktop.DBus.Properties"
+			   array [
+			   ]
+			)
+		 ]
+	  )
+
+*/
+			dbus_message_unref(dbus_reply);
+			if (bContinueProcessing)
+			{
+				// Connected to Device
+				// Do what needs to be done then disconnect
+				DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
+				DBusMessageIter iterParameter;
+				dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
+				DBusMessageIter iterArray;
+				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "(y)", &iterArray);
+
+				// This is copied from the HCI code to have the buffer set up the same way
+				// TODO: Optimize it if it works.
+				GATT_WritePacket MyRequest({ BT_ATT_OP_WRITE_REQ, 0x15, {0} });
+				MyRequest.buf[0] = 0x33;
+				MyRequest.buf[1] = 0x01;
+				time(&TimeDownloadStart);
+				TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
+				uint16_t DataPointsToRequest = 0xffff;
+				if (((TimeDownloadStart - GoveeLastReadTime) / 60) < 0xffff)
+					DataPointsToRequest = (TimeDownloadStart - GoveeLastReadTime) / 60;
+#ifdef DEBUG
+				DataPointsToRequest = 123; // this saves a huge amount of time
+#endif // DEBUG
+				MyRequest.buf[2] = DataPointsToRequest >> 8;
+				MyRequest.buf[3] = DataPointsToRequest;
+				MyRequest.buf[5] = 0x01;
+				// Create a checksum in the last byte by XOR each of the buffer bytes.
+				for (auto index = 0; index < sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0]) - 1; index++)
+					MyRequest.buf[(sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0])) - 1] ^= MyRequest.buf[index];
+
+				for (auto& a : MyRequest.buf)
+					dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
+				dbus_message_iter_close_container(&iterParameter, &iterArray);
+				DBusMessageIter iterDict;
+				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+
+				dbus_error_init(&dbus_error);
+				DBusMessage* dbus_reply_write = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_write, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[                   ] ";
+				ssOutput << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
+				if (!dbus_reply_write)
+				{
+					if (dbus_error_is_set(&dbus_error))
+					{
+						ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+						dbus_error_free(&dbus_error);
+						bContinueProcessing = false;
+					}
+				}
+				dbus_message_unref(dbus_msg_write);
+				ssOutput << std::endl;
+			}
+			if (bContinueProcessing)
+			{
+				DBusMessage* dbus_msg_read = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "ReadValue");
+				DBusMessageIter iterParameter;
+				dbus_message_iter_init_append(dbus_msg_read, &iterParameter);
+				dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_UINT16, 0);
+				//DBusMessageIter iterDict;
+				//dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+				dbus_error_init(&dbus_error);
+				DBusMessage* dbus_reply_read = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_read, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[                   ] ";
+				ssOutput << dbus_message_get_path(dbus_msg_read) << ": " << dbus_message_get_interface(dbus_msg_read) << ": " << dbus_message_get_member(dbus_msg_read);
+				if (!dbus_reply_read)
+				{
+					if (dbus_error_is_set(&dbus_error))
+					{
+						ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+						dbus_error_free(&dbus_error);
+						bContinueProcessing = false;
+					}
+				}
+				dbus_message_unref(dbus_msg_read);
+				ssOutput << std::endl;
+			}
+			// Disconnect from Device
+			DBusMessage* dbus_msg_disconnect = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Disconnect");
 			dbus_error_init(&dbus_error);
 			DBusMessage* dbus_reply_disconnect = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_disconnect, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
 			if (ConsoleVerbosity > 0)
@@ -4299,6 +5186,7 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 				{
 					ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
 					dbus_error_free(&dbus_error);
+					bContinueProcessing = false;
 				}
 			}
 			dbus_message_unref(dbus_msg_disconnect);
