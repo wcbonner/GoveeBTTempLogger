@@ -28,7 +28,7 @@ Powered by 1 CR2450 Battery
 
 ## H5174
 ![image](h5174-phone.jpg)
-Powered by 3 AA Batteries
+Powered by 3 AAA Batteries
 
 ## H5177
 ![image](h5177-phone.jpg)
