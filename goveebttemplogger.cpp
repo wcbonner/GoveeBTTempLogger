@@ -4314,6 +4314,7 @@ https://blog.linumiz.com/archives/16537 BlueZ Part 5: Understanding DBUS – Get
 https://blog.linumiz.com/archives/16556 BlueZ Part 6: Understanding DBUS – Get and Set Property – (5)
 https://blog.linumiz.com/archives/16564 BlueZ Part 7: Understanding DBUS – Get and GetAll properties – (6)
 https://blog.linumiz.com/archives/16576 BlueZ Part 8: Understanding DBUS – PropertiesChanged – (7)
+https://blog.linumiz.com/archives/16584 BlueZ Part 9: Understanding DBUS – Introspectable – (8)
 
 wim@WimPi5:~ $  dbus-send --system --dest=org.bluez --print-reply / org.freedesktop.DBus.ObjectManager.GetManagedObjects
 method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=155158 reply_serial=2
