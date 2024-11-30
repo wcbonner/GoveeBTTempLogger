@@ -194,7 +194,11 @@
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
       <AdditionalIncludeDirectories>%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_BLUEZ_HCI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <RemotePostBuildEvent>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>

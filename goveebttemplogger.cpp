@@ -932,7 +932,7 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 		int index(5);
 		// Because I've verified the string format with regex I can safely run this loop knowing it'll get 6 bytes
 		while (std::getline(ss, byteString, ':'))
-			TheBlueToothAddress.b[index--] = std::stoi(byteString, nullptr, 16);
+			TheBlueToothAddress.b[index--] = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
 	}
 	return(TheBlueToothAddress);
 }
@@ -1449,7 +1449,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 // Interesting ideas about SVG and possible tools to look at: https://blog.usejournal.com/of-svg-minification-and-gzip-21cd26a5d007
 // Tools Mentioned: svgo gzthermal https://github.com/subzey/svg-gz-supplement/
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
-void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
+void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
 	if (!TheValues.empty())
 	{
@@ -1523,12 +1523,12 @@ void WriteSVG(std::vector<Govee_Temp>& TheValues, const std::filesystem::path& S
 				if (Fahrenheit)
 				{
 					if ((TempMin < 32) && (32 < TempMax))
-						FreezingLine = ((TempMax - 32.0) * TempVerticalFactor) + GraphTop;
+						FreezingLine = int(((TempMax - 32.0) * TempVerticalFactor)) + GraphTop;
 				}
 				else
 				{
 					if ((TempMin < 0) && (0 < TempMax))
-						FreezingLine = (TempMax * TempVerticalFactor) + GraphTop;
+						FreezingLine = int((TempMax * TempVerticalFactor)) + GraphTop;
 				}
 
 				SVGFile << "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>" << std::endl;
@@ -2418,6 +2418,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	time_t TimeDownloadStart(0);
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
+	const auto ConnectedThermometerType = GoveeThermometers.find(GoveeBTAddress)->second;
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
 	socklen_t olen = sizeof(original_filter);
@@ -2806,19 +2807,19 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 
 						std::queue<GATT_WritePacket> WritePacketQueue;
 						GATT_WritePacket MyRequest({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0} });
-						MyRequest.buf[0] = 0x33;
-						MyRequest.buf[1] = 0x01;
+						MyRequest.buf[0] = uint8_t(0x33);
+						MyRequest.buf[1] = uint8_t(0x01);
 						time(&TimeDownloadStart);
 						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
 						uint16_t DataPointsToRequest = 0xffff;
 						if (((TimeDownloadStart - GoveeLastReadTime) / 60) < 0xffff)
-							DataPointsToRequest = (TimeDownloadStart - GoveeLastReadTime) / 60;
+							DataPointsToRequest = uint16_t((TimeDownloadStart - GoveeLastReadTime) / 60);
 #ifdef DEBUG
 						DataPointsToRequest = 123; // this saves a huge amount of time
 #endif // DEBUG
-						MyRequest.buf[2] = DataPointsToRequest >> 8;
-						MyRequest.buf[3] = DataPointsToRequest;
-						MyRequest.buf[5] = 0x01;
+						MyRequest.buf[2] = uint8_t(DataPointsToRequest >> 8);
+						MyRequest.buf[3] = uint8_t(DataPointsToRequest);
+						MyRequest.buf[5] = uint8_t(0x01);
 						// Create a checksum in the last byte by XOR each of the buffer bytes.
 						for (auto index = 0; index < sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0]) - 1; index++)
 							MyRequest.buf[(sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0])) - 1] ^= MyRequest.buf[index];
@@ -2926,6 +2927,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													std::cout << " " << std::dec << Humidity;
 												}
 												Govee_Temp localTemp(TimeDownloadStart - (60 * offset--), Temperature, Humidity, BatteryToRecord);
+												localTemp.SetModel(ConnectedThermometerType);
 												std::queue<Govee_Temp> foo;
 												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(GoveeBTAddress, foo));
 												ret.first->second.push(localTemp);
@@ -3308,7 +3310,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			if (foo != GoveeThermometers.end())
 																				localTemp.SetModel(foo->second);
 																		}
-																		if (TemperatureInAdvertisment = localTemp.IsValid())
+																		if ((TemperatureInAdvertisment = localTemp.IsValid()))
 																		{
 																			ConsoleOutLine << " " << localTemp.WriteConsole();
 																			std::queue<Govee_Temp> foo;
@@ -3683,6 +3685,7 @@ bool bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 	bool rVal(true);
 	std::ostringstream ssOutput;
 	// https://www.mankier.com/5/org.bluez.Adapter#Interface-void_SetDiscoveryFilter(dict_filter)
+	// declared as {sv} but really a{sv}
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", "SetDiscoveryFilter");
 	if (!dbus_msg)
 	{
@@ -3694,6 +3697,7 @@ bool bluez_filter_le(DBusConnection* dbus_conn, const char* adapter_path, const 
 	{
 		if (bFilter)
 		{
+			// build parameter that matches the signature a{sv}
 			DBusMessageIter iterParameter;
 			dbus_message_iter_init_append(dbus_msg, &iterParameter);
 			DBusMessageIter iterArray;
@@ -3770,6 +3774,7 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 	bool bStarted = false;
 	// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/adapter-api.txt
 	// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/org.bluez.Adapter.rst
+	// https://www.mankier.com/5/org.bluez.Adapter#Interface-void_StartDiscovery()
 	std::ostringstream ssOutput;
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", adapter_path, "org.bluez.Adapter1", bStartDiscovery ? "StartDiscovery" : "StopDiscovery");
 	if (!dbus_msg)
@@ -4152,6 +4157,7 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 			}
 			ssOutput << std::endl;
 			dbus_error_free(&dbus_error);
+			dbus_message_unref(dbus_reply);
 			dbus_message_unref(dbus_msg);
 		}
 		ObjectsToDelete.pop();
@@ -4294,12 +4300,20 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 		else
 		{
 			ssOutput << std::endl;
-			bContinueProcessing = false;
+			//bContinueProcessing = false;
 			// TODO: Examine reply
 /*
+https://www.mankier.com/5/org.bluez.Device
 https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/org.bluez.GattCharacteristic.rst
 https://github.com/Heckie75/govee-h5075-thermo-hygrometer
-
+https://blog.linumiz.com/archives/16279 BlueZ Part 1: Reviving Bluetooth with BlueZ and Zephyr RTOS
+https://blog.linumiz.com/archives/16427 BlueZ Part 2: Understanding DBUS – Basic type system – (1)
+https://blog.linumiz.com/archives/16468 BlueZ Part 3: Understanding DBUS – Container type system – (2)
+https://blog.linumiz.com/archives/16511 BlueZ Part 4: Understanding DBUS – Type system summary – (3)
+https://blog.linumiz.com/archives/16537 BlueZ Part 5: Understanding DBUS – Get property – (4)
+https://blog.linumiz.com/archives/16556 BlueZ Part 6: Understanding DBUS – Get and Set Property – (5)
+https://blog.linumiz.com/archives/16564 BlueZ Part 7: Understanding DBUS – Get and GetAll properties – (6)
+https://blog.linumiz.com/archives/16576 BlueZ Part 8: Understanding DBUS – PropertiesChanged – (7)
 
 wim@WimPi5:~ $  dbus-send --system --dest=org.bluez --print-reply / org.freedesktop.DBus.ObjectManager.GetManagedObjects
 method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=155158 reply_serial=2
@@ -5099,17 +5113,24 @@ method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=1
 			{
 				// Connected to Device
 				// Do what needs to be done then disconnect
+
+				// I'm pretty sure I need to enable notification on 
+				// https://www.mankier.com/5/org.bluez.GattCharacteristic#Interface-void_StartNotify()
+
+				// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
+				// parameter should have a signature of aya{sv}
 				DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
+
 				DBusMessageIter iterParameter;
 				dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
 				DBusMessageIter iterArray;
-				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "(y)", &iterArray);
+				// build parameter that matches the signature "ay"
+				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &iterArray);
 
 				// This is copied from the HCI code to have the buffer set up the same way
-				// TODO: Optimize it if it works.
-				GATT_WritePacket MyRequest({ BT_ATT_OP_WRITE_REQ, 0x15, {0} });
-				MyRequest.buf[0] = 0x33;
-				MyRequest.buf[1] = 0x01;
+				uint8_t buf[20] = { 0 };
+				buf[0] = uint8_t(0x33);
+				buf[1] = uint8_t(0x01);
 				time(&TimeDownloadStart);
 				TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
 				uint16_t DataPointsToRequest = 0xffff;
@@ -5118,21 +5139,47 @@ method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=1
 #ifdef DEBUG
 				DataPointsToRequest = 123; // this saves a huge amount of time
 #endif // DEBUG
-				MyRequest.buf[2] = DataPointsToRequest >> 8;
-				MyRequest.buf[3] = DataPointsToRequest;
-				MyRequest.buf[5] = 0x01;
+				buf[2] = uint8_t(DataPointsToRequest >> 8);
+				buf[3] = uint8_t(DataPointsToRequest);
+				buf[5] = uint8_t(0x01);
 				// Create a checksum in the last byte by XOR each of the buffer bytes.
-				for (auto index = 0; index < sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0]) - 1; index++)
-					MyRequest.buf[(sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0])) - 1] ^= MyRequest.buf[index];
-
-				for (auto& a : MyRequest.buf)
+				for (auto index = 0; index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
+					buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
+				for (auto& a : buf)
 					dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
 				dbus_message_iter_close_container(&iterParameter, &iterArray);
+				// https://github.com/szeged/blurz/issues/7
+				// https://www.bluez.org/bluez-5-api-introduction-and-porting-guide/
+				// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
+				// https://stackoverflow.com/questions/70934170/bluez-5-migration-discoverservices-does-not-exist
+#ifdef SIGNATURE_ayasv
+				// build parameter that matches the signature "a{sv}"
+				// https://stackoverflow.com/questions/29973486/d-bus-how-to-create-and-send-a-dict
+				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{sv}", &iterArray);
+				DBusMessageIter iterDict;
+				dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+				const char* EmptyString = "";
+				dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+				DBusMessageIter iterVariant;
+				dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
+				dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+				dbus_message_iter_close_container(&iterDict, &iterVariant);
+				dbus_message_iter_close_container(&iterArray, &iterDict);
+				dbus_message_iter_close_container(&iterParameter, &iterArray);
+#endif
+				// build parameter that matches the signature "{sv}"
 				DBusMessageIter iterDict;
 				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+				const char* EmptyString = "";
+				dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+				DBusMessageIter iterVariant;
+				dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
+				dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+				dbus_message_iter_close_container(&iterDict, &iterVariant);
+				dbus_message_iter_close_container(&iterParameter, &iterDict);
 
 				dbus_error_init(&dbus_error);
-				DBusMessage* dbus_reply_write = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_write, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+				DBusMessage* dbus_reply_write = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_write, DBUS_TIMEOUT_INFINITE, &dbus_error);
 				if (ConsoleVerbosity > 0)
 					ssOutput << "[                   ] ";
 				ssOutput << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
@@ -5189,6 +5236,7 @@ method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=1
 					bContinueProcessing = false;
 				}
 			}
+			dbus_message_unref(dbus_reply_disconnect);
 			dbus_message_unref(dbus_msg_disconnect);
 		}
 		dbus_message_unref(dbus_msg);
@@ -5809,7 +5857,7 @@ int main(int argc, char **argv)
 			if (ConsoleVerbosity > 0)
 				std::cout << "[" << getTimeISO8601(true) << "] Alarm Set" << std::endl;
 			int sig = 0;
-			int s = sigwait(&set, &sig);
+			sigwait(&set, &sig);
 			if (sig == SIGALRM)
 			{
 				if (ConsoleVerbosity > 0)

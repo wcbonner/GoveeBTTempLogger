@@ -7,19 +7,21 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GoveeBTTempLogger", "GoveeB
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|ARM = Debug|ARM
+		Debug|ARM64 = Debug|ARM64
 		Debug|x86 = Debug|x86
-		Release|ARM = Release|ARM
+		Release|ARM64 = Release|ARM64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM.ActiveCfg = Debug|ARM64
-		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM.Build.0 = Debug|ARM64
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM64.Build.0 = Debug|ARM64
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|ARM64.Deploy.0 = Debug|ARM64
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|x86.ActiveCfg = Debug|x86
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|x86.Build.0 = Debug|x86
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Debug|x86.Deploy.0 = Debug|x86
-		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|ARM.ActiveCfg = Release|ARM
-		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|ARM.Build.0 = Release|ARM
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|ARM64.ActiveCfg = Release|ARM64
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|ARM64.Build.0 = Release|ARM64
+		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|ARM64.Deploy.0 = Release|ARM64
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|x86.ActiveCfg = Release|x86
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|x86.Build.0 = Release|x86
 		{87469263-8DEA-4963-9E12-C4F20FA83479}.Release|x86.Deploy.0 = Release|x86
