@@ -3497,6 +3497,27 @@ const char * dbus_message_iter_type_to_string(const int type)
 		return "Unknown Type";
 	}
 }
+std::string bluez_bdaddr2DevicePath(const char* adapter_path, const bdaddr_t& dbusBTAddress)
+{
+	std::ostringstream ssrVal;
+	ssrVal << adapter_path << "/dev";
+	for (auto i = 5; i >= 0; i--)
+		ssrVal << "_" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(dbusBTAddress.b[i]);
+	return(ssrVal.str());
+}
+bdaddr_t bluez_DevicePath2bdaddr(const std::string& DevicePath)
+{
+	bdaddr_t dbusBTAddress({ 0 });
+	const std::regex ModifiedBluetoothAddressRegex("((([[:xdigit:]]{2}_){5}))[[:xdigit:]]{2}");
+	std::smatch AddressMatch;
+	if (std::regex_search(DevicePath, AddressMatch, ModifiedBluetoothAddressRegex))
+	{
+		std::string BluetoothAddress = AddressMatch.str();
+		std::replace(BluetoothAddress.begin(), BluetoothAddress.end(), '_', ':');
+		dbusBTAddress = string2ba(BluetoothAddress);
+	}
+	return (dbusBTAddress);
+}
 bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::string>& AdapterMap)
 {
 	std::ostringstream ssOutput;
@@ -4251,14 +4272,6 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		std::cout << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
-std::string bluez_bdaddr2path(const char* adapter_path, const bdaddr_t& dbusBTAddress)
-{
-	std::ostringstream ssrVal;
-	ssrVal << adapter_path << "/dev";
-	for (auto i = 5; i >= 0; i--)
-		ssrVal << "_" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << static_cast<int>(dbusBTAddress.b[i]);
-	return(ssrVal.str());
-}
 time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
 {
 	if (ConsoleVerbosity > 2)
@@ -4270,9 +4283,9 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
 	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
 	std::ostringstream ssJunk;
-	ssJunk << bluez_bdaddr2path(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
+	ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
 	const std::string ObjectPathGattCharacteristic(ssJunk.str());
-	const std::string ObjectPathDevice(bluez_bdaddr2path(adapter_path, dbusBTAddress));
+	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Connect");
 	if (!dbus_msg)
 	{
@@ -5114,112 +5127,141 @@ method return time=1732335448.277197 sender=:1.5 -> destination=:1.1561 serial=1
 			{
 				// Connected to Device
 				// Do what needs to be done then disconnect
-
-				// I'm pretty sure I need to enable notification on 
-				// https://www.mankier.com/5/org.bluez.GattCharacteristic#Interface-void_StartNotify()
-
-				// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
-				// parameter should have a signature of aya{sv}
-				DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
-
+				DBusMessage* dbus_msg_getall_services = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.freedesktop.DBus.Properties", "Get");
 				DBusMessageIter iterParameter;
-				dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
-				DBusMessageIter iterArray;
-				// build parameter that matches the signature "ay"
-				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &iterArray);
+				dbus_message_iter_init_append(dbus_msg_getall_services, &iterParameter);
+				const char* cpDevice = "org.bluez.Device1";
+				dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &cpDevice);
+				const char* cpServiceData = "ServiceData";
+				dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &cpServiceData);
+				DBusMessage* dbus_reply_getall_services = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_getall_services, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[                   ] ";
+				ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
+				if (!dbus_reply_getall_services)
+				{
+					if (dbus_error_is_set(&dbus_error))
+					{
+						ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+						dbus_error_free(&dbus_error);
+						bContinueProcessing = false;
+					}
+				}
+				else
+				{
+					//TODO: decode what was returned dbus_reply_getall_services
+					const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply_getall_services));
 
-				// This is copied from the HCI code to have the buffer set up the same way
-				uint8_t buf[20] = { 0 };
-				buf[0] = uint8_t(0x33);
-				buf[1] = uint8_t(0x01);
-				time(&TimeDownloadStart);
-				TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
-				uint16_t DataPointsToRequest = 0xffff;
-				if (((TimeDownloadStart - GoveeLastReadTime) / 60) < 0xffff)
-					DataPointsToRequest = (TimeDownloadStart - GoveeLastReadTime) / 60;
+					dbus_message_unref(dbus_reply_getall_services);
+				}
+				ssOutput << std::endl;
+				dbus_message_unref(dbus_msg_getall_services);
+				if (bContinueProcessing)
+				{
+					// I'm pretty sure I need to enable notification on 
+					// https://www.mankier.com/5/org.bluez.GattCharacteristic#Interface-void_StartNotify()
+
+					// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
+					// parameter should have a signature of aya{sv}
+					DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
+					dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
+					DBusMessageIter iterArray;
+					// build parameter that matches the signature "ay"
+					dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &iterArray);
+
+					// This is copied from the HCI code to have the buffer set up the same way
+					uint8_t buf[20] = { 0 };
+					buf[0] = uint8_t(0x33);
+					buf[1] = uint8_t(0x01);
+					time(&TimeDownloadStart);
+					TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
+					uint16_t DataPointsToRequest = 0xffff;
+					if (((TimeDownloadStart - GoveeLastReadTime) / 60) < 0xffff)
+						DataPointsToRequest = (TimeDownloadStart - GoveeLastReadTime) / 60;
 #ifdef DEBUG
-				DataPointsToRequest = 123; // this saves a huge amount of time
+					DataPointsToRequest = 123; // this saves a huge amount of time
 #endif // DEBUG
-				buf[2] = uint8_t(DataPointsToRequest >> 8);
-				buf[3] = uint8_t(DataPointsToRequest);
-				buf[5] = uint8_t(0x01);
-				// Create a checksum in the last byte by XOR each of the buffer bytes.
-				for (auto index = 0; index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
-					buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
-				for (auto& a : buf)
-					dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
-				dbus_message_iter_close_container(&iterParameter, &iterArray);
-				// https://github.com/szeged/blurz/issues/7
-				// https://www.bluez.org/bluez-5-api-introduction-and-porting-guide/
-				// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
-				// https://stackoverflow.com/questions/70934170/bluez-5-migration-discoverservices-does-not-exist
+					buf[2] = uint8_t(DataPointsToRequest >> 8);
+					buf[3] = uint8_t(DataPointsToRequest);
+					buf[5] = uint8_t(0x01);
+					// Create a checksum in the last byte by XOR each of the buffer bytes.
+					for (auto index = 0; index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
+						buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
+					for (auto& a : buf)
+						dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
+					dbus_message_iter_close_container(&iterParameter, &iterArray);
+					// https://github.com/szeged/blurz/issues/7
+					// https://www.bluez.org/bluez-5-api-introduction-and-porting-guide/
+					// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
+					// https://stackoverflow.com/questions/70934170/bluez-5-migration-discoverservices-does-not-exist
 #ifdef SIGNATURE_ayasv
 				// build parameter that matches the signature "a{sv}"
 				// https://stackoverflow.com/questions/29973486/d-bus-how-to-create-and-send-a-dict
-				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{sv}", &iterArray);
-				DBusMessageIter iterDict;
-				dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
-				const char* EmptyString = "";
-				dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-				DBusMessageIter iterVariant;
-				dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
-				dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-				dbus_message_iter_close_container(&iterDict, &iterVariant);
-				dbus_message_iter_close_container(&iterArray, &iterDict);
-				dbus_message_iter_close_container(&iterParameter, &iterArray);
+					dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{sv}", &iterArray);
+					DBusMessageIter iterDict;
+					dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+					const char* EmptyString = "";
+					dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+					DBusMessageIter iterVariant;
+					dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
+					dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+					dbus_message_iter_close_container(&iterDict, &iterVariant);
+					dbus_message_iter_close_container(&iterArray, &iterDict);
+					dbus_message_iter_close_container(&iterParameter, &iterArray);
 #endif
-				// build parameter that matches the signature "{sv}"
-				DBusMessageIter iterDict;
-				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
-				const char* EmptyString = "";
-				dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-				DBusMessageIter iterVariant;
-				dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
-				dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-				dbus_message_iter_close_container(&iterDict, &iterVariant);
-				dbus_message_iter_close_container(&iterParameter, &iterDict);
+					// build parameter that matches the signature "{sv}"
+					DBusMessageIter iterDict;
+					dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+					const char* EmptyString = "";
+					dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+					DBusMessageIter iterVariant;
+					dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
+					dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
+					dbus_message_iter_close_container(&iterDict, &iterVariant);
+					dbus_message_iter_close_container(&iterParameter, &iterDict);
 
-				dbus_error_init(&dbus_error);
-				DBusMessage* dbus_reply_write = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_write, DBUS_TIMEOUT_INFINITE, &dbus_error);
-				if (ConsoleVerbosity > 0)
-					ssOutput << "[                   ] ";
-				ssOutput << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
-				if (!dbus_reply_write)
-				{
-					if (dbus_error_is_set(&dbus_error))
+					dbus_error_init(&dbus_error);
+					DBusMessage* dbus_reply_write = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_write, DBUS_TIMEOUT_INFINITE, &dbus_error);
+					if (ConsoleVerbosity > 0)
+						ssOutput << "[                   ] ";
+					ssOutput << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
+					if (!dbus_reply_write)
 					{
-						ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-						dbus_error_free(&dbus_error);
-						bContinueProcessing = false;
+						if (dbus_error_is_set(&dbus_error))
+						{
+							ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+							dbus_error_free(&dbus_error);
+							bContinueProcessing = false;
+						}
 					}
+					dbus_message_unref(dbus_msg_write);
+					ssOutput << std::endl;
 				}
-				dbus_message_unref(dbus_msg_write);
-				ssOutput << std::endl;
-			}
-			if (bContinueProcessing)
-			{
-				DBusMessage* dbus_msg_read = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "ReadValue");
-				DBusMessageIter iterParameter;
-				dbus_message_iter_init_append(dbus_msg_read, &iterParameter);
-				dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_UINT16, 0);
-				//DBusMessageIter iterDict;
-				//dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
-				dbus_error_init(&dbus_error);
-				DBusMessage* dbus_reply_read = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_read, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
-				if (ConsoleVerbosity > 0)
-					ssOutput << "[                   ] ";
-				ssOutput << dbus_message_get_path(dbus_msg_read) << ": " << dbus_message_get_interface(dbus_msg_read) << ": " << dbus_message_get_member(dbus_msg_read);
-				if (!dbus_reply_read)
+				if (bContinueProcessing)
 				{
-					if (dbus_error_is_set(&dbus_error))
+					DBusMessage* dbus_msg_read = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "ReadValue");
+					DBusMessageIter iterParameter;
+					dbus_message_iter_init_append(dbus_msg_read, &iterParameter);
+					dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_UINT16, 0);
+					//DBusMessageIter iterDict;
+					//dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+					dbus_error_init(&dbus_error);
+					DBusMessage* dbus_reply_read = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_read, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+					if (ConsoleVerbosity > 0)
+						ssOutput << "[                   ] ";
+					ssOutput << dbus_message_get_path(dbus_msg_read) << ": " << dbus_message_get_interface(dbus_msg_read) << ": " << dbus_message_get_member(dbus_msg_read);
+					if (!dbus_reply_read)
 					{
-						ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-						dbus_error_free(&dbus_error);
-						bContinueProcessing = false;
+						if (dbus_error_is_set(&dbus_error))
+						{
+							ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+							dbus_error_free(&dbus_error);
+							bContinueProcessing = false;
+						}
 					}
+					dbus_message_unref(dbus_msg_read);
+					ssOutput << std::endl;
 				}
-				dbus_message_unref(dbus_msg_read);
-				ssOutput << std::endl;
 			}
 			// Disconnect from Device
 			DBusMessage* dbus_msg_disconnect = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Disconnect");
