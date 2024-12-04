@@ -3834,6 +3834,60 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 		std::cerr << ssOutput.str();
 	return(bStarted);
 }
+bool bluez_connect_device(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
+{
+	// this routine requests bluez connect to the device.
+	// I should then watch for a properties changed event ServicesResolved and find the services I want to connect to to download the data in a seperate routine.
+	bool bConnected(false);
+	if (ConsoleVerbosity > 2)
+		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	std::ostringstream ssOutput;
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+	//std::ostringstream ssJunk;
+	//ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
+	//const std::string ObjectPathGattCharacteristic(ssJunk.str());
+	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
+	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Connect");
+	if (!dbus_msg)
+	{
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[                   ] ";
+		ssOutput << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+	}
+	else
+	{
+		bConnected = true;
+		DBusError dbus_error;
+		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[                   ] ";
+		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
+		if (!dbus_reply)
+		{
+			if (dbus_error_is_set(&dbus_error))
+			{
+				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+				dbus_error_free(&dbus_error);
+				bConnected = false;
+			}
+		}
+		else
+		{
+			// TODO: Examine reply
+			dbus_message_unref(dbus_reply);
+		}
+		dbus_message_unref(dbus_msg);
+		ssOutput << std::endl;
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return (bConnected);
+}
 /////////////////////////////////////////////////////////////////////////////
 std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbusBTAddress, Govee_Temp& dbusTemp)
 {
@@ -5424,6 +5478,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 											if (ConsoleVerbosity > 0)
 												std::cout << "[" << timeToISO8601(TimeNow, true) << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
+											// initiate connection here if we are set to download data
 										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message

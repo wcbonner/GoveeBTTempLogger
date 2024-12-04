@@ -77,6 +77,14 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <IncludePath>
+    </IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
+    <IncludePath>
+    </IncludePath>
+  </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="goveebttemplogger.cpp" />
     <ClCompile Include="gvh-organizelogs.cpp">
@@ -221,21 +229,23 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
     <Link>
-      <LibraryDependencies>bluetooth</LibraryDependencies>
+      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
     </Link>
     <ClCompile />
     <ClCompile>
       <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
       <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalIncludeDirectories>$(StlIncludeDirectories);%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/x86_64-linux-gnu/dbus-1.0/include</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
     <Link>
-      <LibraryDependencies>bluetooth</LibraryDependencies>
+      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
     </Link>
     <ClCompile />
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalIncludeDirectories>$(StlIncludeDirectories);%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/x86_64-linux-gnu/dbus-1.0/include</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
