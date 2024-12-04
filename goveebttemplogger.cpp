@@ -4091,6 +4091,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
 				ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << Key << ": " << std::boolalpha << bool(value.bool_val) << std::endl;
+				bServicesResolved = bool(value.bool_val);
 			}
 		}
 		else
