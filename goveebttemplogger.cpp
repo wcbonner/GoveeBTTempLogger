@@ -3520,6 +3520,8 @@ bdaddr_t bluez_DevicePath2bdaddr(const std::string& DevicePath)
 }
 bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::string>& AdapterMap)
 {
+	if (ConsoleVerbosity > 2)
+		std::cout << "[                   ] " << __func__ << " \"" << dbus_bus_get_unique_name(dbus_conn) << "\"" << std::endl;
 	std::ostringstream ssOutput;
 	// Initialize D-Bus error
 	DBusError dbus_error;
@@ -3535,21 +3537,22 @@ bool bluez_find_adapters(DBusConnection* dbus_conn, std::map<bdaddr_t, std::stri
 	{
 		dbus_error_init(&dbus_error);
 		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[                   ] ";
+		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
 		dbus_message_unref(dbus_msg);
 		if (!dbus_reply)
 		{
-			if (ConsoleVerbosity > 0)
-				ssOutput << "[                   ] ";
-			ssOutput << "Can't get bluez managed objects" << std::endl;
 			if (dbus_error_is_set(&dbus_error))
 			{
-				if (ConsoleVerbosity > 0)
-					ssOutput << "[                   ] ";
-				ssOutput << dbus_error.message << std::endl;
+				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
 				dbus_error_free(&dbus_error);
 			}
+			else
+				ssOutput << " Can't get bluez managed objects";
 		}
-		else
+		ssOutput << std::endl;
+		if (dbus_reply)
 		{
 			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
 			{
