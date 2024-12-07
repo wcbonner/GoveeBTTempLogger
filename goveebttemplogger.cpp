@@ -3845,12 +3845,6 @@ bool bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, c
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
 	std::ostringstream ssOutput;
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
-	//std::ostringstream ssJunk;
-	//ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
-	//const std::string ObjectPathGattCharacteristic(ssJunk.str());
 	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Connect");
 	if (!dbus_msg)
@@ -3942,6 +3936,12 @@ bool bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 	bool bDownloaded(false);
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+	//std::ostringstream ssJunk;
+	//ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
+	//const std::string ObjectPathGattCharacteristic(ssJunk.str());
 	return (bDownloaded);
 }
 /////////////////////////////////////////////////////////////////////////////
