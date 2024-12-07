@@ -5537,24 +5537,32 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(localBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 											if (ConsoleVerbosity > 0)
 												std::cout << "[" << timeToISO8601(TimeNow, true) << "] [" << ba2string(localBTAddress) << "]" << " " << localTemp.WriteConsole() << std::endl;
-											// initiate connection here if we are set to download data
-											if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
-											{
-												time_t LastDownloadTime = 0;
-												auto RecentDownload = GoveeLastDownload.find(localBTAddress);
-												if (RecentDownload != GoveeLastDownload.end())
-													LastDownloadTime = RecentDownload->second;
-												// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-												if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
-													if (bServicesResolved)
-													{
-														bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
-														bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
-													}
-													else
+											if (!bServicesResolved)
+												// initiate connection here if we are set to download data
+												if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
+												{
+													time_t LastDownloadTime = 0;
+													auto RecentDownload = GoveeLastDownload.find(localBTAddress);
+													if (RecentDownload != GoveeLastDownload.end())
+														LastDownloadTime = RecentDownload->second;
+													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 														bluez_device_connect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
-											}
+												}
 										}
+										if (bServicesResolved)
+											if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
+												if (GoveeThermometers.find(localBTAddress) != GoveeThermometers.end())
+												{
+													time_t LastDownloadTime = 0;
+													auto RecentDownload = GoveeLastDownload.find(localBTAddress);
+													if (RecentDownload != GoveeLastDownload.end())
+														LastDownloadTime = RecentDownload->second;
+													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
+														bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+													bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+												}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
 								}
