@@ -3242,8 +3242,20 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																if (ConsoleVerbosity > 2)
 																{
 																	ConsoleOutLine << " (UUID) ";
-																	for (auto index = 1; index < *(info->data + current_offset); index++)
-																		ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	bt_uuid_t UUID({ bt_uuid_t::BT_UUID_UNSPEC , 0});
+																	if (3 == *(info->data + current_offset))
+																		bt_uuid16_create(&UUID, *(uint16_t*)(info->data + current_offset + 2));
+																	else if (5 == *(info->data + current_offset))
+																		bt_uuid32_create(&UUID, *(uint16_t*)(info->data + current_offset + 2));
+																	else if (17 == *(info->data + current_offset))
+																		bt_uuid128_create(&UUID, *(uint128_t*)(info->data + current_offset + 2));
+																	if (UUID.type == bt_uuid_t::BT_UUID_UNSPEC)
+																	{
+																		for (auto index = 1; index < *(info->data + current_offset); index++)
+																			ConsoleOutLine << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int((info->data + current_offset + 1)[index]);
+																	}
+																	else
+																		ConsoleOutLine << bt_UUID_2_String(&UUID);
 																}
 																break;
 															case 0x08:	// Shortened Local Name
@@ -3837,11 +3849,10 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 		std::cerr << ssOutput.str();
 	return(bStarted);
 }
-bool bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
+void bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	// this routine requests bluez connect to the device.
 	// I should then watch for a properties changed event ServicesResolved and find the services I want to connect to to download the data in a seperate routine.
-	bool bConnected(false);
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
 	std::ostringstream ssOutput;
@@ -3855,39 +3866,19 @@ bool bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, c
 	}
 	else
 	{
-		bConnected = true;
-		DBusError dbus_error;
-		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		dbus_connection_send(dbus_conn, dbus_msg, nullptr);
 		if (ConsoleVerbosity > 0)
 			ssOutput << "[                   ] ";
-		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
-		if (!dbus_reply)
-		{
-			if (dbus_error_is_set(&dbus_error))
-			{
-				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-				dbus_error_free(&dbus_error);
-				bConnected = false;
-			}
-		}
-		else
-		{
-			// TODO: Examine reply
-			dbus_message_unref(dbus_reply);
-		}
+		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
 		dbus_message_unref(dbus_msg);
-		ssOutput << std::endl;
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
 	else
 		std::cerr << ssOutput.str();
-	return (bConnected);
 }
-bool bluez_device_disconnect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
+void bluez_device_disconnect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
-	bool bConnected(false);
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
 	std::ostringstream ssOutput;
@@ -3901,35 +3892,16 @@ bool bluez_device_disconnect(DBusConnection* dbus_conn, const char* adapter_path
 	}
 	else
 	{
-		bConnected = true;
-		DBusError dbus_error;
-		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+		dbus_connection_send(dbus_conn, dbus_msg, nullptr);
 		if (ConsoleVerbosity > 0)
 			ssOutput << "[                   ] ";
-		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
-		if (!dbus_reply)
-		{
-			if (dbus_error_is_set(&dbus_error))
-			{
-				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-				dbus_error_free(&dbus_error);
-				bConnected = false;
-			}
-		}
-		else
-		{
-			// TODO: Examine reply
-			dbus_message_unref(dbus_reply);
-		}
+		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg) << std::endl;
 		dbus_message_unref(dbus_msg);
-		ssOutput << std::endl;
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
 	else
 		std::cerr << ssOutput.str();
-	return (bConnected);
 }
 bool bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
@@ -5560,7 +5532,14 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 														LastDownloadTime = RecentDownload->second;
 													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
-														bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+														if (bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress))
+														{
+															LastDownloadTime = TimeNow;
+															if (RecentDownload != GoveeLastDownload.end())
+																RecentDownload->second = TimeNow;
+															else
+																GoveeLastDownload.insert(std::make_pair(localBTAddress, TimeNow));
+														}
 													bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 												}
 									}
