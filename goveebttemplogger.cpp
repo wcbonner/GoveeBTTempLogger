@@ -823,50 +823,7 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 }
 /////////////////////////////////////////////////////////////////////////////
 #ifdef _BLUEZ_HCI_
-std::string iBeacon(const uint8_t* const data)
-{
-	std::ostringstream ssValue;
-	const size_t data_len = data[0];
-	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
-	{
-		if ((data[2] == 0x4c) && (data[3] == 0x00))
-		{
-			ssValue << " (Apple)";
-			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
-			{
-				ssValue << " (UUID) ";
-				for (auto index = 6; index < 22; index++)
-					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
-				ssValue << " (Major) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[22]);
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[23]);
-				ssValue << " (Minor) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[24]);
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[25]);
-				ssValue << " (RSSI) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[26]);
-				// https://en.wikipedia.org/wiki/IBeacon
-				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
-				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
-				// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
-			}
-			else
-			{
-				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
-				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
-				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
-				ssValue << " ";
-				for (size_t index = 4; index < data_len; index++)
-					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
-				// Apple Company Code: 0x004C
-				// UUID 16 bytes
-				// Major 2 bytes
-				// Minor 2 bytes
-			}
-		}
-	}
-	return(ssValue.str());
-}
+
 #endif // _BLUEZ_HCI_
 /////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
@@ -2220,6 +2177,53 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 	}
 	return(rVal);
 }
+/////////////////////////////////////////////////////////////////////////////
+std::string iBeacon(const uint8_t* const data)
+{
+	std::ostringstream ssValue;
+	const size_t data_len = data[0];
+	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
+	{
+		if ((data[2] == 0x4c) && (data[3] == 0x00))
+		{
+			ssValue << " (Apple)";
+			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
+			{
+				ssValue << " (iBeacon)";
+				uint128_t UUID_data({ data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], data[16], data[17], data[18], data[19], data[20], data[21] });
+				bt_uuid_t theUUID;
+				bt_uuid128_create(&theUUID, UUID_data);
+				ssValue << " (UUID) " << bt_UUID_2_String(&theUUID);
+				ssValue << " (Major) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[22]);
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[23]);
+				ssValue << " (Minor) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[24]);
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[25]);
+				ssValue << " (RSSI) ";
+				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[26]);
+				// https://en.wikipedia.org/wiki/IBeacon
+				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
+				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
+				// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
+			}
+			else
+			{
+				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
+				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
+				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
+				ssValue << " ";
+				for (size_t index = 4; index < data_len; index++)
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
+				// Apple Company Code: 0x004C
+				// UUID 16 bytes
+				// Major 2 bytes
+				// Minor 2 bytes
+			}
+		}
+	}
+	return(ssValue.str());
+}
 // My command to stop and start bluetooth scanning
 int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdaddr_t>& BT_WhiteList, const bool HCI_Passive_Scanning)
 {
@@ -2567,6 +2571,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											{
 												// UUID: 57485f534b434f525f494c4c45544e49 = WH_SKCOR_ILLETNI
 												struct bt_attribute_data_uuid128 { uint16_t starting_handle; uint16_t ending_handle; uint128_t UUID; } *attribute_data = (bt_attribute_data_uuid128*)&(buf[AttributeOffset]);
+												// reverse bitorder of 128 bit UUID
 												uint128_t UUID_data({ attribute_data->UUID.data[15], attribute_data->UUID.data[14], attribute_data->UUID.data[13], attribute_data->UUID.data[12], attribute_data->UUID.data[11], attribute_data->UUID.data[10], attribute_data->UUID.data[9], attribute_data->UUID.data[8], attribute_data->UUID.data[7], attribute_data->UUID.data[6], attribute_data->UUID.data[5], attribute_data->UUID.data[4], attribute_data->UUID.data[3], attribute_data->UUID.data[2], attribute_data->UUID.data[1], attribute_data->UUID.data[0] });
 												bt_uuid_t theUUID;
 												bt_uuid128_create(&theUUID, UUID_data);
@@ -2652,6 +2657,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													// UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
 													// UUID: 14205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
 													struct __attribute__((__packed__)) bt_attribute_data { uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; uint128_t UUID; } *attribute_data = (bt_attribute_data*)&(buf[AttributeOffset]);
+													// reverse bitorder of 128 bit UUID
 													uint128_t UUID_data({ attribute_data->UUID.data[15], attribute_data->UUID.data[14], attribute_data->UUID.data[13], attribute_data->UUID.data[12], attribute_data->UUID.data[11], attribute_data->UUID.data[10], attribute_data->UUID.data[9], attribute_data->UUID.data[8], attribute_data->UUID.data[7], attribute_data->UUID.data[6], attribute_data->UUID.data[5], attribute_data->UUID.data[4], attribute_data->UUID.data[3], attribute_data->UUID.data[2], attribute_data->UUID.data[1], attribute_data->UUID.data[0] });
 													bt_uuid_t theUUID;
 													bt_uuid128_create(&theUUID, UUID_data);
