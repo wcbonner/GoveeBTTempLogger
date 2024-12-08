@@ -664,7 +664,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 			time(&Time);
 			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-			rval = true;
+			rval = IsValid();
 		}
 		else if (Data.size() == 17)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 		{
@@ -703,7 +703,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 			time(&Time);
 			for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-			rval = true;
+			rval = IsValid();
 		}
 		else if (Data.size() == 20)	// I'm not checking the Manufacturer data because it appears to be part of the Bluetooth Address on this device
 		{
@@ -743,7 +743,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 				time(&Time);
 				for (unsigned long index = 0; index < (sizeof(Temperature) / sizeof(Temperature[0])); index++)
 					TemperatureMin[index] = TemperatureMax[index] = Temperature[index];	//HACK: make sure that these values are set
-				rval = true;
+				rval = IsValid();
 			}
 		}
 	}
@@ -2187,9 +2187,15 @@ std::string iBeacon(const uint8_t* const data)
 	{
 		if ((data[2] == 0x4c) && (data[3] == 0x00))
 		{
-			ssValue << " (Apple)";
 			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
 			{
+				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
+				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
+				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
+				// Apple Company Code: 0x004C
+				// UUID 16 bytes
+				// Major 2 bytes
+				// Minor 2 bytes
 				ssValue << " (iBeacon)";
 				uint128_t UUID_data({ data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], data[16], data[17], data[18], data[19], data[20], data[21] });
 				bt_uuid_t theUUID;
@@ -2207,19 +2213,6 @@ std::string iBeacon(const uint8_t* const data)
 				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
 				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
 				// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
-			}
-			else
-			{
-				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
-				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
-				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
-				ssValue << " ";
-				for (size_t index = 4; index < data_len; index++)
-					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[index]);
-				// Apple Company Code: 0x004C
-				// UUID 16 bytes
-				// Major 2 bytes
-				// Minor 2 bytes
 			}
 		}
 	}
@@ -3343,7 +3336,15 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																		}
 																	}
 																	else if (ConsoleVerbosity > 1)
+																	{
+																		if (ManufacturerID == 0x0006)
+																			ConsoleOutLine << " (Microsoft)";
+																		else if (ManufacturerID == 0x004c)
+																			ConsoleOutLine << " (Apple)";
+																		else if (ManufacturerID == 0x02e1)
+																			ConsoleOutLine << " (Victron Energy BV)";
 																		ConsoleOutLine << iBeacon(info->data + current_offset);
+																	}
 																}
 																break;
 															default:
@@ -3933,9 +3934,13 @@ bool bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 	bool bDownloaded(false);
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49
+	//                                          ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x000f..0xffff
+	//                                          <== Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+	//                                          ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000f..0x001b
+	//                                          <== Handles: 0x0010..0x0011 Characteristic Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 494e5445-4c4c-495f-524f-434b535f2011
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 494e5445-4c4c-495f-524f-434b535f2012
+	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 494e5445-4c4c-495f-524f-434b535f2013
 	//std::ostringstream ssJunk;
 	//ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
 	//const std::string ObjectPathGattCharacteristic(ssJunk.str());
