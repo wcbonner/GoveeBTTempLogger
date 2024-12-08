@@ -2567,8 +2567,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											{
 												// UUID: 57485f534b434f525f494c4c45544e49 = WH_SKCOR_ILLETNI
 												struct bt_attribute_data_uuid128 { uint16_t starting_handle; uint16_t ending_handle; uint128_t UUID; } *attribute_data = (bt_attribute_data_uuid128*)&(buf[AttributeOffset]);
+												uint128_t UUID_data({ attribute_data->UUID.data[15], attribute_data->UUID.data[14], attribute_data->UUID.data[13], attribute_data->UUID.data[12], attribute_data->UUID.data[11], attribute_data->UUID.data[10], attribute_data->UUID.data[9], attribute_data->UUID.data[8], attribute_data->UUID.data[7], attribute_data->UUID.data[6], attribute_data->UUID.data[5], attribute_data->UUID.data[4], attribute_data->UUID.data[3], attribute_data->UUID.data[2], attribute_data->UUID.data[1], attribute_data->UUID.data[0] });
 												bt_uuid_t theUUID;
-												bt_uuid128_create(&theUUID, attribute_data->UUID);
+												bt_uuid128_create(&theUUID, UUID_data);
 												if (ConsoleVerbosity > 1)
 													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
 												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
@@ -2651,8 +2652,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													// UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
 													// UUID: 14205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
 													struct __attribute__((__packed__)) bt_attribute_data { uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; uint128_t UUID; } *attribute_data = (bt_attribute_data*)&(buf[AttributeOffset]);
+													uint128_t UUID_data({ attribute_data->UUID.data[15], attribute_data->UUID.data[14], attribute_data->UUID.data[13], attribute_data->UUID.data[12], attribute_data->UUID.data[11], attribute_data->UUID.data[10], attribute_data->UUID.data[9], attribute_data->UUID.data[8], attribute_data->UUID.data[7], attribute_data->UUID.data[6], attribute_data->UUID.data[5], attribute_data->UUID.data[4], attribute_data->UUID.data[3], attribute_data->UUID.data[2], attribute_data->UUID.data[1], attribute_data->UUID.data[0] });
 													bt_uuid_t theUUID;
-													bt_uuid128_create(&theUUID, attribute_data->UUID);
+													bt_uuid128_create(&theUUID, UUID_data);
 													Characteristic.starting_handle = attribute_data->starting_handle;
 													Characteristic.ending_handle = attribute_data->ending_handle;
 													Characteristic.properties = attribute_data->properties;
@@ -2752,11 +2754,11 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						buf[0] = 0;
 						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
 						{
-							bt_uuid_t INTELLI_ROCKS_HW; bt_uuid128_create(&INTELLI_ROCKS_HW, { 0x57, 0x48, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
-							//bt_uuid_t INTELLI_ROCKS_11; bt_uuid128_create(&INTELLI_ROCKS_11, { 0x11, 0x20, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
-							bt_uuid_t INTELLI_ROCKS_12; bt_uuid128_create(&INTELLI_ROCKS_12, { 0x12, 0x20, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
-							bt_uuid_t INTELLI_ROCKS_13; bt_uuid128_create(&INTELLI_ROCKS_13, { 0x13, 0x20, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
-							//bt_uuid_t INTELLI_ROCKS_14; bt_uuid128_create(&INTELLI_ROCKS_14, { 0x14, 0x20, 0x5f, 0x53, 0x4b, 0x43, 0x4f, 0x52, 0x5f, 0x49, 0x4c, 0x4c, 0x45, 0x54, 0x4e, 0x49 });
+							bt_uuid_t INTELLI_ROCKS_HW; bt_uuid128_create(&INTELLI_ROCKS_HW, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x48, 0x57 });
+							//bt_uuid_t INTELLI_ROCKS_11; bt_uuid128_create(&INTELLI_ROCKS_11, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x11 });
+							bt_uuid_t INTELLI_ROCKS_12; bt_uuid128_create(&INTELLI_ROCKS_12, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x12 });
+							bt_uuid_t INTELLI_ROCKS_13; bt_uuid128_create(&INTELLI_ROCKS_13, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x13 });
+							//bt_uuid_t INTELLI_ROCKS_14; bt_uuid128_create(&INTELLI_ROCKS_14, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x14 });
 							if (bts->theUUID == INTELLI_ROCKS_HW)
 								for (auto btsc = bts->characteristics.begin(); btsc != bts->characteristics.end(); btsc++)
 								{
@@ -3246,7 +3248,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	if (3 == *(info->data + current_offset))
 																		bt_uuid16_create(&UUID, *(uint16_t*)(info->data + current_offset + 2));
 																	else if (5 == *(info->data + current_offset))
-																		bt_uuid32_create(&UUID, *(uint16_t*)(info->data + current_offset + 2));
+																		bt_uuid32_create(&UUID, *(uint32_t*)(info->data + current_offset + 2));
 																	else if (17 == *(info->data + current_offset))
 																		bt_uuid128_create(&UUID, *(uint128_t*)(info->data + current_offset + 2));
 																	if (UUID.type == bt_uuid_t::BT_UUID_UNSPEC)
