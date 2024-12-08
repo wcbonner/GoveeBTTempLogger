@@ -2124,7 +2124,8 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 		ss << std::hex << std::setw(4) << std::setfill('0') << uuid->value.u16;
 		switch (uuid->value.u16)
 		{
-			// https://btprodspecificationrefs.blob.core.windows.net/assigned-numbers/Assigned%20Number%20Types/Assigned%20Numbers.pdf
+			// These 16 bit UUIDs were retrieved from 3.8.2 Characteristics by UUID
+			// https://www.bluetooth.com/specifications/assigned-numbers/ 
 		case 0x1800:
 			ss << " (Generic Access)";
 			break;
