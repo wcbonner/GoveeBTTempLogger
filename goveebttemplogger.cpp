@@ -3944,6 +3944,60 @@ bool bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 	//std::ostringstream ssJunk;
 	//ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
 	//const std::string ObjectPathGattCharacteristic(ssJunk.str());
+	std::ostringstream ssOutput;
+	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
+	DBusMessage* dbus_msg_getall_services = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.freedesktop.DBus.Properties", "Get");
+	DBusMessageIter iterParameter;
+	dbus_message_iter_init_append(dbus_msg_getall_services, &iterParameter);
+	const char* cpDevice = "org.bluez.Device1";
+	dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &cpDevice);
+	const char* cpServiceData = "UUIDs";
+	dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &cpServiceData);
+	DBusError dbus_error;
+	dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+	DBusMessage* dbus_reply_getall_services = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_getall_services, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+	if (ConsoleVerbosity > 0)
+		ssOutput << "[                   ] ";
+	ssOutput << dbus_message_get_path(dbus_msg_getall_services) << ": " << dbus_message_get_interface(dbus_msg_getall_services) << ": " << dbus_message_get_member(dbus_msg_getall_services);
+	ssOutput << " " << std::string(cpDevice) << " " << std::string(cpServiceData);
+	if (!dbus_reply_getall_services)
+	{
+		if (dbus_error_is_set(&dbus_error))
+		{
+			ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
+			dbus_error_free(&dbus_error);
+		}
+	}
+	else
+	{
+		//TODO: decode what was returned dbus_reply_getall_services
+		const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply_getall_services));
+		ssOutput << ": Reply Signature (" << dbus_reply_Signature << ")";
+		/*
+			[2024-12-08T18:37:57] [A4:C1:38:0D:42:7B] (Temp) 14.5°C (Humidity)  54.4% (Battery) 100% (GVH5075)
+			[                   ] /org/bluez/hci0/dev_A4_C1_38_0D_42_7B: org.bluez.Device1: Connect
+			[                   ] [A4:C1:38:0D:42:7B] Connected: true
+			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 00001800-0000-1000-8000-00805f9b34fb
+			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 00001801-0000-1000-8000-00805f9b34fb
+			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 0000180a-0000-1000-8000-00805f9b34fb
+			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 00010203-0405-0607-0809-0a0b0c0d1912
+			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 494e5445-4c4c-495f-524f-434b535f4857
+			[                   ] [A4:C1:38:0D:42:7B] ServicesResolved: true
+			[                   ] /org/bluez/hci0/dev_A4_C1_38_0D_42_7B: org.freedesktop.DBus.Properties: Get org.bluez.Device1 UUIDs: Reply Signature (v)
+			[                   ] /org/bluez/hci0/dev_A4_C1_38_0D_42_7B: org.bluez.Device1: Disconnect
+			[                   ] [A4:C1:38:0D:42:7B] Modalias
+			[                   ] [A4:C1:38:0D:42:7B] ServicesResolved: false
+			[                   ] [A4:C1:38:0D:42:7B] Connected: false
+		*/
+		dbus_message_unref(dbus_reply_getall_services);
+	}
+	ssOutput << std::endl;
+	dbus_message_unref(dbus_msg_getall_services);
+
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 	return (bDownloaded);
 }
 /////////////////////////////////////////////////////////////////////////////
