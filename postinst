@@ -6,7 +6,7 @@ exists() {
     [ -e "$1" ]
 }
 
-echo "\033[36mHI I'M A POSTINST SCRIPT \033[32m${0}\033[36m `date --rfc-3339='seconds'` running as \033[91m`whoami`\033[39m"
+echo "`date --rfc-3339='seconds'` \033[36mHI I'M A POSTINST SCRIPT running \033[32m${0}\033[36m as \033[91m`whoami`\033[39m"
 adduser --system --ingroup www-data goveebttemplogger
 mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
