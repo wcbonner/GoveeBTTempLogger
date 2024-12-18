@@ -133,7 +133,7 @@ int hci_le_set_ext_scan_parameters(int dd, uint8_t type, uint16_t interval, uint
 	param_cp.own_addr_type = own_type;
 	param_cp.filter_policy = filter;
 	param_cp.num_phys = 1;
-	uint8_t status;
+	uint8_t status = 0;
 	struct hci_request rq;
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
@@ -164,7 +164,7 @@ int hci_le_set_ext_scan_enable(int dd, uint8_t enable, uint8_t filter_dup, int t
 	memset(&scan_cp, 0, sizeof(scan_cp));
 	scan_cp.enable = enable;
 	scan_cp.filter_dup = filter_dup;
-	uint8_t status;
+	uint8_t status = 0;
 	struct hci_request rq;
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
@@ -190,7 +190,7 @@ int hci_le_set_random_address(int dd, int to)
 	std::default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());	// 2023-12-01 switch to c++ std library <random>
 	for (auto& b : scan_cp.bdaddr.b)
 		b = generator() % 256;
-	uint8_t status;
+	uint8_t status = 0;
 	struct hci_request rq;
 	memset(&rq, 0, sizeof(rq));
 	rq.ogf = OGF_LE_CTL;
@@ -1020,7 +1020,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 						LogData.pop();
 					}
 					LogFile.close();
-					struct utimbuf Log_ut;
+					struct utimbuf Log_ut({ 0 });
 					Log_ut.actime = MostRecentData;
 					Log_ut.modtime = MostRecentData;
 					utime(filename.c_str(), &Log_ut);
@@ -1042,7 +1042,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				if (MostRecentDownload < TheTime)
 					MostRecentDownload = TheTime;
 			bool NewData(true);
-			struct stat64 StatBuffer;
+			struct stat64 StatBuffer({ 0 });
 			StatBuffer.st_mtim.tv_sec = 0;
 			if (0 == stat64(filename.c_str(), &StatBuffer))
 			{
@@ -1058,7 +1058,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 					for (auto const& [TheAddress, TheTime] : PersistenceData)
 						PersistenceFile << ba2string(TheAddress) << "\t" << timeToISO8601(TheTime) << std::endl;
 					PersistenceFile.close();
-					struct utimbuf Persistut;
+					struct utimbuf Persistut({ 0 });
 					Persistut.actime = MostRecentDownload;
 					Persistut.modtime = MostRecentDownload;
 					utime(filename.c_str(), &Persistut);
@@ -1185,7 +1185,7 @@ bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Go
 				for (auto & i : GoveeMRTGLog)
 					CacheFile << i.WriteCache() << std::endl;
 				CacheFile.close();
-				struct utimbuf ut;
+				struct utimbuf ut({ 0 });
 				ut.actime = GoveeMRTGLog[0].Time;
 				ut.modtime = GoveeMRTGLog[0].Time;
 				utime(MRTGCacheFile.c_str(), &ut);
@@ -1684,7 +1684,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 
 				SVGFile << "</svg>" << std::endl;
 				SVGFile.close();
-				struct utimbuf SVGut;
+				struct utimbuf SVGut({ 0 });
 				SVGut.actime = TheValues.begin()->Time;
 				SVGut.modtime = TheValues.begin()->Time;
 				utime(SVGFileName.c_str(), &SVGut);
@@ -1792,8 +1792,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 
 		// Only read the file if it's newer than what we may have cached
 		bool bReadFile = true;
-		struct stat64 FileStat;
-		FileStat.st_mtim.tv_sec = 0;
+		struct stat64 FileStat({ 0 });
 		if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 		{
 			auto it = GoveeMRTGLogs.find(TheBlueToothAddress);
@@ -1866,8 +1865,7 @@ void MonitorLoggedData(const int SecondsRecent = 35*60)
 		for (auto it = GoveeMRTGLogs.begin(); it != GoveeMRTGLogs.end(); it++)
 		{
 			std::filesystem::path filename(GenerateLogFileName(it->first));
-			struct stat64 FileStat;
-			FileStat.st_mtim.tv_sec = 0;
+			struct stat64 FileStat({ 0 });
 			if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 				if (!it->second.empty())
 					if (FileStat.st_mtim.tv_sec > (it->second.begin()->Time + (SecondsRecent)))	// only read the file if it's at least thirty five minutes more recent than existing data
@@ -1879,8 +1877,7 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 {
 	bool rval = false;
 	static time_t LastModified = 0;
-	struct stat64 TitleMapFileStat;
-	TitleMapFileStat.st_mtim.tv_sec = 0;
+	struct stat64 TitleMapFileStat({ 0 });
 	if (0 == stat64(TitleMapFilename.c_str(), &TitleMapFileStat))
 	{
 		rval = true;
@@ -2624,7 +2621,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										{
 											for (auto AttributeOffset = 2; AttributeOffset < bufDataLen; AttributeOffset += buf[1])
 											{
-												BlueToothServiceCharacteristic Characteristic;
+												BlueToothServiceCharacteristic Characteristic({ 0 });
 												if (buf[1] == 7) // length of Handle/Value Pair
 												{
 													struct __attribute__((__packed__)) bt_attribute_data { uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; uint16_t UUID; } *attribute_data = (bt_attribute_data*)&(buf[AttributeOffset]);
@@ -2983,10 +2980,20 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 		auto TimeStop = TimeDownloadStart;
 		TimeStart -= static_cast<long>(60) * offset;
 		TimeStop -= static_cast<long>(60) * offset;
+
+		std::ostringstream ssOutput;
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Download from device. " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
+			ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ";
+		ssOutput << "Download from device: [" << ba2string(GoveeBTAddress) << "]";
+		ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
+		ssOutput << " (" << std::dec << DataPointsRecieved << ")";
+		auto downloadtype = GoveeThermometers.find(GoveeBTAddress);
+		if (downloadtype != GoveeThermometers.end())
+			ssOutput << " " << ThermometerType2String(downloadtype->second);
+		if (ConsoleVerbosity > 0)
+			std::cout << ssOutput.str() << std::endl;
 		else
-			std::cerr << "Download from device: [" << ba2string(GoveeBTAddress) << "] " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop) << " (" << std::dec << DataPointsRecieved << ")" << std::endl;
+			std::cerr << ssOutput.str() << std::endl;
 		TimeDownloadStart -= static_cast<long>(60) * offset;
 	}
 	return(TimeDownloadStart);
@@ -3130,7 +3137,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								struct timeval select_timeout = { 60, 0 };	// 60 second timeout, 0 microseconds
 								// and reset the value of check_set, since that's what will tell us what descriptors were ready
 								// Set up the file descriptor set that select() will use
-								fd_set check_set;
+								fd_set check_set({ 0 });
 								FD_ZERO(&check_set);
 								FD_SET(BlueToothDevice_Handle, &check_set);
 								// This will block until either a read is ready (i.e. won’t return EWOULDBLOCK) -1 on error, 0 on timeout, otherwise number of FDs changed
@@ -5253,8 +5260,8 @@ int main(int argc, char **argv)
 					std::cout << "[" << getTimeISO8601(true) << "] Writing: " << CacheTypesFileName.native() << std::endl;
 				else
 					std::cerr << "Writing: " << CacheTypesFileName.native() << std::endl;
-				for (auto i : GoveeThermometers)
-					CacheFile << ba2string(i.first) << "\t" << ThermometerType2String(i.second) << std::endl;
+				for (auto &[localAddress, localType] : GoveeThermometers)
+					CacheFile << ba2string(localAddress) << "\t" << ThermometerType2String(localType) << std::endl;
 				CacheFile.close();
 			}
 		}

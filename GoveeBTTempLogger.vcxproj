@@ -246,6 +246,7 @@
     <ClCompile>
       <CppLanguageStandard>c++17</CppLanguageStandard>
       <AdditionalIncludeDirectories>$(StlIncludeDirectories);%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/x86_64-linux-gnu/dbus-1.0/include</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_BLUEZ_HCI_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
