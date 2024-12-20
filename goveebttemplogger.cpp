@@ -2518,13 +2518,13 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 					if (connect(l2cap_socket, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
 					{
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << (bRandomAddress ? " BDADDR_LE_RANDOM" : " BDADDR_LE_PUBLIC") << std::endl;
 						close(l2cap_socket);
 					}
 					else
 					{
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << (bRandomAddress ? " BDADDR_LE_RANDOM" : " BDADDR_LE_PUBLIC") << std::endl;
 
 						unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
 						std::vector<BlueToothService> BTServices;
