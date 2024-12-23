@@ -1411,11 +1411,11 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 	if (!TheValues.empty())
 	{
 		// By declaring these items here, I'm then basing all my other dimensions on these
-		const int SVGWidth(500);
-		const int SVGHeight(135);
-		const int FontSize(12);
-		const int TickSize(2);
-		int GraphWidth = SVGWidth - (FontSize * 5);
+		const std::size_t SVGWidth(500);
+		const std::size_t SVGHeight(135);
+		const std::size_t FontSize(12);
+		const std::size_t TickSize(2);
+		std::size_t GraphWidth = SVGWidth - (FontSize * 5);
 		const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 		struct stat64 SVGStat({0});	// Zero the stat64 structure on allocation
 		if (-1 == stat64(SVGFileName.c_str(), &SVGStat))
@@ -1456,7 +1456,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 				double HumiMin = DBL_MAX;
 				double HumiMax = -DBL_MAX;
 				if (MinMax)
-					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 					{
 						TempMin = std::min(TempMin, TheValues[index].GetTemperatureMin(Fahrenheit));
 						TempMax = std::max(TempMax, TheValues[index].GetTemperatureMax(Fahrenheit));
@@ -1464,7 +1464,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 						HumiMax = std::max(HumiMax, TheValues[index].GetHumidityMax());
 					}
 				else
-					for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 					{
 						TempMin = std::min(TempMin, TheValues[index].GetTemperature(Fahrenheit));
 						TempMax = std::max(TempMax, TheValues[index].GetTemperature(Fahrenheit));
@@ -1526,7 +1526,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 						SVGFile << "\t<!-- Humidity Max -->" << std::endl;
 						SVGFile << "\t<polygon style=\"fill:lime;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
 						SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
-						for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMax()) * HumiVerticalFactor) + GraphTop) << " ";
 						if (GraphWidth < TheValues.size())
 							SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
@@ -1536,7 +1536,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 						SVGFile << "\t<!-- Humidity Min -->" << std::endl;
 						SVGFile << "\t<polygon style=\"fill:lime;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
 						SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
-						for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidityMin()) * HumiVerticalFactor) + GraphTop) << " ";
 						if (GraphWidth < TheValues.size())
 							SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
@@ -1550,7 +1550,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 						SVGFile << "\t<!-- Humidity -->" << std::endl;
 						SVGFile << "\t<polygon style=\"fill:lime;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
 						SVGFile << GraphLeft + 1 << "," << GraphBottom - 1 << " ";
-						for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+						for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((HumiMax - TheValues[index].GetHumidity()) * HumiVerticalFactor) + GraphTop) << " ";
 						if (GraphWidth < TheValues.size())
 							SVGFile << GraphRight - 1 << "," << GraphBottom - 1;
@@ -1595,7 +1595,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 				}
 
 				// Horizontal Division Dashed Lines
-				for (auto index = 0; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+				for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 				{
 					struct tm UTC;
 					if (0 != localtime_r(&TheValues[index].Time, &UTC))
@@ -1655,7 +1655,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 					// Temperature Values as a filled polygon showing the minimum and maximum
 					SVGFile << "\t<!-- Temperature MinMax -->" << std::endl;
 					SVGFile << "\t<polygon style=\"fill:blue;stroke:blue;clip-path:url(#GraphRegion)\" points=\"";
-					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					for (auto index = std::size_t(1); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMax(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 					for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperatureMin(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
@@ -1666,7 +1666,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 					// Temperature Values as a continuous line
 					SVGFile << "\t<!-- Temperature -->" << std::endl;
 					SVGFile << "\t<polyline style=\"fill:none;stroke:blue;clip-path:url(#GraphRegion)\" points=\"";
-					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					for (auto index = std::size_t(1); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((TempMax - TheValues[index].GetTemperature(Fahrenheit)) * TempVerticalFactor) + GraphTop) << " ";
 					SVGFile << "\" />" << std::endl;
 				}
@@ -1677,7 +1677,7 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 					SVGFile << "\t<!-- Battery -->" << std::endl;
 					double BatteryVerticalFactor = (GraphBottom - GraphTop) / 100.0;
 					SVGFile << "\t<polyline style=\"fill:none;stroke:OrangeRed;clip-path:url(#GraphRegion)\" points=\"";
-					for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+					for (auto index = std::size_t(1); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 						SVGFile << index + GraphLeft << "," << int(((100 - TheValues[index].GetBattery()) * BatteryVerticalFactor) + GraphTop) << " ";
 					SVGFile << "\" />" << std::endl;
 				}
@@ -1705,13 +1705,13 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
 			FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
 			FakeMRTGFile[0] = TheValue;	// current value
 			FakeMRTGFile[1] = TheValue;
-			for (auto index = 0; index < DAY_COUNT; index++)
+			for (auto index = std::size_t(0); index < DAY_COUNT; index++)
 				FakeMRTGFile[index + 2].Time = FakeMRTGFile[index + 1].Time - DAY_SAMPLE;
-			for (auto index = 0; index < WEEK_COUNT; index++)
+			for (auto index = std::size_t(0); index < WEEK_COUNT; index++)
 				FakeMRTGFile[index + 2 + DAY_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT].Time - WEEK_SAMPLE;
-			for (auto index = 0; index < MONTH_COUNT; index++)
+			for (auto index = std::size_t(0); index < MONTH_COUNT; index++)
 				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
-			for (auto index = 0; index < YEAR_COUNT; index++)
+			for (auto index = std::size_t(0); index < YEAR_COUNT; index++)
 				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
 		}
 		else
@@ -2769,7 +2769,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									{
 										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
 										std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
-										for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
+										for (auto index = std::size_t(0); index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
 											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
 										std::cout << std::endl;
 									}
@@ -2820,7 +2820,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						MyRequest.buf[3] = uint8_t(DataPointsToRequest);
 						MyRequest.buf[5] = uint8_t(0x01);
 						// Create a checksum in the last byte by XOR each of the buffer bytes.
-						for (auto index = 0; index < sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0]) - 1; index++)
+						for (auto index = std::size_t(0); index < sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0]) - 1; index++)
 							MyRequest.buf[(sizeof(MyRequest.buf) / sizeof(MyRequest.buf[0])) - 1] ^= MyRequest.buf[index];
 						WritePacketQueue.push(MyRequest);
 
@@ -2867,7 +2867,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								{
 									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
 									std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
-									for (auto index = 0; index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
+									for (auto index = std::size_t(0); index < sizeof(pkt.buf) / sizeof(pkt.buf[0]); index++)
 										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
 									std::cout << std::endl;
 								}
@@ -2911,7 +2911,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											}
 											if (ConsoleVerbosity > 1)
 												std::cout << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
-											for (auto index = 2; (index < (bufDataLen - sizeof(uint8_t) - sizeof(uint16_t))) && (offset > 0); index += 3)
+											for (auto index = std::size_t(2); (index < (bufDataLen - sizeof(uint8_t) - sizeof(uint16_t))) && (offset > 0); index += 3)
 											{
 												int iTemp = int(data->value[index]) << 16 | int(data->value[index + 1]) << 8 | int(data->value[index + 2]);
 												bool bNegative = iTemp & 0x800000;	// check sign bit
@@ -2938,7 +2938,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											if (ConsoleVerbosity > 1)
 											{
 												std::cout << " Value: ";
-												for (auto index = 0; index < sizeof(data->value) / sizeof(data->value[0]); index++)
+												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
 													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
 											}
 										}
@@ -4553,7 +4553,7 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 					buf[3] = uint8_t(DataPointsToRequest);
 					buf[5] = uint8_t(0x01);
 					// Create a checksum in the last byte by XOR each of the buffer bytes.
-					for (auto index = 0; index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
+					for (auto index = std::size_t(0); index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
 						buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
 					for (auto& a : buf)
 						dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
