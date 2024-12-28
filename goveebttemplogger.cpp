@@ -2187,9 +2187,9 @@ std::string iBeacon(const uint16_t Manufacturer, const std::vector<uint8_t>& Dat
 			// Microsoft Advertising Beacon
 			// if (data_len == 0x1E) // Set to 30 (0x1E)	
 			if (Data[0] == 0x01) // Scenario_Type
-				ssValue << " (Bluetooth scenario)";
+				ssValue << " (Bluetooth)";
 			ssValue << " (Version) " << int(Data[1] >> 5);
-			int Device_Type = Data[1] && 0x1F;
+			int Device_Type = Data[1] & 0x1F;
 			switch (Device_Type)
 			{
 			case 1:
