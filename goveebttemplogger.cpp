@@ -2176,42 +2176,95 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
-std::string iBeacon(const uint8_t* const data)
+std::string iBeacon(const uint16_t Manufacturer, const std::vector<uint8_t>& Data) // const uint8_t* const data)
 {
 	std::ostringstream ssValue;
-	const size_t data_len = data[0];
-	if (data[1] == 0xFF) // https://www.bluetooth.com/specifications/assigned-numbers/generic-access-profile/ «Manufacturer Specific Data»
 	{
-		if ((data[2] == 0x4c) && (data[3] == 0x00))
+		if (Manufacturer == 0x0006)
 		{
-			if ((data[4] == 0x02) && (data[5] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
+			ssValue << " (Microsoft)";
+			// https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cdp/77b446d0-8cea-4821-ad21-fabdf4d9a569
+			// Microsoft Advertising Beacon
+			// if (data_len == 0x1E) // Set to 30 (0x1E)	
+			if (Data[0] == 0x01) // Scenario_Type
+				ssValue << " (Bluetooth scenario)";
+			ssValue << " (Version) " << int(Data[1] >> 5);
+			int Device_Type = Data[1] && 0x1F;
+			switch (Device_Type)
 			{
-				// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
-				// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
-				// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
-				// Apple Company Code: 0x004C
-				// UUID 16 bytes
-				// Major 2 bytes
-				// Minor 2 bytes
-				ssValue << " (iBeacon)";
-				uint128_t UUID_data({ data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15], data[16], data[17], data[18], data[19], data[20], data[21] });
-				bt_uuid_t theUUID;
-				bt_uuid128_create(&theUUID, UUID_data);
-				ssValue << " (UUID) " << bt_UUID_2_String(&theUUID);
-				ssValue << " (Major) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[22]);
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[23]);
-				ssValue << " (Minor) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[24]);
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[25]);
-				ssValue << " (RSSI) ";
-				ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(data[26]);
-				// https://en.wikipedia.org/wiki/IBeacon
-				// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
-				// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
-				// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
+			case 1:
+				ssValue << " (Xbox One)";
+				break;
+			case 6:
+				ssValue << " (Apple iPhone)";
+				break;
+			case 7:
+				ssValue << " (Apple iPad)";
+				break;
+			case 8:
+				ssValue << " (Android device)";
+				break;
+			case 9:
+				ssValue << " (Windows 10 Desktop)";
+				break;
+			case 11:
+				ssValue << " (Windows 10 Phone)";
+				break;
+			case 12:
+				ssValue << " (Linux device)";
+				break;
+			case 13:
+				ssValue << " (Windows IoT)";
+				break;
+			case 14:
+				ssValue << " (Surface Hub)";
+				break;
+			case 15:
+				ssValue << " (Windows laptop)";
+				break;
+			case 16:
+				ssValue << " (Windows tablet)";
+				break;
+			default:
+				ssValue << " (?) " << Device_Type;
 			}
 		}
+		else if (Manufacturer == 0x004c)
+		{
+			ssValue << " (Apple)";
+			if (Data.size() >= 23)
+			{
+				if ((Data[0] == 0x02) && (Data[1] == 0x15)) // SubType: 0x02 (iBeacon) && SubType Length: 0x15
+				{
+					// 2 3  4  5  6 7 8 9 0 1 2 3 4 5 6 7 8 9 0  1 2  3 4  5
+					// 4C00 02 15 494E54454C4C495F524F434B535F48 5750 740F 5CC2
+					// 4C00 02 15494E54454C4C495F524F434B535F48 5750 75F2 FFC2
+					// Apple Company Code: 0x004C
+					// UUID 16 bytes
+					// Major 2 bytes
+					// Minor 2 bytes
+					ssValue << " (iBeacon)";
+					uint128_t UUID_data({ Data[2], Data[3], Data[4], Data[5], Data[6], Data[7], Data[8], Data[9], Data[10], Data[11], Data[12], Data[13], Data[14], Data[15], Data[16], Data[17] });
+					bt_uuid_t theUUID;
+					bt_uuid128_create(&theUUID, UUID_data);
+					ssValue << " (UUID) " << bt_UUID_2_String(&theUUID);
+					ssValue << " (Major) ";
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(Data[18]);
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(Data[19]);
+					ssValue << " (Minor) ";
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(Data[20]);
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(Data[21]);
+					ssValue << " (RSSI) ";
+					ssValue << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(Data[22]);
+					// https://en.wikipedia.org/wiki/IBeacon
+					// https://scapy.readthedocs.io/en/latest/layers/bluetooth.html#apple-ibeacon-broadcast-frames
+					// https://atadiat.com/en/e-bluetooth-low-energy-ble-101-tutorial-intensive-introduction/
+					// https://deepai.org/publication/handoff-all-your-privacy-a-review-of-apple-s-bluetooth-low-energy-continuity-protocol
+				}
+			}
+		}
+		else if (Manufacturer == 0x02e1)
+			ssValue << " (Victron Energy BV)";
 	}
 	return(ssValue.str());
 }
@@ -3343,15 +3396,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																		}
 																	}
 																	else if (ConsoleVerbosity > 1)
-																	{
-																		if (ManufacturerID == 0x0006)
-																			ConsoleOutLine << " (Microsoft)";
-																		else if (ManufacturerID == 0x004c)
-																			ConsoleOutLine << " (Apple)";
-																		else if (ManufacturerID == 0x02e1)
-																			ConsoleOutLine << " (Victron Energy BV)";
-																		ConsoleOutLine << iBeacon(info->data + current_offset);
-																	}
+																		ConsoleOutLine << iBeacon(ManufacturerID, ManufacturerData);
 																}
 																break;
 															default:
