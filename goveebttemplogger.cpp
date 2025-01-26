@@ -576,7 +576,8 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Temperature[0] = float(iTemp) / 100.0;
 		Humidity = float(iHumidity) / 100.0;
 		Battery = int(Data[5]);
-		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+		// manual declares working temperature of -20c to +60c, but the app records temperatures lower than that.
+		//if ((Temperature[0] > -20) && (Temperature[0] < 60))
 			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
@@ -600,7 +601,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 			Temperature[0] = -1.0 * Temperature[0];
 		Humidity = float(iTemp % 1000) / 10.0;
 		Battery = int(Data[4]);
-		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+		//if ((Temperature[0] > -20) && (Temperature[0] < 60))
 			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
@@ -621,7 +622,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		if (bNegative)						// apply sign bit
 			Temperature[0] = -1.0 * Temperature[0];
 		Battery = int(Data[5]);
-		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+		//if ((Temperature[0] > -20) && (Temperature[0] < 60))
 			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
@@ -639,7 +640,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Temperature[0] = float(iTemp) / 100.0;
 		Humidity = float(iHumidity) / 100.0;
 		Battery = int(Data[8]);
-		if ((Temperature[0] > -20) && (Temperature[0] < 60))
+		//if ((Temperature[0] > -20) && (Temperature[0] < 60))
 			Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
