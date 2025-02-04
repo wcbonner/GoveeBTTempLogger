@@ -823,10 +823,6 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	return(*this);
 }
 /////////////////////////////////////////////////////////////////////////////
-#ifdef _BLUEZ_HCI_
-
-#endif // _BLUEZ_HCI_
-/////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
 bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 {
@@ -4027,21 +4023,70 @@ bool bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 		const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply_getall_services));
 		ssOutput << ": Reply Signature (" << dbus_reply_Signature << ")";
 		/*
-			[2024-12-08T18:37:57] [A4:C1:38:0D:42:7B] (Temp) 14.5°C (Humidity)  54.4% (Battery) 100% (GVH5075)
-			[                   ] /org/bluez/hci0/dev_A4_C1_38_0D_42_7B: org.bluez.Device1: Connect
-			[                   ] [A4:C1:38:0D:42:7B] Connected: true
-			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 00001800-0000-1000-8000-00805f9b34fb
-			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 00001801-0000-1000-8000-00805f9b34fb
-			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 0000180a-0000-1000-8000-00805f9b34fb
-			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 00010203-0405-0607-0809-0a0b0c0d1912
-			[                   ] [A4:C1:38:0D:42:7B] UUIDs: 494e5445-4c4c-495f-524f-434b535f4857
-			[                   ] [A4:C1:38:0D:42:7B] ServicesResolved: true
-			[                   ] /org/bluez/hci0/dev_A4_C1_38_0D_42_7B: org.freedesktop.DBus.Properties: Get org.bluez.Device1 UUIDs: Reply Signature (v)
-			[                   ] /org/bluez/hci0/dev_A4_C1_38_0D_42_7B: org.bluez.Device1: Disconnect
-			[                   ] [A4:C1:38:0D:42:7B] Modalias
-			[                   ] [A4:C1:38:0D:42:7B] ServicesResolved: false
-			[                   ] [A4:C1:38:0D:42:7B] Connected: false
+			[2025-02-03T19:17:52] [A4:C1:38:DC:CC:3D] (Temp) 19.1°C (Humidity)  48.8% (Battery) 100% (GVH5174)
+			[                   ] bluez_device_connect /org/bluez/hci0 A4:C1:38:DC:CC:3D
+			[                   ] /org/bluez/hci0/dev_A4_C1_38_DC_CC_3D: org.bluez.Device1: Connect
+			[                   ] [A4:C1:38:DC:CC:3D] Connected: true
+			[                   ] [A4:C1:38:DC:CC:3D] UUIDs: 00001800-0000-1000-8000-00805f9b34fb
+			[                   ] [A4:C1:38:DC:CC:3D] UUIDs: 00001801-0000-1000-8000-00805f9b34fb
+			[                   ] [A4:C1:38:DC:CC:3D] UUIDs: 0000180a-0000-1000-8000-00805f9b34fb
+			[                   ] [A4:C1:38:DC:CC:3D] UUIDs: 00010203-0405-0607-0809-0a0b0c0d1912
+			[                   ] [A4:C1:38:DC:CC:3D] UUIDs: 494e5445-4c4c-495f-524f-434b535f4857
+			[                   ] [A4:C1:38:DC:CC:3D] ServicesResolved: true
+			[                   ] bluez_device_download /org/bluez/hci0 A4:C1:38:DC:CC:3D
+			[                   ] /org/bluez/hci0/dev_A4_C1_38_DC_CC_3D: org.freedesktop.DBus.Properties: Get org.bluez.Device1 UUIDs: Reply Signature (v) "00001800-0000-1000-8000-00805f9b34fb" "00001801-0000-1000-8000-00805f9b34fb" "0000180a-0000-1000-8000-00805f9b34fb" "00010203-0405-0607-0809-0a0b0c0d1912" "494e5445-4c4c-495f-524f-434b535f4857"
+			[                   ] bluez_device_disconnect /org/bluez/hci0 A4:C1:38:DC:CC:3D
+			[                   ] /org/bluez/hci0/dev_A4_C1_38_DC_CC_3D: org.bluez.Device1: Disconnect
+			[                   ] [A4:C1:38:DC:CC:3D] Modalias
+			[                   ] [A4:C1:38:DC:CC:3D] ServicesResolved: false
+			[                   ] [A4:C1:38:DC:CC:3D] Connected: false
 		*/
+		DBusMessageIter reply_iter;
+		dbus_message_iter_init(dbus_reply_getall_services, &reply_iter);
+		if (DBUS_TYPE_VARIANT == dbus_message_iter_get_arg_type(&reply_iter))
+		{
+			DBusMessageIter variant_iter;
+			dbus_message_iter_recurse(&reply_iter, &variant_iter);
+			auto type = dbus_message_iter_get_arg_type(&variant_iter);
+			switch (type) 
+			{
+				case DBUS_TYPE_STRING:
+				{
+					const char* str;
+					dbus_message_iter_get_basic(&variant_iter, &str);
+					ssOutput << " Decoded string: " << str << std::endl;
+					break;
+				}
+				case DBUS_TYPE_INT32:
+				{
+					int32_t value;
+					dbus_message_iter_get_basic(&variant_iter, &value);
+					ssOutput << " Decoded int32: " << value << std::endl;
+					break;
+				}
+				case DBUS_TYPE_ARRAY:
+				{
+					DBusMessageIter array_iter;
+					dbus_message_iter_recurse(&variant_iter, &array_iter);
+					do
+					{
+						if (DBUS_TYPE_STRING == dbus_message_iter_get_arg_type(&array_iter))
+						{
+							const char* str;
+							dbus_message_iter_get_basic(&array_iter, &str);
+							ssOutput << " \"" << str << "\"";
+						}
+						else 
+							ssOutput << " " << dbus_message_iter_type_to_string(dbus_message_iter_get_arg_type(&array_iter));
+					} while (dbus_message_iter_next(&array_iter));
+					break;
+				}
+				// Add more cases as needed for other types
+				default:
+					ssOutput << " Unsupported variant type: " << dbus_message_iter_type_to_string(type);
+					break;
+			}
+		}
 		dbus_message_unref(dbus_reply_getall_services);
 	}
 	ssOutput << std::endl;
