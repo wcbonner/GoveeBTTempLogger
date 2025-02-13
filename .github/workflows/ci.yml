@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -51,7 +51,7 @@ jobs:
         run: cpack .
 
       - name: Upload `deb` file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ubuntu-${{ matrix.image_tag }} ${{ matrix.compiler }}
           path: build/goveebttemplogger_*.deb
