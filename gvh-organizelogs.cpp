@@ -53,6 +53,9 @@
 #include <unistd.h> // For close()
 #include <utime.h>
 #include "wimiso8601.h"
+#if !defined(__GLIBC__)
+    #define stat64 stat
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 #if __has_include("goveebttemplogger-version.h")
