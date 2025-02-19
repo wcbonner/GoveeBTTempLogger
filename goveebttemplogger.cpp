@@ -906,6 +906,7 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
+std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
 const std::filesystem::path GVHLastDownloadFileName("gvh-lastdownload.txt");
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
@@ -1041,7 +1042,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 		}
 		if (!PersistenceData.empty())
 		{
-			if (ConsoleVerbosity > 2)
+			if (ConsoleVerbosity > 1)
 				for (auto const& [TheAddress, TheTime] : PersistenceData)
 					std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << timeToISO8601(TheTime) << std::endl;
 			// If PersistenceData has updated information, write new data to file
@@ -3403,6 +3404,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 																			AddressInGoveeSet = true;
 																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
+																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
 																			GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(info->bdaddr, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																		}
 																	}
@@ -3426,15 +3428,15 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													std::cout << ConsoleOutLine.str() << std::endl;
 												if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
 												{
-													int BatteryToRecord = 0;
-													auto RecentTemperature = GoveeTemperatures.find(info->bdaddr);
-													if (RecentTemperature != GoveeTemperatures.end())
-														BatteryToRecord = RecentTemperature->second.front().GetBattery();
-													time_t LastDownloadTime = 0;
+													int BatteryToRecord(0);
+													auto RecentTemperature = GoveeLastReading.find(info->bdaddr);
+													if (RecentTemperature != GoveeLastReading.end())
+														BatteryToRecord = RecentTemperature->second.GetBattery();
+													time_t LastDownloadTime(0);
 													auto RecentDownload = GoveeLastDownload.find(info->bdaddr);
 													if (RecentDownload != GoveeLastDownload.end())
 														LastDownloadTime = RecentDownload->second;
-													time_t TimeNow;
+													time_t TimeNow(0);
 													time(&TimeNow);
 													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
@@ -4501,6 +4503,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(dbusBTAddress, foo));
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
 										GoveeLastDownload.insert(std::pair<bdaddr_t, time_t>(dbusBTAddress, 0));	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
@@ -4655,9 +4658,9 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				if (ValueData.size() == 20)
 				{
 					int BatteryToRecord = 0;
-					auto RecentTemperature = GoveeTemperatures.find(dbusBTAddress);
-					if (RecentTemperature != GoveeTemperatures.end())
-						BatteryToRecord = RecentTemperature->second.front().GetBattery();
+					auto RecentTemperature = GoveeLastReading.find(dbusBTAddress);
+					if (RecentTemperature != GoveeLastReading.end())
+						BatteryToRecord = RecentTemperature->second.GetBattery();
 
 					auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
 					if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
