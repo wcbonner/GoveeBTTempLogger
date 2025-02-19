@@ -41,6 +41,11 @@ HCI code uses libbluetooth functionality from BlueZ on linux to open the default
 Updated the postinst debian install script to add a user goveebttemplogger and make changes to the permissions on the default directories appropriately.
 Changed the service file to specify running the program as user goveebttemplogger. This is possible because accessing BlueZ via DBus does not require root access.
 
+### 2025-02-18 Added --download to default service command
+The download functionality is now working with the DBus code base as well as being more robust using the HCI code. As such I've added it to the default running configuration. 
+It does not attempt to download data more than every two weeks, to reduce battery usage of the bluetooth device.
+It retrieves the oldest data first, and if the transfer is stopped midway, will attempt to start from the new "oldest" data downloaded.
+
 ## Major update to version 2.
 Added the SVG output function, directly creating SVG graphs from internal data in a specified directory. The causes the program to take longer to start up as it will attempt to read all of the old logged data into an internal memory structure as it starts. Once the program has entered the normal running state it writes four SVG files per device to the specified directory every five minutes.
 
@@ -115,6 +120,7 @@ ExecStart=/usr/local/bin/goveebttemplogger \
     --verbose 0 \
     --log /var/log/goveebttemplogger \
     --time 60 \
+    --download \
     --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
     --cache /var/cache/goveebttemplogger
 KillSignal=SIGINT
