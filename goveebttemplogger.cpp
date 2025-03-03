@@ -3048,7 +3048,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 
 		std::ostringstream ssOutput;
 		if (ConsoleVerbosity > 0)
-			ssOutput << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ";
+			ssOutput << "[" << getTimeISO8601(true) << "] ";
 		ssOutput << "Download from device: [" << ba2string(GoveeBTAddress) << "]";
 		ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
 		ssOutput << " (" << std::dec << DataPointsRecieved << ")";
