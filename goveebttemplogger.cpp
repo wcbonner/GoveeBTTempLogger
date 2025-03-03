@@ -5486,7 +5486,7 @@ static void usage(int argc, char **argv)
 	#endif // _BLUEZ_HCI_
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:dpnHM";
+static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:d::pnHM";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -5503,7 +5503,7 @@ static const struct option long_options[] = {
 		{ "celsius",no_argument,       NULL, 'c' },
 		{ "battery",required_argument, NULL, 'b' },
 		{ "minmax",	required_argument, NULL, 'x' },
-		{ "download",no_argument,      NULL, 'd' },
+		{ "download",optional_argument,NULL, 'd' },
 		{ "passive",no_argument,       NULL, 'p' },
 		{ "no-bluetooth",no_argument,  NULL, 'n' },
 		{ "HCI",	no_argument,       NULL, 'H' },
@@ -5522,15 +5522,12 @@ int main(int argc, char **argv)
 	std::set<bdaddr_t> BT_WhiteList;
 	bdaddr_t OnlyFilterAddress = { 0 };
 
-	for (;;)
+	int option(0);
+	while ((option = getopt_long(argc, argv, short_options, long_options, NULL)) != -1)
 	{
 		std::string TempString;
 		std::filesystem::path TempPath;
-		int idx;
-		int c = getopt_long(argc, argv, short_options, long_options, &idx);
-		if (-1 == c)
-			break;
-		switch (c)
+		switch (option)
 		{
 		case 0: /* getopt_long() flag */
 			break;
@@ -5579,7 +5576,16 @@ int main(int argc, char **argv)
 				CacheDirectory = TempPath;
 			break;
 		case 'd':	// --download
-			DaysBetweenDataDownload = 14;
+			if (optarg == NULL && optind < argc && argv[optind][0] != '-') // HACK: See https://cfengine.com/blog/2021/optional-arguments-with-getopt-long/
+				optarg = argv[optind++];
+			if (optarg != NULL)
+			{
+				try { DaysBetweenDataDownload = std::stoi(optarg); }
+				catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+				catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
+			}
+			else
+				DaysBetweenDataDownload = 14;
 			break;
 		case 'n':	// --no-bluetooth
 			UseBluetooth = false;
