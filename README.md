@@ -251,19 +251,23 @@ My old code didn't properly display the UUID when it was a 128 bit UUID, I stand
 
 **494e5445-4c4c-495f-524f-434b535f2013** is the 128 bit UUID that will return requested historical data.
 
-Most of the devices hold 20 days of history. The GVH5177 and GVH5174 devices hold a month of data.
+Most of the devices hold 20 days of history. The GVH5177 devices hold a month of data. In my output below, the GVH5105 and GVH5179 devices have had their batteries replaced within the last month and I was not able to determine the historical data size.
 
 ```
-Download from device: [A4:C1:38:DC:CC:3D] 2023-02-03 13:52:00 2023-02-23 13:52:00 (28800)
-Download from device: [A4:C1:38:EC:0B:03] 2023-02-03 13:51:00 2023-02-23 13:52:00 (28801)
-Download from device: [E3:5E:CC:21:5C:0F] 2023-02-03 13:53:00 2023-02-23 13:53:00 (28800)
-Download from device: [A4:C1:38:0D:3B:10] 2023-01-24 13:50:00 2023-02-23 13:53:00 (43203)
-Download from device: [A4:C1:38:D5:A3:3B] 2023-02-03 13:54:00 2023-02-23 13:54:00 (28800)
-Download from device: [A4:C1:38:65:A2:6A] 2023-02-03 13:52:00 2023-02-23 13:55:00 (28803)
-Download from device: [A4:C1:38:05:C7:A1] 2023-02-03 13:53:00 2023-02-23 13:56:00 (28803)
-Download from device: [A4:C1:38:13:AE:36] 2023-02-03 13:54:00 2023-02-23 13:57:00 (28803)
-Download from device: [C2:35:33:30:25:50] 2024-01-15 22:19:00 2024-02-03 20:01:00 (27222)
-Download from device: [D0:35:33:33:44:03] 2024-01-14 20:00:00 2024-02-03 20:00:00 (28800)
+Download from device: [E3:5E:CC:21:5C:0F] 2025-02-10 20:53:00 2025-03-02 20:57:00 (28804) (GVH5074)
+Download from device: [E3:60:59:21:80:65] 2025-02-10 20:48:00 2025-03-02 20:50:00 (28802) (GVH5074)
+Download from device: [A4:C1:38:D5:A3:3B] 2025-02-10 20:55:00 2025-03-02 20:57:00 (28802) (GVH5074)
+Download from device: [A4:C1:38:05:C7:A1] 2025-02-10 21:03:00 2025-03-02 21:05:00 (28802) (GVH5074)
+Download from device: [E3:8E:C8:C1:98:9A] 2025-02-10 20:34:00 2025-03-02 20:39:00 (28805) (GVH5074)
+Download from device: [E3:60:59:23:14:7D] 2025-02-10 20:36:00 2025-03-02 20:40:00 (28804) (GVH5074)
+Download from device: [A4:C1:38:37:BC:AE] 2025-02-10 21:03:00 2025-03-02 21:06:00 (28803) (GVH5075)
+Download from device: [A4:C1:38:0D:42:7B] 2025-02-10 20:49:00 2025-03-02 20:49:00 (28800) (GVH5075)
+Download from device: [C2:35:33:30:25:50] 2025-02-10 20:55:00 2025-03-02 20:55:00 (28800) (GVH5100)
+Download from device: [C3:36:35:30:61:77] 2025-02-10 20:51:00 2025-03-02 20:51:00 (28800) (GVH5104)
+Download from device: [D0:35:33:33:44:03] 2025-02-19 16:13:00 2025-03-02 21:05:00 (16132) (GVH5105)
+Download from device: [A4:C1:38:DC:CC:3D] 2025-02-10 21:02:00 2025-03-02 21:06:00 (28804) (GVH5174)
+Download from device: [A4:C1:38:0D:3B:10] 2025-01-31 20:55:00 2025-03-02 20:56:00 (43201) (GVH5177)
+Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:51:00 2025-03-02 20:44:00 (21953) (GVH5179)
 ```
 
 ```
