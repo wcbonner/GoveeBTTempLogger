@@ -399,6 +399,9 @@ int main(int argc, char** argv)
 								ut.actime = LastTime;
 								ut.modtime = LastTime;
 								utime(LastFileName.c_str(), &ut);
+								struct stat64 StatBuffer;
+								if (0 == stat64(BackupName.c_str(), &StatBuffer))
+									chown(LastFileName.c_str(), StatBuffer.st_uid, StatBuffer.st_gid);
 							}
 						}
 						files.pop_front();
