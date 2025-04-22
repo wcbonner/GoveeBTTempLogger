@@ -1012,8 +1012,12 @@ void GeneratePersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::m
 	{
 		if (ConsoleVerbosity > 1)
 			for (auto const& [TheAddress, TheType] : ThermometerTypes)
+			{
+				std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << ThermometerType2String(TheType);
 				if (auto search = PersistenceData.find(TheAddress); search != PersistenceData.end())
-					std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << ThermometerType2String(TheType) << " " << timeToISO8601(search->second) << std::endl;
+					std::cout << " " << timeToISO8601(search->second);
+				std::cout << std::endl;
+			}
 		// If PersistenceData has updated information, write new data to file
 		std::filesystem::path filename(LogDirectory / PersistenceFileName);
 		time_t MostRecentDownload(0);
