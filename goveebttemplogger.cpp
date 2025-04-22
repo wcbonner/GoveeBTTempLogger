@@ -3508,7 +3508,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			AddressInGoveeSet = true;
 																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
 																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
-																			GoveeLastDownload.insert_or_assign(info->bdaddr, 0);	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+																			//GoveeLastDownload.insert_or_assign(info->bdaddr, 0);	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																		}
 																	}
 																	else if (ConsoleVerbosity > 1)
@@ -4607,7 +4607,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
-										GoveeLastDownload.insert_or_assign(dbusBTAddress, 0);	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
+										//GoveeLastDownload.insert_or_assign(dbusBTAddress, 0);	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
 										if (!bluez_in_use)
