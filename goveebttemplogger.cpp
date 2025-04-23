@@ -3508,7 +3508,6 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			AddressInGoveeSet = true;
 																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
 																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
-																			//GoveeLastDownload.insert_or_assign(info->bdaddr, 0);	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 																		}
 																	}
 																	else if (ConsoleVerbosity > 1)
@@ -4607,7 +4606,6 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
 										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
-										//GoveeLastDownload.insert_or_assign(dbusBTAddress, 0);	// Makes sure the Bluetooth Address is in the list to get downloaded historical data
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
 										if (!bluez_in_use)
@@ -5516,7 +5514,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 #ifdef DEBUG
 						} while (bRun && difftime(TimeNow, TimeStart) < 300); // Maintain DBus connection for no more than 5 minutes
 #else
-						} while (bRun && difftime(TimeNow, TimeStart) < (60 * 30));  // Maintain DBus connection for no more than 30 minutes
+						} while (bRun && difftime(TimeNow, TimeStart) < (60 * 60 * 24));  // Maintain DBus connection for no more than 24 hours
 #endif // DEBUG
 						for (auto& MatchRule : MatchRules)
 						{
@@ -5580,7 +5578,7 @@ static void usage(int argc, char **argv)
 	std::cout << "    -c | --celsius       SVG output using degrees C [" << std::boolalpha << !SVGFahrenheit << "]" << std::endl;
 	std::cout << "    -b | --battery graph Draw the battery status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
 	std::cout << "    -x | --minmax graph  Draw the minimum and maximum temperature and humidity status on SVG graphs. 1:daily, 2:weekly, 4:monthly, 8:yearly" << std::endl;
-	std::cout << "    -d | --download      Periodically attempt to connect and download stored data" << std::endl;
+	std::cout << "    -d | --download days Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
 	std::cout << "    -M | --monitor       Monitor Logging Directory" << std::endl;
 	#ifdef _BLUEZ_HCI_
