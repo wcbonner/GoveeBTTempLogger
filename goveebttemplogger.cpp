@@ -1142,6 +1142,16 @@ void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<b
 					if (i != std::string::npos)
 						theType.erase(i);
 					ThermometerTypes.insert_or_assign(TheBlueToothAddress, String2ThermometerType(theType));
+					// Now get the stored date
+					i = TheLine.find_first_of(delimiters);		// Find first delimiter
+					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+					i = TheLine.find_first_of(delimiters, i);		// Find next delimiter
+					if (i != std::string::npos)
+					{
+						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
+						if (i != std::string::npos)
+							PersistenceData.insert_or_assign(TheBlueToothAddress, ISO8601totime(TheLine.substr(i)));
+					}
 				}
 			}
 			TheFile.close();
