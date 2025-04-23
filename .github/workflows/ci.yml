@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
         image_tag:
-          - 20.04
           - 22.04
           - 22.04-arm
 
