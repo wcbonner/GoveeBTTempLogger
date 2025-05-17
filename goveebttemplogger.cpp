@@ -5550,6 +5550,8 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
 						//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 					}
+					else
+						bluez_power_on(dbus_conn, BlueZAdapter.c_str(), false);
 				}
 			}
 			if (ConsoleVerbosity > 0)
