@@ -5383,8 +5383,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			}
 			else
 			{
-				static auto AdapterMapIter = BlueZAdapterMap.cbegin();
-				std::string BlueZAdapter(AdapterMapIter->second);
+				std::string BlueZAdapter(BlueZAdapterMap.cbegin()->second);
 				if (!ControllerAddress.empty())
 					if (auto const& search = BlueZAdapterMap.find(string2ba(ControllerAddress)); search != BlueZAdapterMap.end())
 						BlueZAdapter = search->second;
@@ -5552,9 +5551,6 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 					}
 				}
-				AdapterMapIter++;
-				if (AdapterMapIter == BlueZAdapterMap.end())
-					AdapterMapIter = BlueZAdapterMap.cbegin();
 			}
 			if (ConsoleVerbosity > 0)
 				ssOutput << "[" << getTimeISO8601(true) << "] ";
