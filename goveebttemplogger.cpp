@@ -4732,11 +4732,14 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
 					if (RecentDownload != GoveeLastDownload.end())
 						LastDownloadTime = RecentDownload->second;
-					if (!ssOutput.str().empty())
-						ssOutput << std::endl << ssStartLine.str();
-					ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);
-					if (ConsoleVerbosity < 1)
-						ssOutput << std::endl;
+					if (LastDownloadTime != 0)
+					{
+						if (!ssOutput.str().empty())
+							ssOutput << std::endl << ssStartLine.str();
+						ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
+						if (ConsoleVerbosity < 1)
+							ssOutput << std::endl;
+					}
 				}
 			}
 		}
