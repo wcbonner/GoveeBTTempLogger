@@ -4858,10 +4858,10 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 		}
 		else if (ConsoleVerbosity > 3)
 			ssOutput << " " << Key;
-			if ((ConsoleVerbosity > 0) && (!ssOutput.str().empty()))
-				ssOutput << std::endl;
-			if (!ssOutput.str().empty())
-				ssCompleteLine << ssStartLine.str() << ssOutput.str();
+		if ((ConsoleVerbosity > 0) && (!ssOutput.str().empty()))
+			ssOutput << std::endl;
+		if (!ssOutput.str().empty())
+			ssCompleteLine << ssStartLine.str() << ssOutput.str();
 	} while (dbus_message_iter_next(&array_iter));
 	return(ssCompleteLine.str());
 }
