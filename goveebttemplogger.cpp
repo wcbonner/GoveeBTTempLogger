@@ -4290,6 +4290,16 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 				ssOutput << std::dec << std::endl;
 			}
 			dbus_message_unref(dbus_msg_write);
+
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[" << getTimeISO8601(true) << "] ";
+			ssOutput << "Request Download from device: [" << ba2string(dbusBTAddress) << "]";
+			ssOutput << " " << timeToExcelLocal(TimeDownloadStart-(DataPointsToRequest*60)) << " " << timeToExcelLocal(TimeDownloadStart);
+			ssOutput << " (" << std::dec << DataPointsToRequest << ")";
+			auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+			if (downloadtype != GoveeThermometers.end())
+				ssOutput << " " << ThermometerType2String(downloadtype->second);
+			ssOutput << std::endl;
 		}
 	}
 #ifdef OLD_GET_UUIDS
@@ -4818,13 +4828,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									LastReportedTime = localTemp.Time;
 								}
 								if (LastReportedTime != 0)
-								{
-									auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
-									if (RecentDownload != GoveeLastDownload.end())
-										RecentDownload->second = LastReportedTime;
-									else
-										GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
-								}
+									GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
 								if (offset < 1)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
 									bluez_disconnect = true;
 							}
