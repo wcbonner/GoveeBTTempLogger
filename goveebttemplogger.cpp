@@ -4290,6 +4290,16 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 				ssOutput << std::dec << std::endl;
 			}
 			dbus_message_unref(dbus_msg_write);
+
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[" << getTimeISO8601(true) << "] ";
+			ssOutput << "Request Download from device: [" << ba2string(dbusBTAddress) << "]";
+			ssOutput << " " << timeToExcelLocal(TimeDownloadStart-(DataPointsToRequest*60)) << " " << timeToExcelLocal(TimeDownloadStart);
+			ssOutput << " (" << std::dec << DataPointsToRequest << ")";
+			auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+			if (downloadtype != GoveeThermometers.end())
+				ssOutput << " " << ThermometerType2String(downloadtype->second);
+			ssOutput << std::endl;
 		}
 	}
 #ifdef OLD_GET_UUIDS
@@ -4716,6 +4726,24 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
 				bluez_in_use = bool(value.bool_val);
+				if (!bool(value.bool_val))
+				{
+					time_t LastDownloadTime = 0;
+					auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
+					if (RecentDownload != GoveeLastDownload.end())
+						LastDownloadTime = RecentDownload->second;
+					if (LastDownloadTime != 0)
+					{
+						if (!ssOutput.str().empty())
+							ssOutput << std::endl << ssStartLine.str();
+						ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
+						auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+						if (downloadtype != GoveeThermometers.end())
+							ssOutput << " " << ThermometerType2String(downloadtype->second);
+						if (ConsoleVerbosity < 1)
+							ssOutput << std::endl;
+					}
+				}
 			}
 		}
 		else if (!Key.compare("ServicesResolved"))
@@ -4818,13 +4846,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									LastReportedTime = localTemp.Time;
 								}
 								if (LastReportedTime != 0)
-								{
-									auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
-									if (RecentDownload != GoveeLastDownload.end())
-										RecentDownload->second = LastReportedTime;
-									else
-										GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
-								}
+									GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
 								if (offset < 1)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
 									bluez_disconnect = true;
 							}
@@ -5078,6 +5100,8 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, const std::set<bdaddr_t> & BT_WhiteList, const time_t& TimeNow)
 {
@@ -5115,6 +5139,8 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
 time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
