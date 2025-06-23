@@ -4737,6 +4737,9 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 						if (!ssOutput.str().empty())
 							ssOutput << std::endl << ssStartLine.str();
 						ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
+						auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+						if (downloadtype != GoveeThermometers.end())
+							ssOutput << " " << ThermometerType2String(downloadtype->second);
 						if (ConsoleVerbosity < 1)
 							ssOutput << std::endl;
 					}
