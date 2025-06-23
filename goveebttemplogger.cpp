@@ -4726,6 +4726,18 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
 				bluez_in_use = bool(value.bool_val);
+				if (!bool(value.bool_val))
+				{
+					time_t LastDownloadTime = 0;
+					auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
+					if (RecentDownload != GoveeLastDownload.end())
+						LastDownloadTime = RecentDownload->second;
+					if (!ssOutput.str().empty())
+						ssOutput << std::endl << ssStartLine.str();
+					ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);
+					if (ConsoleVerbosity < 1)
+						ssOutput << std::endl;
+				}
 			}
 		}
 		else if (!Key.compare("ServicesResolved"))
@@ -4840,10 +4852,10 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 		}
 		else if (ConsoleVerbosity > 3)
 			ssOutput << " " << Key;
-		if ((ConsoleVerbosity > 0) && (!ssOutput.str().empty()))
-			ssOutput << std::endl;
-		if (!ssOutput.str().empty())
-			ssCompleteLine << ssStartLine.str() << ssOutput.str();
+			if ((ConsoleVerbosity > 0) && (!ssOutput.str().empty()))
+				ssOutput << std::endl;
+			if (!ssOutput.str().empty())
+				ssCompleteLine << ssStartLine.str() << ssOutput.str();
 	} while (dbus_message_iter_next(&array_iter));
 	return(ssCompleteLine.str());
 }
@@ -5082,6 +5094,8 @@ void bluez_dbus_msg_InterfacesAdded(DBusMessage* dbus_msg, bdaddr_t & dbusBTAddr
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAddress, const std::set<bdaddr_t> & BT_WhiteList, const time_t& TimeNow)
 {
@@ -5119,6 +5133,8 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 	}
 	if (ConsoleVerbosity > 1)
 		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
 }
 /////////////////////////////////////////////////////////////////////////////
 time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
