@@ -393,8 +393,8 @@ protected:
 Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 {
 	std::istringstream TheLine(data);
-	// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
-	while (TheLine.peek() == '\000')
+	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
+	while (!std::isdigit(TheLine.peek()))
 		TheLine.get();
 	std::string theDay;
 	TheLine >> theDay;
