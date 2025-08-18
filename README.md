@@ -120,7 +120,8 @@ ExecStart=/usr/local/bin/goveebttemplogger \
     --verbose 0 \
     --log /var/log/goveebttemplogger \
     --time 60 \
-    --download 14 \
+    --download 7 \
+    --restart 3 \
     --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
     --cache /var/cache/goveebttemplogger
 KillSignal=SIGINT
@@ -172,6 +173,7 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -d (--download) Sets the number of days between attempts to connect and download stored data
  * -n (--no-bluetooth) Monitor Logging Directory and process logs without Bluetooth Scanning
  * -M (--monitor) Monitor Logged Data for updated data
+ * -R (--restart) Maximum minutes without bluetooth advertisments before attempting to restart
  * -H (--HCI) Prefer deprecated BlueZ HCI interface over modern DBus communication
  * -p (--passive) Bluetooth LE Passive Scanning
 

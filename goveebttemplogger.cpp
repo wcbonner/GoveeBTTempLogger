@@ -226,6 +226,7 @@ std::filesystem::path SVGIndexFilename;
 int LogFileTime(60);
 int MinutesAverage(5);
 int DaysBetweenDataDownload(0);
+int MaxMinutesBetweenBluetoothAdvertisments(0);
 // The following details were taken from https://github.com/oetiker/mrtg
 const size_t DAY_COUNT(600);			/* 400 samples is 33.33 hours */
 const size_t WEEK_COUNT(600);			/* 400 samples is 8.33 days */
@@ -3615,16 +3616,18 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
 								}
-								const int MaxMinutesBetweenBluetoothAdvertisments(3);
-								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
+								if (MaxMinutesBetweenBluetoothAdvertisments > 0)
 								{
-									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601(true) << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
-									btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
-									if (btRVal < 0)
+									if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
 									{
-										bRun = false;	// rely on inetd to restart entire process
-										ExitValue = EXIT_FAILURE;
+										if (ConsoleVerbosity > 0)
+											std::cout << "[" << getTimeISO8601(true) << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+										btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
+										if (btRVal < 0)
+										{
+											bRun = false;	// rely on inetd to restart entire process
+											ExitValue = EXIT_FAILURE;
+										}
 									}
 								}
 							}
@@ -5356,10 +5359,10 @@ time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, c
 	return(TimeDownloadStart);
 }
 /////////////////////////////////////////////////////////////////////////////
-int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, bool bMonitorLoggingDirectory)
+int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, bool bMonitorLoggingDirectory)
 {
 	int rVal(0);
-	time_t TimeStart(0), TimeLog(0), TimeSVG(0);
+	time_t TimeStart(0), TimeLog(0), TimeSVG(0), TimeAdvertisment(0);
 	std::ostringstream ssOutput;
 	// Main loop
 	bRun = true;
@@ -5474,6 +5477,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									{
 										const std::string dbus_msg_Member(dbus_message_get_member(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
 										bdaddr_t localBTAddress({ 0 });
+										TimeAdvertisment = TimeNow;
 										if (!dbus_msg_Member.compare("InterfacesAdded"))
 											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, BT_WhiteList, TimeNow);
 										else if (!dbus_msg_Member.compare("PropertiesChanged"))
@@ -5547,6 +5551,20 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										for (auto& [UUID, Path] : PathUUID)
 											std::cout << "[-------------------] [" << ba2string(btAddress) << "] " << UUID << " " << Path << std::endl;
 							}
+							if (MaxMinutesBetweenBluetoothAdvertisments > 0)
+							{
+								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
+								{
+									if (ConsoleVerbosity > 0)
+										std::cout << "[" << getTimeISO8601(true) << "] No recent Bluetooth LE Advertisments! (> " << MaxMinutesBetweenBluetoothAdvertisments << " Minutes)" << std::endl;
+									//btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
+									//if (btRVal < 0)
+									//{
+									bRun = false;	// rely on inetd to restart entire process
+									ExitValue = EXIT_FAILURE;
+									//}
+								}
+							}
 #ifdef DEBUG
 						} while (bRun && difftime(TimeNow, TimeStart) < 300); // Maintain DBus connection for no more than 5 minutes
 #else
@@ -5619,13 +5637,14 @@ static void usage(int argc, char **argv)
 	std::cout << "    -d | --download days Periodically attempt to connect and download stored data" << std::endl;
 	std::cout << "    -n | --no-bluetooth  Monitor Logging Directory and process logs without Bluetooth Scanning" << std::endl;
 	std::cout << "    -M | --monitor       Monitor Logging Directory" << std::endl;
-	#ifdef _BLUEZ_HCI_
+	std::cout << "    -r | --restart       Maximum minutes between Bluetooth advertisments [" << MaxMinutesBetweenBluetoothAdvertisments << "]" << std::endl;
+#ifdef _BLUEZ_HCI_
 	std::cout << "    -H | --HCI           Prefer deprecated BlueZ HCI interface instead of DBus" << std::endl;
 	std::cout << "    -p | --passive       Bluetooth LE Passive Scanning" << std::endl;
 	#endif // _BLUEZ_HCI_
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:d::pnHM";
+static const char short_options[] = "hl:t:v:m:o:C:a:f:s:i:T:cb:x:d::pnHMR:";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
@@ -5647,6 +5666,7 @@ static const struct option long_options[] = {
 		{ "no-bluetooth",no_argument,  NULL, 'n' },
 		{ "HCI",	no_argument,       NULL, 'H' },
 		{ "monitor",no_argument,       NULL, 'M' },
+		{ "restart",required_argument, NULL, 'R' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -5767,6 +5787,11 @@ int main(int argc, char **argv)
 		case 'M':
 			bMonitorLoggingDirectory = true;
 			break;
+		case 'R':
+			try { MaxMinutesBetweenBluetoothAdvertisments = std::stoi(optarg); }
+			catch (const std::invalid_argument& ia) { std::cerr << "Invalid argument: " << ia.what() << std::endl; exit(EXIT_FAILURE); }
+			catch (const std::out_of_range& oor) { std::cerr << "Out of Range error: " << oor.what() << std::endl; exit(EXIT_FAILURE); }
+			break;
 		default:
 			usage(argc, argv);
 			exit(EXIT_FAILURE);
@@ -5841,7 +5866,7 @@ int main(int argc, char **argv)
 		SignalHandlerPointer previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		if (!bUse_HCI_Interface)	// BlueZ over DBus is the recommended method of Bluetooth
-			bUse_HCI_Interface = (0 != BlueZ_DBus_Mainloop(ControllerAddress, BT_WhiteList, bMonitorLoggingDirectory));
+			bUse_HCI_Interface = (0 != BlueZ_DBus_Mainloop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory));
 		#ifdef _BLUEZ_HCI_
 		if (bUse_HCI_Interface)	// The HCI interface for bluetooth is deprecated, with BlueZ over DBus being preferred
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
