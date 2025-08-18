@@ -5478,7 +5478,6 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									{
 										const std::string dbus_msg_Member(dbus_message_get_member(dbus_msg)); // https://dbus.freedesktop.org/doc/api/html/group__DBusMessage.html#gaf5c6b705c53db07a5ae2c6b76f230cf9
 										bdaddr_t localBTAddress({ 0 });
-										TimeAdvertisment = TimeNow;
 										if (!dbus_msg_Member.compare("InterfacesAdded"))
 											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, BT_WhiteList, TimeNow);
 										else if (!dbus_msg_Member.compare("PropertiesChanged"))
@@ -5498,6 +5497,11 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										{
 											bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 											bluez_disconnect = false;
+										}
+										for (const auto &a : GoveeLastReading)
+										{
+											if (a.second.Time > TimeAdvertisment)
+												TimeAdvertisment = a.second.Time;
 										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
