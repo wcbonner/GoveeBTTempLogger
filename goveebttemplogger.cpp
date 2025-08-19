@@ -5556,7 +5556,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										for (auto& [UUID, Path] : PathUUID)
 											std::cout << "[-------------------] [" << ba2string(btAddress) << "] " << UUID << " " << Path << std::endl;
 							}
-							if (MaxMinutesBetweenBluetoothAdvertisments > 0)
+							if ((MaxMinutesBetweenBluetoothAdvertisments > 0) && (TimeAdvertisment > 0))
 							{
 								if (difftime(TimeNow, TimeAdvertisment) > MaxMinutesBetweenBluetoothAdvertisments * 60) // Hack to force scanning restart regularly
 								{
