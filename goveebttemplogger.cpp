@@ -2574,9 +2574,11 @@ void bt_ListDevices(void)
 	for (auto& hci_device : hci_devices)
 	{
 		if (hci_test_bit(HCI_UP, &hci_device.flags))
+		{
 			if (ConsoleVerbosity > 0)
 				ssOutput << "[                   ] ";
-		ssOutput << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
+			ssOutput << "Host Controller Address: " << ba2string(hci_device.bdaddr) << " BlueTooth Device ID: " << hci_device.dev_id << " HCI Name: " << hci_device.name << std::endl;
+		}
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
