@@ -7,6 +7,15 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+### Trixie Release Information 2025-10-07
+Raspberry released the update to Trixie this week https://www.raspberrypi.com/news/trixie-the-new-version-of-raspberry-pi-os/ and while GoveeBTTempLogger works on the updated system, the built in bluetooth is blocked on many systems. I had two issues open related to Trixie, https://github.com/wcbonner/GoveeBTTempLogger/issues/89 and https://github.com/wcbonner/GoveeBTTempLogger/issues/91 with the second finding the solution, which is to run the command `rfkill unblock bluetooth` 
+```
+wim@WimPiZeroW-Sola:~ $ rfkill
+ID TYPE      DEVICE      SOFT      HARD
+ 0 bluetooth hci0     blocked unblocked
+ 1 wlan      phy0   unblocked unblocked
+```
+
 ### Minor update 2022-12-17
 Added the option --index to create an html index file based on the existing log files. This option creates an index file and exits without running any of the bluetooth code. It can be run without affecting a running instance of the program listening to Bluetooth advertisments. Example command to create index: 
 
