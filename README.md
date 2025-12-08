@@ -114,6 +114,18 @@ mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/gove
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
+rfkill --output-all
+rfkill unblock bluetooth
+```
+
+##### Debian 13 (Trixie) 2025-12-08
+The Raspberry Pi seems to configure the built in bluetooth support with rfkill to be soft blocked. The two rfkill commands were
+added to the [postinst](https://github.com/wcbonner/GoveeBTTempLogger/blob/master/postinst) file to display the initial settings
+and then unblock bluetooth. This is the `rfkill --output-all` output on a fresh installation.
+```
+ID TYPE      DEVICE TYPE-DESC         SOFT      HARD
+ 0 bluetooth hci0   Bluetooth      blocked unblocked
+ 1 wlan      phy0   Wireless LAN unblocked unblocked
 ```
 
 The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
