@@ -1,5 +1,5 @@
 # GoveeBTTempLogger
-Govee H5074, H5075, H5100, H5101, H5104, H5105, H5174, H5177, and H5179 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
+Govee H5074, H5075, H5100, H5101, H5104, H5105, H5110, H5174, H5177, and H5179 Bluetooth Low Energy Temperature and Humidity Logger, and Govee H5181, H5182 and H5183 Smart Meat Thermometers
 
 Each of these devices currently cost less than $15 on Amazon and use BLE for communication, so don't require setting up a manufacterer account to track the data.  
 
