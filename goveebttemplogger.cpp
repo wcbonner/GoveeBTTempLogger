@@ -248,6 +248,7 @@ enum class ThermometerType
 	H5101 = 5101,
 	H5104 = 5104,
 	H5105 = 5105,
+	H5110 = 5110,
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
@@ -275,6 +276,8 @@ std::string ThermometerType2String(const ThermometerType GoveeModel)
 		return(std::string("(GVH5104)"));
 	case ThermometerType::H5105:
 		return(std::string("(GVH5105)"));
+	case ThermometerType::H5110:
+		return(std::string("(GVH5110)"));
 	case ThermometerType::H5174:
 		return(std::string("(GVH5174)"));
 	case ThermometerType::H5177:
@@ -306,6 +309,8 @@ ThermometerType String2ThermometerType(const std::string Text)
 		rval = ThermometerType::H5104;
 	else if (std::regex_search(Text, std::regex("GVH5105")))
 		rval = ThermometerType::H5105;
+	else if (std::regex_search(Text, std::regex("GVH5110")))
+		rval = ThermometerType::H5110;
 	else if (std::regex_search(Text, std::regex("GVH5174")))
 		rval = ThermometerType::H5174;
 	else if (std::regex_search(Text, std::regex("GVH5177")))
