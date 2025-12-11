@@ -1547,7 +1547,6 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 		const std::size_t FontSize(12);
 		const std::size_t TickSize(2);
 		std::size_t GraphWidth = SVGWidth - (FontSize * 5);
-		const bool DrawHumidity = TheValues[0].GetHumidity() != 0; // HACK: I should really check the entire data set
 		struct stat64 SVGStat({0});	// Zero the stat64 structure on allocation
 		if (-1 == stat64(SVGFileName.c_str(), &SVGStat))
 			if (ConsoleVerbosity > 3)
@@ -1573,15 +1572,6 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 				int GraphTop = FontSize + TickSize;
 				int GraphBottom = SVGHeight - GraphTop;
 				int GraphRight = SVGWidth - GraphTop;
-				if (DrawHumidity)
-				{
-					GraphWidth -= FontSize * 2;
-					GraphRight -= FontSize + TickSize * 2;
-				}
-				if (DrawBattery)
-					GraphWidth -= FontSize;
-				int GraphLeft = GraphRight - GraphWidth;
-				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 				double TempMin = DBL_MAX;
 				double TempMax = -DBL_MAX;
 				double HumiMin = DBL_MAX;
@@ -1602,6 +1592,16 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 						HumiMin = std::min(HumiMin, TheValues[index].GetHumidity());
 						HumiMax = std::max(HumiMax, TheValues[index].GetHumidity());
 					}
+				const bool DrawHumidity = (HumiMax - HumiMin) > 0.1;
+				if (DrawHumidity)
+				{
+					GraphWidth -= FontSize * 2;
+					GraphRight -= FontSize + TickSize * 2;
+				}
+				if (DrawBattery)
+					GraphWidth -= FontSize;
+				int GraphLeft = GraphRight - GraphWidth;
+				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 
 				double TempVerticalDivision = (TempMax - TempMin) / 4;
 				double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
