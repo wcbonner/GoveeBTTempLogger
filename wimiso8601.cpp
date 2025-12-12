@@ -3,6 +3,7 @@
 #else
 #include "wimiso8601.h"
 #endif // _MSC_VER
+#include <iostream>
 /////////////////////////////////////////////////////////////////////////////
 std::string timeToISO8601(const time_t& TheTime, const bool LocalTime)
 {
@@ -105,12 +106,22 @@ time_t ISO8601totime(const std::string& ISOTime)
 	if (ISOTime.length() >= 19)
 	{
 		struct tm UTC;
-		UTC.tm_year = stoi(ISOTime.substr(0, 4)) - 1900;
-		UTC.tm_mon = stoi(ISOTime.substr(5, 2)) - 1;
-		UTC.tm_mday = stoi(ISOTime.substr(8, 2));
-		UTC.tm_hour = stoi(ISOTime.substr(11, 2));
-		UTC.tm_min = stoi(ISOTime.substr(14, 2));
-		UTC.tm_sec = stoi(ISOTime.substr(17, 2));
+		try {
+			UTC.tm_year = stoi(ISOTime.substr(0, 4)) - 1900;
+			UTC.tm_mon = stoi(ISOTime.substr(5, 2)) - 1;
+			UTC.tm_mday = stoi(ISOTime.substr(8, 2));
+			UTC.tm_hour = stoi(ISOTime.substr(11, 2));
+			UTC.tm_min = stoi(ISOTime.substr(14, 2));
+			UTC.tm_sec = stoi(ISOTime.substr(17, 2));
+		}
+		catch (const std::invalid_argument& e) {
+			std::cerr << "Invalid argument in ISO8601 time conversion. ISOTime contents: " << ISOTime << std::endl;
+			return(0);
+		}
+		catch (const std::out_of_range& e) {
+			std::cerr << "Out of range error in ISO8601 time conversion. ISOTime contents: " << ISOTime << std::endl;
+			return(0);
+		}
 		UTC.tm_gmtoff = 0;
 		UTC.tm_isdst = -1;
 		UTC.tm_zone = 0;
