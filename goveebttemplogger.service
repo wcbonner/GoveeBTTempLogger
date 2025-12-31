@@ -14,6 +14,15 @@ StartLimitIntervalSec=15m
 # chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 #
 # They are run as root during the installation of the service. The service runs as the newly crteated user.
+#
+# This service is configurable using Environment variables. To adjust settings, run:
+#   sudo systemctl edit goveebttemplogger.service
+# and in the editor that opens, under the [Service] section, add Environment lines, E.G:
+#   [Service]
+#   Environment="VERBOSITY=0"
+#   Environment="DOWNLOAD=0"
+#   Environment="SVGARGS="
+
 
 [Service]
 Type=simple
@@ -21,14 +30,23 @@ Restart=always
 RestartSec=1m
 User=goveebttemplogger
 Group=www-data
+Environment="VERBOSITY=0"
+Environment="TIME=60"
+Environment="DOWNLOAD=7"
+Environment="RESTART=3"
+Environment="BATTERY=8"
+Environment="MINMAX=8"
+Environment="SVGARGS=--svg /var/www/html/goveebttemplogger"
 ExecStart=/usr/local/bin/goveebttemplogger \
-    --verbose 0 \
     --log /var/log/goveebttemplogger \
-    --time 60 \
-    --download 7 \
-    --restart 3 \
-    --svg /var/www/html/goveebttemplogger --battery 8 --minmax 8 \
-    --cache /var/cache/goveebttemplogger
+    --cache /var/cache/goveebttemplogger \
+    --verbose $VERBOSITY \
+    --time $TIME \
+    --download $DOWNLOAD \
+    --restart $RESTART \
+    --battery $BATTERY --minmax $MINMAX \
+    $SVGARGS
+
 KillSignal=SIGINT
 
 [Install]
