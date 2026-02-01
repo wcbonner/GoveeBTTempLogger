@@ -402,57 +402,74 @@ Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
 	while (!std::isdigit(TheLine.peek()))
 		TheLine.get();
-	std::string theDay;
-	TheLine >> theDay;
-	std::string theHour;
-	TheLine >> theHour;
-	std::string theDate(theDay + " " + theHour);
-	Time = ISO8601totime(theDate);
-	TheLine >> Temperature[0];
-	TemperatureMin[0] = TemperatureMax[0] = Temperature[0];
-	TheLine >> Humidity;
-	HumidityMin = HumidityMax = Humidity;
-	TheLine >> Battery;
-	if (!TheLine.eof())
+	if (TheLine.eof()) // Quick check to make sure we didn't have a with only invalid characters
 	{
-		int theModel(0);
-		TheLine >> theModel;
-		switch (theModel)
-		{
-		case 5181:
-			Model = ThermometerType::H5181;
-			break;
-		case 5182:
-			Model = ThermometerType::H5182;
-			break;
-		case 5183:
-			Model = ThermometerType::H5183;
-			break;
-		case 5184:
-			Model = ThermometerType::H5184;
-			break;
-		case 5055:
-			Model = ThermometerType::H5055;
-			break;
-		default:
-			Model = ThermometerType::Unknown;
-		}
-		unsigned long index = 1;
-		while ((!TheLine.eof()) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
-		{
-			TheLine >> Temperature[index];
-			TemperatureMin[index] = TemperatureMax[index] = Temperature[index];
-			index++;
-		}
+		Time = 0;
+		Temperature[0] = 0;
+		TemperatureMin[0] = DBL_MAX;
+		TemperatureMax[0] = -DBL_MAX;
+		Humidity = 0;
+		HumidityMin = DBL_MAX;
+		HumidityMax = -DBL_MAX;
+		Battery = INT_MAX;
+		Averages = 0;
+		Model = ThermometerType::Unknown;
+		return;
 	}
-	time_t timeNow(0);
-	time(&timeNow);
-	if (Time <= timeNow) // Only validate data from the past.
-		Averages = 1;
-	// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
-	// h5103 Temperature Range = 0C to 50C
-	if (Temperature[0] < -20)
-		Averages = 0; // invalidate the data
+	else
+	{
+		std::string theDay;
+		TheLine >> theDay;
+		std::string theHour;
+		TheLine >> theHour;
+		std::string theDate(theDay + " " + theHour);
+		Time = ISO8601totime(theDate);
+		TheLine >> Temperature[0];
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];
+		TheLine >> Humidity;
+		HumidityMin = HumidityMax = Humidity;
+		TheLine >> Battery;
+		if (!TheLine.eof())
+		{
+			int theModel(0);
+			TheLine >> theModel;
+			switch (theModel)
+			{
+			case 5181:
+				Model = ThermometerType::H5181;
+				break;
+			case 5182:
+				Model = ThermometerType::H5182;
+				break;
+			case 5183:
+				Model = ThermometerType::H5183;
+				break;
+			case 5184:
+				Model = ThermometerType::H5184;
+				break;
+			case 5055:
+				Model = ThermometerType::H5055;
+				break;
+			default:
+				Model = ThermometerType::Unknown;
+			}
+			unsigned long index = 1;
+			while ((!TheLine.eof()) && (index < (sizeof(Temperature) / sizeof(Temperature[0]))))
+			{
+				TheLine >> Temperature[index];
+				TemperatureMin[index] = TemperatureMax[index] = Temperature[index];
+				index++;
+			}
+		}
+		time_t timeNow(0);
+		time(&timeNow);
+		if (Time <= timeNow) // Only validate data from the past.
+			Averages = 1;
+		// h5074, h5075, h5100, h5179 Temperature Range = -20C to 60C
+		// h5103 Temperature Range = 0C to 50C
+		if (Temperature[0] < -20)
+			Averages = 0; // invalidate the data
+	}
 }
 std::string Govee_Temp::WriteTXT(const char seperator) const
 {
