@@ -7,8 +7,14 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+### 2026-02-11 rfkill support
+I have been having a recurrent problem with rfkill soft blocking the bluetooth adapter on my Raspberry Pi 4. 
+I have added code to display the rfkill status of all devices in /dev/rfkill and unblock all bluetooth adapters.
+With the addition of the code in the program, I removed the calls to the external rfkill command in the postint script.
+
 ### Trixie Release Information 2025-10-07
-Raspberry released the update to Trixie this week https://www.raspberrypi.com/news/trixie-the-new-version-of-raspberry-pi-os/ and while GoveeBTTempLogger works on the updated system, the built in bluetooth is blocked on many systems. I had two issues open related to Trixie, https://github.com/wcbonner/GoveeBTTempLogger/issues/89 and https://github.com/wcbonner/GoveeBTTempLogger/issues/91 with the second finding the solution, which is to run the command `rfkill unblock bluetooth` 
+Raspberry released the update to Trixie this week https://www.raspberrypi.com/news/trixie-the-new-version-of-raspberry-pi-os/ and while GoveeBTTempLogger works on the updated system, the built in bluetooth is blocked on many systems. 
+I had two issues open related to Trixie, https://github.com/wcbonner/GoveeBTTempLogger/issues/89 and https://github.com/wcbonner/GoveeBTTempLogger/issues/91 with the second finding the solution, which is to run the command `rfkill unblock bluetooth` 
 ```
 wim@WimPiZeroW-Sola:~ $ rfkill
 ID TYPE      DEVICE      SOFT      HARD
@@ -114,20 +120,9 @@ mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/gove
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
-rfkill --output-all
-rfkill unblock bluetooth
 ```
 
 ##### Debian 13 (Trixie) 2025-12-08
-The Raspberry Pi seems to configure the built in bluetooth support with rfkill to be soft blocked. The two rfkill commands were
-added to the [postinst](https://github.com/wcbonner/GoveeBTTempLogger/blob/master/postinst) file to display the initial settings
-and then unblock bluetooth. This is the `rfkill --output-all` output on a fresh installation.
-```
-ID TYPE      DEVICE TYPE-DESC         SOFT      HARD
- 0 bluetooth hci0   Bluetooth      blocked unblocked
- 1 wlan      phy0   Wireless LAN unblocked unblocked
-```
-
 The systemd unit file section `ExecStart` to start the service has been broken into several lines for clarity.
 
 ```

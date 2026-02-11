@@ -54,6 +54,7 @@
 //
 
 #include <algorithm>
+#include <cerrno>       // errno
 #include <cfloat>
 #include <climits>
 #include <cmath>
@@ -63,12 +64,14 @@
 #include <cstring>
 #include <ctime>
 #include <dbus/dbus.h> //  sudo apt install libdbus-1-dev
+#include <fcntl.h>      // open, O_NONBLOCK
 #include <filesystem>
 #include <fstream>
 #include <getopt.h>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <linux/rfkill.h>
 #include <locale>
 #include <map>
 #include <netdb.h>
@@ -5644,6 +5647,136 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
+// https://www.kernel.org/doc/html/latest/driver-api/rfkill.html
+// Helper function to get rfkill type name
+const char* rfkillTypeName(const uint8_t type) 
+{
+	switch (type)
+	{
+	case RFKILL_TYPE_ALL: return "All";
+	case RFKILL_TYPE_WLAN: return "Wireless LAN";
+	case RFKILL_TYPE_BLUETOOTH: return "Bluetooth";
+	case RFKILL_TYPE_UWB: return "Ultra-Wideband";
+	case RFKILL_TYPE_WIMAX: return "WiMAX";
+	case RFKILL_TYPE_WWAN: return "Wireless WAN";
+	case RFKILL_TYPE_GPS: return "GPS";
+	case RFKILL_TYPE_FM: return "FM Radio";
+	default: return "Unknown";
+	}
+}
+
+// Function to check Bluetooth status
+bool rfkillisBluetoothSoftBlocked()
+{
+	bool result = false;
+	std::ostringstream ssOutput;
+	const char* rfkillPath = "/dev/rfkill";
+
+	// Open rfkill device in read-only, non-blocking mode
+	int fd = open(rfkillPath, O_RDONLY | O_NONBLOCK);
+	if (fd < 0)
+	{
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[" << getTimeISO8601(true) << "] ";
+		ssOutput << rfkillPath << " Error opening for reading: " << strerror(errno) << std::endl;
+	}
+	else
+	{
+		struct rfkill_event event;
+		ssize_t len;
+
+		// Read all available events (non-blocking)
+		while (true)
+		{
+			len = read(fd, &event, sizeof(event));
+			if (len < 0)
+			{
+				if (errno == EAGAIN || errno == EWOULDBLOCK)
+				{
+					// No more data available
+					break;
+				}
+				else
+				{
+					if (ConsoleVerbosity > 0)
+						ssOutput << "[" << getTimeISO8601(true) << "] ";
+					ssOutput << rfkillPath << " Read error: " << strerror(errno) << std::endl;
+					break;
+				}
+			}
+
+			if (len != sizeof(event))
+			{
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				ssOutput << rfkillPath << " Short read from rfkill device." << std::endl;
+				break;
+			}
+
+			if (event.soft || event.hard || (ConsoleVerbosity > 1))
+			{
+				if (event.soft || event.hard)
+					result = true; // If any device is blocked, set result to true
+				// Print event info
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				ssOutput << rfkillPath << " " << static_cast<int>(event.idx)
+					<< " " << rfkillTypeName(event.type)
+					<< ", Blocked: " << ((event.soft || event.hard) ? "YES" : "NO")
+					<< " (Soft: " << (event.soft ? "yes" : "no")
+					<< ", Hard: " << (event.hard ? "yes" : "no") << ")"
+					<< std::endl;
+			}
+		}
+		close(fd);
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(result);
+}
+
+// Function to soft unblock Bluetooth
+bool rfkillUnblockBluetooth()
+{
+	bool result = false;
+	std::ostringstream ssOutput;
+	const char* rfkillPath = "/dev/rfkill";
+
+	// Open /dev/rfkill for writing in binary mode
+	std::ofstream rfkillFile(rfkillPath, std::ios::out | std::ios::binary);
+	if (!rfkillFile.is_open())
+	{
+		ssOutput << rfkillPath << " Error opening for writing." << std::endl;
+	}
+	else
+	{
+		struct rfkill_event event;
+		std::memset(&event, 0, sizeof(event));
+		event.op = RFKILL_OP_CHANGE_ALL;     // Change state
+		event.type = RFKILL_TYPE_BLUETOOTH;  // Target Bluetooth
+		event.soft = 0;                      // 0 = unblock, 1 = block
+
+		// Write the event to /dev/rfkill
+		rfkillFile.write(reinterpret_cast<const char*>(&event), sizeof(event));
+		if (!rfkillFile)
+		{
+			ssOutput << rfkillPath << " Error writing" << std::endl;
+		}
+		else
+		{
+			result = true;
+			ssOutput << rfkillPath << " Bluetooth soft unblock request sent successfully." << std::endl;
+		}
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << "[" << getTimeISO8601(true) << "] " << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(result);
+}
+/////////////////////////////////////////////////////////////////////////////
 static void usage(int argc, char **argv)
 {
 	std::cout << "Usage: " << argv[0] << " [options]" << std::endl;
@@ -5882,6 +6015,9 @@ int main(int argc, char **argv)
 	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
 	if (UseBluetooth)
 	{
+		if (rfkillisBluetoothSoftBlocked()) // Check rfkill status before trying to use Bluetooth. This will print a message and exit if Bluetooth is blocked by rfkill
+			rfkillUnblockBluetooth(); // Try to unblock Bluetooth if it is blocked by rfkill. This will print a message and exit if it fails to unblock Bluetooth
+		rfkillisBluetoothSoftBlocked(); // Check rfkill status again after trying to unblock, to show the new status
 		if (!SVGDirectory.empty())
 		{
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
