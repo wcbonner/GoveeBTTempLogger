@@ -5645,10 +5645,11 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
+// https://www.kernel.org/doc/html/latest/driver-api/rfkill.html
 // Helper function to get rfkill type name
-const char* rfkillTypeName(uint8_t type) 
+const char* rfkillTypeName(const uint8_t type) 
 {
-	switch (type) 
+	switch (type)
 	{
 	case RFKILL_TYPE_ALL: return "All";
 	case RFKILL_TYPE_WLAN: return "Wireless LAN";
@@ -5665,27 +5666,38 @@ const char* rfkillTypeName(uint8_t type)
 // Function to check Bluetooth status
 bool rfkillisBluetoothSoftBlocked()
 {
+	bool result = false;
+	std::ostringstream ssOutput;
+	if (ConsoleVerbosity > 0)
+		ssOutput << "[" << getTimeISO8601(true) << "] ";
 	std::ifstream rfkillFile("/dev/rfkill", std::ios::in | std::ios::binary);
 	if (!rfkillFile.is_open()) 
 	{
-		std::cerr << "Error opening /dev/rfkill for reading.\n";
-		return false;
+		ssOutput << "Error opening /dev/rfkill for reading." << std::endl;
 	}
-
-	struct rfkill_event event;
-	while (rfkillFile.read(reinterpret_cast<char*>(&event), sizeof(event))) 
+	else
 	{
-		if (event.type == RFKILL_TYPE_BLUETOOTH)
+		bool foundBluetoothDevice = false;
+		struct rfkill_event event;
+		while (rfkillFile.read(reinterpret_cast<char*>(&event), sizeof(event)))
 		{
-			std::cout << "Bluetooth Status: "
-				<< (event.soft ? "SOFT BLOCKED" : "UNBLOCKED")
-				<< " (Hard: " << (event.hard ? "yes" : "no") << ")\n";
-			return event.soft; // Return true if soft blocked
+			if (event.type == RFKILL_TYPE_BLUETOOTH)
+			{
+				foundBluetoothDevice = true;
+				ssOutput << "Bluetooth Status: "
+					<< (event.soft ? "SOFT BLOCKED" : "UNBLOCKED")
+					<< " (Hard: " << (event.hard ? "yes" : "no") << ")" << std::endl;
+				result = event.soft; // Return true if soft blocked
+			}
 		}
+		if (!foundBluetoothDevice)
+			ssOutput << "No Bluetooth device found." << std::endl;
 	}
-
-	std::cerr << "No Bluetooth device found.\n";
-	return false;
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(result);
 }
 
 // Function to soft unblock Bluetooth
@@ -5694,39 +5706,39 @@ bool rfkillunblockBluetooth()
 	std::ofstream rfkillFile("/dev/rfkill", std::ios::out | std::ios::binary);
 	if (!rfkillFile.is_open()) 
 	{
-		std::cerr << "Error opening /dev/rfkill for writing.\n";
+		std::cerr << "Error opening /dev/rfkill for writing." << std::endl;
 		return false;
 	}
 
 	struct rfkill_event event;
 	std::memset(&event, 0, sizeof(event));
-	event.op = RFKILL_OP_CHANGE;
+	event.op = RFKILL_OP_CHANGE_ALL;
 	event.type = RFKILL_TYPE_BLUETOOTH;
 	event.soft = 0; // unblock
 
 	rfkillFile.write(reinterpret_cast<const char*>(&event), sizeof(event));
 	if (!rfkillFile) {
-		std::cerr << "Error writing unblock request.\n";
+		std::cerr << "Error writing unblock request." << std::endl;
 		return false;
 	}
 
-	std::cout << "Bluetooth soft unblock request sent.\n";
+	std::cout << "Bluetooth soft unblock request sent." << std::endl;
 	return true;
 }
 
 int rfkillTestAndUnblock() {
-	std::cout << "Checking Bluetooth RFKill status...\n";
+	std::cout << "Checking Bluetooth RFKill status..." << std::endl;
 
 	bool blocked = rfkillisBluetoothSoftBlocked();
 	if (blocked) {
-		std::cout << "Attempting to unblock Bluetooth...\n";
+		std::cout << "Attempting to unblock Bluetooth..." << std::endl;
 		if (rfkillunblockBluetooth()) {
-			std::cout << "Re-checking status...\n";
+			std::cout << "Re-checking status..." << std::endl;
 			rfkillisBluetoothSoftBlocked();
 		}
 	}
 	else {
-		std::cout << "Bluetooth is already unblocked.\n";
+		std::cout << "Bluetooth is already unblocked." << std::endl;
 	}
 
 	return 0;
@@ -5781,7 +5793,7 @@ bool rfkillEnable()
 
 	struct rfkill_event event;
 	std::memset(&event, 0, sizeof(event));
-	event.op = RFKILL_OP_CHANGE;         // Change state
+	event.op = RFKILL_OP_CHANGE_ALL;     // Change state
 	event.type = RFKILL_TYPE_BLUETOOTH;  // Target Bluetooth
 	event.soft = 0;                      // 0 = unblock, 1 = block
 
