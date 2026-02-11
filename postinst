@@ -12,9 +12,6 @@ mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/gove
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
 sudo setcap 'cap_net_raw,cap_net_admin+eip' /usr/local/bin/goveebttemplogger
-# These rfkill likes were added because Debian 13 (trixie) seemed to be soft blocking bluetooth by default
-rfkill --output-all
-rfkill unblock bluetooth
 # the next line doesn't handle multiple files existing, I created the function above that handles multiple files
 # if [ -f /var/log/goveebttemplogger/gvh507x_*.txt ]; then
 if exists /var/log/goveebttemplogger/gvh507x_*.txt; then

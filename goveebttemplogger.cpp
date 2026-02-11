@@ -54,6 +54,7 @@
 //
 
 #include <algorithm>
+#include <cerrno>       // errno
 #include <cfloat>
 #include <climits>
 #include <cmath>
@@ -63,6 +64,7 @@
 #include <cstring>
 #include <ctime>
 #include <dbus/dbus.h> //  sudo apt install libdbus-1-dev
+#include <fcntl.h>      // open, O_NONBLOCK
 #include <filesystem>
 #include <fstream>
 #include <getopt.h>
@@ -5668,30 +5670,65 @@ bool rfkillisBluetoothSoftBlocked()
 {
 	bool result = false;
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 0)
-		ssOutput << "[" << getTimeISO8601(true) << "] ";
-	std::ifstream rfkillFile("/dev/rfkill", std::ios::in | std::ios::binary);
-	if (!rfkillFile.is_open()) 
+	const char* rfkillPath = "/dev/rfkill";
+
+	// Open rfkill device in read-only, non-blocking mode
+	int fd = open(rfkillPath, O_RDONLY | O_NONBLOCK);
+	if (fd < 0)
 	{
-		ssOutput << "Error opening /dev/rfkill for reading." << std::endl;
+		if (ConsoleVerbosity > 0)
+			ssOutput << "[" << getTimeISO8601(true) << "] ";
+		ssOutput << rfkillPath << " Error opening for reading: " << strerror(errno) << std::endl;
 	}
 	else
 	{
-		bool foundBluetoothDevice = false;
 		struct rfkill_event event;
-		while (rfkillFile.read(reinterpret_cast<char*>(&event), sizeof(event)))
+		ssize_t len;
+
+		// Read all available events (non-blocking)
+		while (true)
 		{
-			if (event.type == RFKILL_TYPE_BLUETOOTH)
+			len = read(fd, &event, sizeof(event));
+			if (len < 0)
 			{
-				foundBluetoothDevice = true;
-				ssOutput << "Bluetooth Status: "
-					<< (event.soft ? "SOFT BLOCKED" : "UNBLOCKED")
-					<< " (Hard: " << (event.hard ? "yes" : "no") << ")" << std::endl;
-				result = event.soft; // Return true if soft blocked
+				if (errno == EAGAIN || errno == EWOULDBLOCK)
+				{
+					// No more data available
+					break;
+				}
+				else
+				{
+					if (ConsoleVerbosity > 0)
+						ssOutput << "[" << getTimeISO8601(true) << "] ";
+					ssOutput << rfkillPath << " Read error: " << strerror(errno) << std::endl;
+					break;
+				}
+			}
+
+			if (len != sizeof(event))
+			{
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				ssOutput << rfkillPath << " Short read from rfkill device." << std::endl;
+				break;
+			}
+
+			if (event.soft || event.hard || (ConsoleVerbosity > 1))
+			{
+				if (event.soft || event.hard)
+					result = true; // If any device is blocked, set result to true
+				// Print event info
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				ssOutput << rfkillPath << " " << static_cast<int>(event.idx)
+					<< " " << rfkillTypeName(event.type)
+					<< ", Blocked: " << ((event.soft || event.hard) ? "YES" : "NO")
+					<< " (Soft: " << (event.soft ? "yes" : "no")
+					<< ", Hard: " << (event.hard ? "yes" : "no") << ")"
+					<< std::endl;
 			}
 		}
-		if (!foundBluetoothDevice)
-			ssOutput << "No Bluetooth device found." << std::endl;
+		close(fd);
 	}
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
@@ -5701,113 +5738,43 @@ bool rfkillisBluetoothSoftBlocked()
 }
 
 // Function to soft unblock Bluetooth
-bool rfkillunblockBluetooth()
+bool rfkillUnblockBluetooth()
 {
-	std::ofstream rfkillFile("/dev/rfkill", std::ios::out | std::ios::binary);
-	if (!rfkillFile.is_open()) 
-	{
-		std::cerr << "Error opening /dev/rfkill for writing." << std::endl;
-		return false;
-	}
-
-	struct rfkill_event event;
-	std::memset(&event, 0, sizeof(event));
-	event.op = RFKILL_OP_CHANGE_ALL;
-	event.type = RFKILL_TYPE_BLUETOOTH;
-	event.soft = 0; // unblock
-
-	rfkillFile.write(reinterpret_cast<const char*>(&event), sizeof(event));
-	if (!rfkillFile) {
-		std::cerr << "Error writing unblock request." << std::endl;
-		return false;
-	}
-
-	std::cout << "Bluetooth soft unblock request sent." << std::endl;
-	return true;
-}
-
-int rfkillTestAndUnblock() {
-	std::cout << "Checking Bluetooth RFKill status..." << std::endl;
-
-	bool blocked = rfkillisBluetoothSoftBlocked();
-	if (blocked) {
-		std::cout << "Attempting to unblock Bluetooth..." << std::endl;
-		if (rfkillunblockBluetooth()) {
-			std::cout << "Re-checking status..." << std::endl;
-			rfkillisBluetoothSoftBlocked();
-		}
-	}
-	else {
-		std::cout << "Bluetooth is already unblocked." << std::endl;
-	}
-
-	return 0;
-}
-
-int rfkillDisplay()
-{
-	const char* rfkillPath = "/dev/rfkill";
-
-	// Open /dev/rfkill in binary mode
-	std::ifstream rfkillFile(rfkillPath, std::ios::in | std::ios::binary);
-	if (!rfkillFile.is_open())
-	{
-		std::cerr << "Error opening " << rfkillPath << "\n";
-		return 1;
-	}
-
-	struct rfkill_event event;
-
-	std::cout << "Reading RFKill status directly from kernel...\n";
-
-	// Read until EOF
-	while (!rfkillFile.eof())
-	{
-		if (rfkillFile.read(reinterpret_cast<char*>(&event), sizeof(event)))
-		std::cout << "Device Index: " << static_cast<int>(event.idx)
-			<< " | Type: " << rfkillTypeName(event.type)
-			<< " | Blocked: " << ((event.soft || event.hard) ? "YES" : "NO")
-			<< " (Soft: " << (event.soft ? "yes" : "no")
-			<< ", Hard: " << (event.hard ? "yes" : "no") << ")\n";
-	}
-
-	if (!rfkillFile.eof()) {
-		std::cerr << "Error reading from " << rfkillPath << "\n";
-		return 1;
-	}
-
-	return 0;
-}
-
-bool rfkillEnable()
-{
+	bool result = false;
+	std::ostringstream ssOutput;
 	const char* rfkillPath = "/dev/rfkill";
 
 	// Open /dev/rfkill for writing in binary mode
 	std::ofstream rfkillFile(rfkillPath, std::ios::out | std::ios::binary);
 	if (!rfkillFile.is_open())
 	{
-		std::cerr << "Error opening " << rfkillPath << " for writing.\n";
-		return false;
+		ssOutput << rfkillPath << " Error opening for writing." << std::endl;
 	}
-
-	struct rfkill_event event;
-	std::memset(&event, 0, sizeof(event));
-	event.op = RFKILL_OP_CHANGE_ALL;     // Change state
-	event.type = RFKILL_TYPE_BLUETOOTH;  // Target Bluetooth
-	event.soft = 0;                      // 0 = unblock, 1 = block
-
-	// Write the event to /dev/rfkill
-	rfkillFile.write(reinterpret_cast<const char*>(&event), sizeof(event));
-
-	if (!rfkillFile)
+	else
 	{
-		std::cerr << "Error writing to " << rfkillPath << "\n";
-		return false;
-	}
+		struct rfkill_event event;
+		std::memset(&event, 0, sizeof(event));
+		event.op = RFKILL_OP_CHANGE_ALL;     // Change state
+		event.type = RFKILL_TYPE_BLUETOOTH;  // Target Bluetooth
+		event.soft = 0;                      // 0 = unblock, 1 = block
 
-	std::cout << "Bluetooth soft unblock request sent successfully.\n";
-	return true;
+		// Write the event to /dev/rfkill
+		rfkillFile.write(reinterpret_cast<const char*>(&event), sizeof(event));
+		if (!rfkillFile)
+		{
+			ssOutput << rfkillPath << " Error writing" << std::endl;
+		}
+		else
+		{
+			result = true;
+			ssOutput << rfkillPath << " Bluetooth soft unblock request sent successfully." << std::endl;
+		}
+	}
+	if (ConsoleVerbosity > 0)
+		std::cout << "[" << getTimeISO8601(true) << "] " << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(result);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void usage(int argc, char **argv)
@@ -6048,9 +6015,9 @@ int main(int argc, char **argv)
 	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
 	if (UseBluetooth)
 	{
-		//rfkillDisplay(); // Check rfkill status before trying to use Bluetooth. This will print a message and exit if Bluetooth is blocked by rfkill
-		//rfkillEnable(); // Try to unblock Bluetooth if it is blocked by rfkill. This will print a message and exit if it fails to unblock Bluetooth
-		rfkillTestAndUnblock(); // Check rfkill status again after trying to unblock Bluetooth, and print the status
+		if (rfkillisBluetoothSoftBlocked()) // Check rfkill status before trying to use Bluetooth. This will print a message and exit if Bluetooth is blocked by rfkill
+			rfkillUnblockBluetooth(); // Try to unblock Bluetooth if it is blocked by rfkill. This will print a message and exit if it fails to unblock Bluetooth
+		rfkillisBluetoothSoftBlocked(); // Check rfkill status again after trying to unblock, to show the new status
 		if (!SVGDirectory.empty())
 		{
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
