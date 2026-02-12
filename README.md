@@ -7,6 +7,11 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+### 2026-02-12 Modification to user creation and groups
+Access to the /dev/rfkill device for writing seems to be allowed by adding the user goveebttemplogger to the group "netdev". 
+I've added this to the postinst script. I've also changed the inclusion of the user in the www-data group to be a secondary 
+group instead of the primary group, which seems to be more standard for system users.
+
 ### 2026-02-11 rfkill support
 I have been having a recurrent problem with rfkill soft blocking the bluetooth adapter on my Raspberry Pi 4. 
 I have added code to display the rfkill status of all devices in /dev/rfkill and unblock all bluetooth adapters.

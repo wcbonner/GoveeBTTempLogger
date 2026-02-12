@@ -7,8 +7,9 @@ exists() {
 }
 
 echo "`date --rfc-3339='seconds'` \033[36mHI I'M A POSTINST SCRIPT running \033[32m${0}\033[36m as \033[91m`whoami`\033[39m"
-adduser --system --ingroup www-data goveebttemplogger
-usermod -a -G netdev goveebttemplogger
+adduser --system goveebttemplogger
+adduser goveebttemplogger www-data
+adduser goveebttemplogger netdev
 mkdir --verbose --mode 0755 --parents /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chown --changes --recursive goveebttemplogger:www-data /var/log/goveebttemplogger /var/cache/goveebttemplogger /var/www/html/goveebttemplogger
 chmod --changes --recursive 0644 /var/log/goveebttemplogger/* /var/cache/goveebttemplogger/* /var/www/html/goveebttemplogger/*
