@@ -67,21 +67,23 @@
 /////////////////////////////////////////////////////////////////////////////
 static const std::string ProgramVersionString("GoveeBTTempLogOrganizer Version " GoveeBTTempLogger_VERSION " Built on: " __DATE__ " at " __TIME__);
 std::filesystem::path LogDirectory;
+std::filesystem::path MergeDirectory;
 std::filesystem::path BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
-bool ValidateDirectory(std::string& DirectoryName)
+bool ValidateDirectory(const std::filesystem::path& DirectoryName, const bool bWriteable = true)
 {
 	bool rval = false;
-	// I want to make sure the directory name does not end with a "/"
-	while ((!DirectoryName.empty()) && (DirectoryName.back() == '/'))
-		DirectoryName.pop_back();
 	// https://linux.die.net/man/2/stat
 	struct stat64 StatBuffer;
 	if (0 == stat64(DirectoryName.c_str(), &StatBuffer))
 		if (S_ISDIR(StatBuffer.st_mode))
 		{
 			// https://linux.die.net/man/2/access
-			if (0 == access(DirectoryName.c_str(), R_OK | W_OK))
+			int mode = R_OK;
+			if (bWriteable)
+				mode |= W_OK;
+			// Check if the directory is readable and writeable
+			if (0 == access(DirectoryName.c_str(), mode))
 				rval = true;
 			else
 			{
@@ -231,14 +233,16 @@ static void usage(int argc, char** argv)
 	std::cout << "    -l | --log name      Logging Directory [" << LogDirectory << "]" << std::endl;
 	std::cout << "    -f | --file name     Single log file to process [" <<  "]" << std::endl;
 	std::cout << "    -b | --backup name   Backup Directory [" << BackupDirectory << "]" << std::endl;
+	std::cout << "    -m | --merge name    Merge Directory [" << MergeDirectory << "]" << std::endl;
 	std::cout << std::endl;
 }
-static const char short_options[] = "hl:f:b:";
+static const char short_options[] = "hl:f:b:m:";
 static const struct option long_options[] = {
 		{ "help",   no_argument,       NULL, 'h' },
 		{ "log",    required_argument, NULL, 'l' },
 		{ "file",   required_argument, NULL, 'f' },
 		{ "backup", required_argument, NULL, 'b' },
+		{ "merge",  required_argument, NULL, 'm' },
 		{ 0, 0, 0, 0 }
 };
 /////////////////////////////////////////////////////////////////////////////
@@ -249,6 +253,7 @@ int main(int argc, char** argv)
 	for (;;)
 	{
 		std::string TempString;
+		std::filesystem::path TempPath;
 		int idx;
 		int c = getopt_long(argc, argv, short_options, long_options, &idx);
 		if (-1 == c)
@@ -262,14 +267,25 @@ int main(int argc, char** argv)
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
 		case 'l':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				LogDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				LogDirectory = TempPath;
 			break;
 		case 'b':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				BackupDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				BackupDirectory = TempPath;
+			break;
+		case 'm':
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath, false))
+				MergeDirectory = TempPath;
 			break;
 		default:
 			usage(argc, argv);
@@ -283,10 +299,104 @@ int main(int argc, char** argv)
 	std::locale mylocale("");   // get global locale
 	std::cout.imbue(mylocale);  // imbue global locale
 	///////////////////////////////////////////////////////////////////////////////////////////////
-	if (LogDirectory.empty() || BackupDirectory.empty())
+
+	if (!LogDirectory.empty() && !MergeDirectory.empty())
+	{
+		std::cout << "[" << getTimeISO8601() << "] Merging contents of: " << MergeDirectory << " into " << LogDirectory << std::endl;
+		// Merging contents of MergeDirectory into LogDirectory.
+		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
+		std::deque<std::filesystem::path> files;
+		for (auto const& dir_entry : std::filesystem::directory_iterator{ MergeDirectory })
+			if (dir_entry.is_regular_file())
+				if (std::regex_match(dir_entry.path().filename().string(), LogFileRegex))
+					files.push_back(dir_entry);
+		if (!files.empty())
+		{
+			sort(files.begin(), files.end());
+			bdaddr_t LastBlueToothAddress({ 0 });
+			while (!files.empty())
+			{
+				std::filesystem::path FQFileName(*files.begin());
+				std::ifstream TheFile(FQFileName);
+				if (TheFile.is_open())
+				{
+					std::deque<std::string> DataLines;
+					std::cout << "[" << getTimeISO8601() << "] Reading: " << FQFileName;
+					const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
+					std::smatch BluetoothAddressInFilename;
+					std::string Stem(FQFileName.stem());
+					if (std::regex_search(Stem, BluetoothAddressInFilename, ModifiedBluetoothAddressRegex))
+					{
+						bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddressInFilename.str()));
+						int count(0);
+						// Read All Data From Existing Log, removing nulls if possible
+						std::string TheLine;
+						while (std::getline(TheFile, TheLine))
+						{
+							// erase any nulls from the data. these are occasionally in the log file when the platform crashed during a write to the logfile.
+							for (auto pos = TheLine.find('\000'); pos != std::string::npos; pos = TheLine.find('\000'))
+								TheLine.erase(pos);
+							DataLines.push_back(TheLine);
+							count++;
+						}
+						std::cout << " (" << count << " lines)" << std::endl;
+						TheFile.close();
+
+						// Sort all Data
+						sort(DataLines.begin(), DataLines.end());
+						// Distribute Data to appropriate new Log Files
+						std::ofstream LogFile;
+						time_t TheTime(0);
+						int LastYear(0), LastMonth(0);
+						std::filesystem::path LastFileName;
+						std::string LastLine;
+						while (!DataLines.empty())
+						{
+							if (DataLines.begin()->length() > 18)	// line is longer than an ISO8601 String
+							{
+								if (0 != LastLine.compare(*DataLines.begin()))	// line is unique
+								{
+									TheTime = ISO8601totime(*DataLines.begin());
+									struct tm UTC;
+									if (nullptr != gmtime_r(&TheTime, &UTC))
+									{
+										if ((UTC.tm_year != LastYear) || (UTC.tm_mon != LastMonth))
+										{
+											LastYear = UTC.tm_year;
+											LastMonth = UTC.tm_mon;
+											if (LogFile.is_open())
+											{
+												std::cout << " (" << count << " lines)" << std::endl;
+												LogFile.close();
+											}
+											LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
+											LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
+											std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
+											count = 0;
+										}
+										LogFile << *DataLines.begin() << std::endl;
+										count++;
+									}
+									LastLine = *DataLines.begin();
+								}
+							}
+							DataLines.pop_front();
+						}
+						std::cout << " (" << count << " lines)" << std::endl;
+						LogFile.close();
+						files.pop_front();
+					}
+				}
+			}
+		}
+	}
+	else if (LogDirectory.empty() || BackupDirectory.empty())
 		usage(argc, argv);
 	else
 	{
+		std::cout << "[" << getTimeISO8601() << "] Organizing contents of: " << LogDirectory << std::endl;
+		std::cout << "[" << getTimeISO8601() << "]  Using BackupDirectory: " << BackupDirectory << std::endl;
+
 		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })

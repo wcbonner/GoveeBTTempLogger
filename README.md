@@ -198,22 +198,40 @@ sudo apt install bluetooth bluez libbluetooth-dev -y
  * -H (--HCI) Prefer deprecated BlueZ HCI interface over modern DBus communication
  * -p (--passive) Bluetooth LE Passive Scanning
 
- ## Log File Format
+## Overview of gvh-organizelogs
+### Introduction to gvh-organizelogs
+gvh-organizelogs has existed as a separate program for some time. It was developed to streamline log files by internally sorting the data, eliminating exact duplicate lines, and removing unnecessary characters.
+### New Feature: Directory Merge Capability 2026-03-08
+The program is now being enhanced with a new feature: the ability to specify a directory containing data to merge into the primary log directory.
+### Merge Process Workflow
+The merging process involves loading each log file from the designated merge directory, sorting its contents, and then appending the sorted lines to the appropriate files in the main log directory. This assignment is based on the Bluetooth address and timestamp found in each data line from the merge file.
+```
+Usage: gvh-organizelogs [options]
+  GoveeBTTempLogOrganizer Version 3.20260308.0 Built on: Mar  8 2026 at 12:46:14
+  Options:
+    -h | --help          Print this message
+    -l | --log name      Logging Directory [""]
+    -f | --file name     Single log file to process []
+    -b | --backup name   Backup Directory [""]
+    -m | --merge name    Merge Directory [""]
+```
 
- The log file format has been stable for a long time as a simple tab-separated text file with a set number of columns: Date (UTC), Temperature (C), Humidity, Battery.
+## Log File Format
 
- With the addition of support for the meat thermometers multiple temperature readings, I've changed the format slightly in a way that should be backwards compatible with most programs reading existing logs. After the existing columns of Date, Temperature, Humidity, Battery I've added optional columns of Model, Temperature, Temperature, Temperature
+The log file format has been stable for a long time as a simple tab-separated text file with a set number of columns: Date (UTC), Temperature (C), Humidity, Battery.
+
+With the addition of support for the meat thermometers multiple temperature readings, I've changed the format slightly in a way that should be backwards compatible with most programs reading existing logs. After the existing columns of Date, Temperature, Humidity, Battery I've added optional columns of Model, Temperature, Temperature, Temperature
  
- ### Minor update 2023-04-03
- I changed the default log filename to start with `gvh-` instead of `gvh507x_`. The code will still read the old log files, and will rename the current months log file to the new format. I used the linux shell command `for f in gvh507x_*.txt; do sudo mv "${f}" "${f//gvh507x_/gvh-}"; done` in the log file directory to rename all of the old files to the new format on my machine.
+### Minor update 2023-04-03
+I changed the default log filename to start with `gvh-` instead of `gvh507x_`. The code will still read the old log files, and will rename the current months log file to the new format. I used the linux shell command `for f in gvh507x_*.txt; do sudo mv "${f}" "${f//gvh507x_/gvh-}"; done` in the log file directory to rename all of the old files to the new format on my machine.
 
- ## Bluetooth UUID details
-  * (UUID) 88EC (Name) Govee_H5074_C7A1
-  * (Name) GVH5075_AE36 (UUID) 88EC
-  * (Name) GVH5174_CC3D (UUID) 88EC
-  * (Name) GVH5177_3B10 (UUID) 88EC
-  * (UUID) 5182
-  * (UUID) 5183
+## Bluetooth UUID details
+* (UUID) 88EC (Name) Govee_H5074_C7A1
+* (Name) GVH5075_AE36 (UUID) 88EC
+* (Name) GVH5174_CC3D (UUID) 88EC
+* (Name) GVH5177_3B10 (UUID) 88EC
+* (UUID) 5182
+* (UUID) 5183
 
 The 5074, 5075, 5174, and 5177 units all broadcast a UUID of 88EC. Unfortunately, the 5074 does not include the UUID in the same advertisment as the temperatures. 
 

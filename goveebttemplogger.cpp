@@ -951,7 +951,7 @@ void SignalHandlerSIGALRM(int signal)
 		std::cout << "[" << getTimeISO8601(true) << "] ***************** SIGALRM: Caught Alarm. *****************" << std::endl;
 }
 /////////////////////////////////////////////////////////////////////////////
-bool ValidateDirectory(const std::filesystem::path& DirectoryName)
+bool ValidateDirectory(const std::filesystem::path& DirectoryName, const bool bWriteable = true)
 {
 	bool rval = false;
 	// https://linux.die.net/man/2/stat
@@ -960,7 +960,11 @@ bool ValidateDirectory(const std::filesystem::path& DirectoryName)
 		if (S_ISDIR(StatBuffer.st_mode))
 		{
 			// https://linux.die.net/man/2/access
-			if (0 == access(DirectoryName.c_str(), R_OK | W_OK))
+			int mode = R_OK;
+			if (bWriteable)
+				mode |= W_OK;
+			// Check if the directory is readable and writeable
+			if (0 == access(DirectoryName.c_str(), mode))
 				rval = true;
 			else
 			{
