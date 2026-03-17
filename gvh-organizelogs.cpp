@@ -70,19 +70,20 @@ std::filesystem::path LogDirectory;
 std::filesystem::path MergeDirectory;
 std::filesystem::path BackupDirectory;
 /////////////////////////////////////////////////////////////////////////////
-bool ValidateDirectory(std::string& DirectoryName)
+bool ValidateDirectory(const std::filesystem::path& DirectoryName, const bool bWriteable = true)
 {
 	bool rval = false;
-	// I want to make sure the directory name does not end with a "/"
-	while ((!DirectoryName.empty()) && (DirectoryName.back() == '/'))
-		DirectoryName.pop_back();
 	// https://linux.die.net/man/2/stat
 	struct stat64 StatBuffer;
 	if (0 == stat64(DirectoryName.c_str(), &StatBuffer))
 		if (S_ISDIR(StatBuffer.st_mode))
 		{
 			// https://linux.die.net/man/2/access
-			if (0 == access(DirectoryName.c_str(), R_OK | W_OK))
+			int mode = R_OK;
+			if (bWriteable)
+				mode |= W_OK;
+			// Check if the directory is readable and writeable
+			if (0 == access(DirectoryName.c_str(), mode))
 				rval = true;
 			else
 			{
@@ -252,6 +253,7 @@ int main(int argc, char** argv)
 	for (;;)
 	{
 		std::string TempString;
+		std::filesystem::path TempPath;
 		int idx;
 		int c = getopt_long(argc, argv, short_options, long_options, &idx);
 		if (-1 == c)
@@ -265,19 +267,25 @@ int main(int argc, char** argv)
 			usage(argc, argv);
 			exit(EXIT_SUCCESS);
 		case 'l':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				LogDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				LogDirectory = TempPath;
 			break;
 		case 'b':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				BackupDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath))
+				BackupDirectory = TempPath;
 			break;
 		case 'm':
-			TempString = std::string(optarg);
-			if (ValidateDirectory(TempString))
-				MergeDirectory = TempString;
+			TempPath = std::string(optarg);
+			while (TempPath.filename().empty() && (TempPath != TempPath.root_directory())) // This gets rid of the "/" on the end of the path
+				TempPath = TempPath.parent_path();
+			if (ValidateDirectory(TempPath, false))
+				MergeDirectory = TempPath;
 			break;
 		default:
 			usage(argc, argv);
@@ -294,6 +302,7 @@ int main(int argc, char** argv)
 
 	if (!LogDirectory.empty() && !MergeDirectory.empty())
 	{
+		std::cout << "[" << getTimeISO8601() << "] Merging contents of: " << MergeDirectory << " into " << LogDirectory << std::endl;
 		// Merging contents of MergeDirectory into LogDirectory.
 		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
 		std::deque<std::filesystem::path> files;
@@ -330,14 +339,14 @@ int main(int argc, char** argv)
 							DataLines.push_back(TheLine);
 							count++;
 						}
-						std::cout << " (" << count << " lines)";
+						std::cout << " (" << count << " lines)" << std::endl;
 						TheFile.close();
 
 						// Sort all Data
 						sort(DataLines.begin(), DataLines.end());
 						// Distribute Data to appropriate new Log Files
 						std::ofstream LogFile;
-						time_t TheTime(0), LastTime(0);
+						time_t TheTime(0);
 						int LastYear(0), LastMonth(0);
 						std::filesystem::path LastFileName;
 						std::string LastLine;
@@ -359,13 +368,6 @@ int main(int argc, char** argv)
 											{
 												std::cout << " (" << count << " lines)" << std::endl;
 												LogFile.close();
-												if (!LastFileName.empty())
-												{
-													struct utimbuf ut;
-													ut.actime = LastTime;
-													ut.modtime = LastTime;
-													utime(LastFileName.c_str(), &ut);
-												}
 											}
 											LastFileName = GenerateLogFileName(TheBlueToothAddress, TheTime);
 											LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
@@ -373,7 +375,6 @@ int main(int argc, char** argv)
 											count = 0;
 										}
 										LogFile << *DataLines.begin() << std::endl;
-										LastTime = TheTime;
 										count++;
 									}
 									LastLine = *DataLines.begin();
@@ -383,13 +384,6 @@ int main(int argc, char** argv)
 						}
 						std::cout << " (" << count << " lines)" << std::endl;
 						LogFile.close();
-						if (!LastFileName.empty())
-						{
-							struct utimbuf ut;
-							ut.actime = LastTime;
-							ut.modtime = LastTime;
-							utime(LastFileName.c_str(), &ut);
-						}
 						files.pop_front();
 					}
 				}
@@ -400,6 +394,9 @@ int main(int argc, char** argv)
 		usage(argc, argv);
 	else
 	{
+		std::cout << "[" << getTimeISO8601() << "] Organizing contents of: " << LogDirectory << std::endl;
+		std::cout << "[" << getTimeISO8601() << "]  Using BackupDirectory: " << BackupDirectory << std::endl;
+
 		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })

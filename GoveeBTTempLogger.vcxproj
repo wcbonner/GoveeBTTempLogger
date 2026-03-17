@@ -1,6 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug-GVH-OrganizeLogs|ARM">
+      <Configuration>Debug-GVH-OrganizeLogs</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug-GVH-OrganizeLogs|ARM64">
+      <Configuration>Debug-GVH-OrganizeLogs</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug-GVH-OrganizeLogs|x64">
+      <Configuration>Debug-GVH-OrganizeLogs</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug-GVH-OrganizeLogs|x86">
+      <Configuration>Debug-GVH-OrganizeLogs</Configuration>
+      <Platform>x86</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|ARM">
       <Configuration>Debug</Configuration>
       <Platform>ARM</Platform>
@@ -48,10 +64,17 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WSL2_1_0</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x86'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>WSL2_1_0</PlatformToolset>
   </PropertyGroup>
@@ -60,6 +83,10 @@
     <PlatformToolset>WSL2_1_0</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WSL_1_0</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>WSL_1_0</PlatformToolset>
   </PropertyGroup>
@@ -72,6 +99,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM64'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings" />
   <ImportGroup Label="Shared" />
@@ -81,20 +111,30 @@
     <IncludePath>
     </IncludePath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x86'">
+    <IncludePath />
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
     <IncludePath>
     </IncludePath>
   </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="goveebttemplogger.cpp" />
+    <ClCompile Include="goveebttemplogger.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="gvh-organizelogs.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x86'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x86'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="uuid.c" />
@@ -129,6 +169,33 @@
     <ClInclude Include="wimiso8601.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <Link>
+      <LibraryDependencies>bluetooth</LibraryDependencies>
+      <AdditionalOptions>
+      </AdditionalOptions>
+    </Link>
+    <ClCompile />
+    <ClCompile />
+    <PreBuildEvent />
+    <RemotePostBuildEvent />
+    <RemotePreBuildEvent>
+      <Command>
+      </Command>
+    </RemotePreBuildEvent>
+    <RemotePostBuildEvent>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
+    </RemotePostBuildEvent>
+    <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG;DISPLAY_BT_SERVICE_DETAILS</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+    </ClCompile>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM'">
     <Link>
       <LibraryDependencies>bluetooth</LibraryDependencies>
       <AdditionalOptions>
@@ -194,6 +261,20 @@
       <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
     </RemotePostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|ARM64'">
+    <Link>
+      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
+    </Link>
+    <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG;_BLUEZ_HCI_</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalIncludeDirectories>%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/aarch64-linux-gnu/dbus-1.0/include/</AdditionalIncludeDirectories>
+    </ClCompile>
+    <RemotePostBuildEvent>
+      <Command>sudo setcap 'cap_net_raw,cap_net_admin+eip' $(RemoteTargetPath)</Command>
+    </RemotePostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
       <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
@@ -218,6 +299,16 @@
       <CppLanguageStandard>c++17</CppLanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x64'">
+    <Link>
+      <LibraryDependencies>bluetooth</LibraryDependencies>
+    </Link>
+    <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
       <LibraryDependencies>bluetooth</LibraryDependencies>
@@ -228,6 +319,17 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <Link>
+      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
+    </Link>
+    <ClCompile />
+    <ClCompile>
+      <PreprocessorDefinitions>DEBUG</PreprocessorDefinitions>
+      <CppLanguageStandard>c++17</CppLanguageStandard>
+      <AdditionalIncludeDirectories>$(StlIncludeDirectories);%(ClCompile.AdditionalIncludeDirectories);/usr/include/dbus-1.0;/usr/lib/x86_64-linux-gnu/dbus-1.0/include</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-GVH-OrganizeLogs|x86'">
     <Link>
       <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
     </Link>
