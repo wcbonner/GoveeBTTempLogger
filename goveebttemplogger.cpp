@@ -867,10 +867,10 @@ public:
 	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0) {};
 	std::string WriteConsole(void) const;
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
-	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
-	double GetHumidity(void) const { return(Humidity); };
-	double GetPressure(void) const { return(Pressure); };
-	int GetBattery(void) const { return(Battery); };
+	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
+	double GetHumidity(void) const { return(Humidity * 0.0025); };
+	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
+	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
 	bool IsValid(void) const { return((Averages > 0)); };
 protected:
 	short Temperature; // Temperature in 0.005 degrees
@@ -889,10 +889,10 @@ protected:
 std::string Ruuvi_Tag::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
-	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << (GetTemperature() * 0.005) << "\u00B0" << "C";
-	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << (GetHumidity() * 0.0025) << std::left << "%";
-	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << ((GetPressure() + 50000.0) / 100.0) << std::left << " hPa";
-	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << ((GetBattery() * 0.001)+1.6) << std::left << " V";
+	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
+	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << GetHumidity() << std::left << "%";
+	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << GetPressure() << std::left << " hPa";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << GetBattery() << std::left << " V";
 	ssValue << " (Ruuvi)";
 	return(ssValue.str());
 }
