@@ -889,10 +889,10 @@ protected:
 std::string Ruuvi_Tag::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
-	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() * 0.005 << "\u00B0" << "C";
-	ssValue << " (Humidity) " << std::setw(5) << std::right << GetHumidity() * 0.0025 << std::left << "%";
-	ssValue << " (Pressure) " << std::setw(5) << std::right << GetPressure() - 50000.0 << std::left << "Pa";
-	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(0) << GetBattery() << std::left << "%";
+	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << (GetTemperature() * 0.005) << "\u00B0" << "C";
+	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << (GetHumidity() * 0.0025) << std::left << "%";
+	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << ((GetPressure() + 50000.0) / 100.0) << std::left << " hPa";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << ((GetBattery() * 0.001)+1.6) << std::left << " V";
 	ssValue << " (Ruuvi)";
 	return(ssValue.str());
 }
@@ -902,14 +902,14 @@ bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>&
 	if ((Manufacturer == 0x0499) && (Data[0] == 5)) // Ruuvi Data format 5 (RAWv2)
 	{
 		// [2026-04-15T09:36:03] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E65C7C10378FE3CFFCCB9760EE1CADD4CE87A116E
-		Temperature = short(Data[2]) << 8 | short(Data[1]);
-		Humidity = int(Data[4]) << 8 | int(Data[3]);
-		Pressure = int(Data[6]) << 8 | int(Data[5]);
-		AccelerationX = short(Data[8]) << 8 | short(Data[7]);
-		AccelerationY = short(Data[10]) << 8 | short(Data[9]);
-		AccelerationZ = short(Data[12]) << 8 | short(Data[11]);
-		Battery = (int(Data[14]) << 8 | int(Data[13])) >> 5; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
-		TXPower = (int(Data[14]) << 8 | int(Data[13])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+		Temperature = short(Data[1]) << 8 | short(Data[2]);
+		Humidity = int(Data[3]) << 8 | int(Data[4]);
+		Pressure = int(Data[5]) << 8 | int(Data[6]);
+		AccelerationX = short(Data[7]) << 8 | short(Data[8]);
+		AccelerationY = short(Data[9]) << 8 | short(Data[10]);
+		AccelerationZ = short(Data[11]) << 8 | short(Data[12]);
+		Battery = (int(Data[13]) << 8 | int(Data[14])) >> 5; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
+		TXPower = (int(Data[13]) << 8 | int(Data[14])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
 		Averages = 1;
 		time(&Time);
 		rval = true;
