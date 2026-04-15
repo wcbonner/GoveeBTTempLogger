@@ -7,6 +7,56 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+### 2026-04-15 Ruuvi Tag support
+I'm starting an investigation of reading the ruuvi tag bluetooth advertisments. The Ruuvi Tag is a popular bluetooth temperature and humidity sensor. It has a different bluetooth protocol than the Govee devices. 
+I have added code to decode the Ruuvi Tag data and write it to the log files in asimilar format to the Govee devices. 
+https://docs.ruuvi.com/communication/bluetooth-advertisements/data-format-5-rawv2
+```
+wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeBTTempLogger.out --HCI --verbose 3 --celsius --only DD:4C:E8:7A:11:6E
+[2026-04-15T09:36:01] GoveeBTTempLogger Version (non-CMake) Built on: Apr 13 2026 at 18:20:54
+[                   ]      log: ""
+[                   ]    cache: ""
+[                   ]      svg: ""
+[                   ]  battery: 0
+[                   ]   minmax: 0
+[                   ]  celsius: true
+[                   ] titlemap: ""
+[                   ]     time: 60
+[                   ]  average: 5
+[                   ] download: 0 (days betwen data download)
+[                   ]  passive: false
+[                   ] no-bluetooth: false
+[                   ]      HCI: true
+[                   ] only listening to: [DD:4C:E8:7A:11:6E]
+[2026-04-15T09:36:01] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T09:36:01] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[                   ] Host Controller Address: 04:7F:0E:00:FD:5C BlueTooth Device ID: 0 HCI Name: hci0
+[                   ] Host Controller Address: F4:4E:FC:A0:F7:DA BlueTooth Device ID: 1 HCI Name: hci1
+[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueTooth Device ID: 2 HCI Name: hci2
+[                   ] BlueToothDevice_ID: 2
+[                   ] Reset device: hci2. Success(0)
+[                   ] DOWN device: hci2. Success(0)
+[                   ] UP device: hci2. Success(0)
+[2026-04-15T09:36:01] Using Controller Address: 2C:CF:67:0B:78:71
+[2026-04-15T09:36:01] LocalName: WimPi5 #3
+[2026-04-15T09:36:01] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
+[2026-04-15T09:36:01] Scanning Stopped.
+[2026-04-15T09:36:01] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
+[2026-04-15T09:36:01] Scanning Started. ScanInterval(11.25 msec) ScanWindow(11.25 msec) ScanType(1)
+[2026-04-15T09:36:03] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E65C7C10378FE3CFFCCB9760EE1CADD4CE87A116E
+[2026-04-15T09:36:04] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A524E58C7C2037CFE3CFFCCB9760EE1CBDD4CE87A116E
+[2026-04-15T09:36:07] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E60C7C60378FE3CFFC8B9760EE1CCDD4CE87A116E
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+[2026-04-15T09:36:08] Scanning Stopped.
+GoveeBTTempLogger Version (non-CMake) Built on: Apr 13 2026 at 18:20:54 (exiting)
+```
+
 ### 2026-02-12 Modification to user creation and groups
 Access to the /dev/rfkill device for writing seems to be allowed by adding the user goveebttemplogger to the group "netdev". 
 I've added this to the postinst script. I've also changed the inclusion of the user in the www-data group to be a secondary 

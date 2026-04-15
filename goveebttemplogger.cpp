@@ -861,6 +861,63 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	return(*this);
 }
 /////////////////////////////////////////////////////////////////////////////
+class Ruuvi_Tag {
+public:
+	time_t Time;
+	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0) {};
+	std::string WriteConsole(void) const;
+	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
+	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 9.0 / 5.0) + 32.0); return(Temperature); };
+	double GetHumidity(void) const { return(Humidity); };
+	double GetPressure(void) const { return(Pressure); };
+	int GetBattery(void) const { return(Battery); };
+	bool IsValid(void) const { return((Averages > 0)); };
+protected:
+	short Temperature; // Temperature in 0.005 degrees
+	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
+	unsigned short Pressure; // Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
+	short AccelerationX; // Acceleration in X axis in 0.001 G units, with offset of -32 G
+	short AccelerationY; // Acceleration in Y axis in 0.001 G units, with offset of -32 G
+	short AccelerationZ; // Acceleration in Z axis in 0.001 G units, with offset of -32 G
+	unsigned short Battery; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range). 
+	unsigned short TXPower; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
+	unsigned int MeasurementSequenceNumber; // Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
+	bdaddr_t BluetoothAddress;
+	int Averages;
+};
+std::string Ruuvi_Tag::WriteConsole(void) const
+{
+	std::ostringstream ssValue;
+	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() * 0.005 << "\u00B0" << "C";
+	ssValue << " (Humidity) " << std::setw(5) << std::right << GetHumidity() * 0.0025 << std::left << "%";
+	ssValue << " (Pressure) " << std::setw(5) << std::right << GetPressure() - 50000.0 << std::left << "Pa";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(0) << GetBattery() << std::left << "%";
+	ssValue << " (Ruuvi)";
+	return(ssValue.str());
+}
+bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
+{
+	bool rval = false;
+	if ((Manufacturer == 0x0499) && (Data[0] == 5)) // Ruuvi Data format 5 (RAWv2)
+	{
+		// [2026-04-15T09:36:03] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E65C7C10378FE3CFFCCB9760EE1CADD4CE87A116E
+		Temperature = short(Data[2]) << 8 | short(Data[1]);
+		Humidity = int(Data[4]) << 8 | int(Data[3]);
+		Pressure = int(Data[6]) << 8 | int(Data[5]);
+		AccelerationX = short(Data[8]) << 8 | short(Data[7]);
+		AccelerationY = short(Data[10]) << 8 | short(Data[9]);
+		AccelerationZ = short(Data[12]) << 8 | short(Data[11]);
+		Battery = (int(Data[14]) << 8 | int(Data[13])) >> 5; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
+		TXPower = (int(Data[14]) << 8 | int(Data[13])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+		Averages = 1;
+		time(&Time);
+		rval = true;
+	}
+	return(rval);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
 bool operator <(const bdaddr_t &a, const bdaddr_t &b)
 {
@@ -3407,6 +3464,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													int current_offset = 0;
 													bool data_error = false;
 													Govee_Temp localTemp;
+													Ruuvi_Tag localRuuvi;
 													while (!data_error && current_offset < info->length)
 													{
 														size_t data_len = info->data[current_offset];
@@ -3551,6 +3609,10 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
 																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
 																		}
+																	}
+																	else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
+																	{
+																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
 																	}
 																	else if (ConsoleVerbosity > 1)
 																		ConsoleOutLine << iBeacon(ManufacturerID, ManufacturerData);
