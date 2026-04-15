@@ -990,6 +990,7 @@ std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
 std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
+std::map<bdaddr_t, std::queue<Ruuvi_Tag>> RuuviTags;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -3612,6 +3613,9 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	}
 																	else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
 																	{
+																		std::queue<Ruuvi_Tag> foo;
+																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(info->bdaddr, foo));
+																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
 																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
 																	}
 																	else if (ConsoleVerbosity > 1)
@@ -4611,6 +4615,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 	// this should be handling the "a{sv}" portion of the message
 	std::ostringstream ssCompleteLine;
 	Govee_Temp localTemp;
+	Ruuvi_Tag localRuuvi;
 	do
 	{
 		std::ostringstream ssStartLine;
@@ -4707,6 +4712,8 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 											ssOutput << "'Meta Platforms Technologies, LLC'";
 										if (0x02E1 == ManufacturerID)
 											ssOutput << "'Victron Energy BV'";
+										if (0x0499 == ManufacturerID)
+											ssOutput << "'Ruuvi Innovations Ltd.'";
 									}
 									if (localTemp.GetModel() == ThermometerType::Unknown)
 									{
@@ -4739,6 +4746,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 													bluez_connect = true;
 											}
 										}
+									}
+									else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
+									{
+										std::queue<Ruuvi_Tag> foo;
+										auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(dbusBTAddress, foo));
+										ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
+										//										UpdateMRTGData(dbusBTAddress, localRuuvi);	// puts the measurement in the fake MRTG data structure
+										if (ConsoleVerbosity > 1)
+											ssOutput << " " << localRuuvi.WriteConsole();
 									}
 								}
 							}
