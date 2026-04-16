@@ -3738,6 +3738,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	}
 																	else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
 																	{
+																		TemperatureInAdvertisment = localRuuvi.IsValid();
 																		std::queue<Ruuvi_Tag> foo;
 																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(info->bdaddr, foo));
 																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
@@ -6194,6 +6195,7 @@ int main(int argc, char **argv)
 		std::cout << "[" << getTimeISO8601(true) << "] " << ProgramVersionString << std::endl;
 		if (ConsoleVerbosity > 1)
 		{
+			std::cout << "[                   ]  verbose: " << ConsoleVerbosity << std::endl;
 			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
 			std::cout << "[                   ]    cache: " << CacheDirectory << std::endl;
 			std::cout << "[                   ]      svg: " << SVGDirectory << std::endl;
