@@ -932,11 +932,12 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 class Ruuvi_Tag {
 public:
 	time_t Time;
-	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0) {};
+	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0) {};
 	Ruuvi_Tag(const std::string& data);
 	std::string WriteTXT(const char seperator = '\t') const;
 	std::string WriteConsole(void) const;
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
+	void SetMinMax(const Ruuvi_Tag& a);
 	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
 	double GetHumidity(void) const { return(Humidity * 0.0025); };
 	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
@@ -945,7 +946,11 @@ public:
 	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
 	double GetAccelerationY(void) const { return(AccelerationY/1000.0); };
 	double GetAccelerationZ(void) const { return(AccelerationZ/1000.0); };
+	enum granularity { minute, day, week, month, year };
+	void NormalizeTime(granularity type);
+	granularity GetTimeGranularity(void) const;
 	bool IsValid(void) const { return((Averages > 0)); };
+	Ruuvi_Tag& operator +=(const Ruuvi_Tag& b);
 protected:
 	short Temperature; // Temperature in 0.005 degrees
 	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
@@ -958,6 +963,13 @@ protected:
 	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
 	unsigned int MeasurementSequenceNumber; // Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
 	bdaddr_t BluetoothAddress;
+	// The Min and Max values are used to track the min and max values for each measurement across multiple readings, so that I can report those in the MRTG graphs.
+	short TemperatureMin;
+	short TemperatureMax;
+	unsigned short HumidityMin;
+	unsigned short HumidityMax;
+	unsigned short PressureMin;
+	unsigned short PressureMax;
 	int Averages;
 };
 Ruuvi_Tag::Ruuvi_Tag(const std::string& data) : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0)
@@ -1046,6 +1058,85 @@ bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>&
 		rval = true;
 	}
 	return(rval);
+}
+void Ruuvi_Tag::SetMinMax(const Ruuvi_Tag& a)
+{
+	TemperatureMin = TemperatureMin < Temperature ? TemperatureMin : Temperature;
+	TemperatureMax = TemperatureMax > Temperature ? TemperatureMax : Temperature;
+	TemperatureMin = TemperatureMin < a.TemperatureMin ? TemperatureMin : a.TemperatureMin;
+	TemperatureMax = TemperatureMax > a.TemperatureMax ? TemperatureMax : a.TemperatureMax;
+	HumidityMin = HumidityMin < Humidity ? HumidityMin : Humidity;
+	HumidityMax = HumidityMax > Humidity ? HumidityMax : Humidity;
+	HumidityMin = HumidityMin < a.HumidityMin ? HumidityMin : a.HumidityMin;
+	HumidityMax = HumidityMax > a.HumidityMax ? HumidityMax : a.HumidityMax;
+	PressureMin = PressureMin < Pressure ? PressureMin : Pressure;
+	PressureMax = PressureMax > Pressure ? PressureMax : Pressure;
+	PressureMin = PressureMin < a.PressureMin ? PressureMin : a.PressureMin;
+	PressureMax = PressureMax > a.PressureMax ? PressureMax : a.PressureMax;
+}
+void Ruuvi_Tag::NormalizeTime(granularity type)
+{
+	if (type == day)
+		Time = (Time / DAY_SAMPLE) * DAY_SAMPLE;
+	else if (type == week)
+		Time = (Time / WEEK_SAMPLE) * WEEK_SAMPLE;
+	else if (type == month)
+		Time = (Time / MONTH_SAMPLE) * MONTH_SAMPLE;
+	else if (type == year)
+	{
+		struct tm UTC;
+		if (0 != localtime_r(&Time, &UTC))
+		{
+			UTC.tm_hour = 0;
+			UTC.tm_min = 0;
+			UTC.tm_sec = 0;
+			Time = mktime(&UTC);
+		}
+	}
+	else if (type == minute)
+	{
+		struct tm UTC;
+		if (0 != localtime_r(&Time, &UTC))
+		{
+			UTC.tm_sec = 0;
+			Time = mktime(&UTC);
+		}
+	}
+}
+Ruuvi_Tag::granularity Ruuvi_Tag::GetTimeGranularity(void) const
+{
+	granularity rval = granularity::day;
+	struct tm UTC;
+	if (0 != localtime_r(&Time, &UTC))
+	{
+		//if (((UTC.tm_hour == 0) && (UTC.tm_min == 0)) || ((UTC.tm_hour == 23) && (UTC.tm_min == 0) && (UTC.tm_isdst == 1)))
+		if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
+			rval = granularity::year;
+		else if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
+			rval = granularity::month;
+		else if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+			rval = granularity::week;
+	}
+	return(rval);
+}
+Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
+{
+	if (b.IsValid())
+	{
+		Time = std::max(Time, b.Time); // Use the maximum time (newest time)
+		Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
+		TemperatureMin = std::min(std::min(Temperature, TemperatureMin), b.TemperatureMin);
+		TemperatureMax = std::max(std::max(Temperature, TemperatureMax), b.TemperatureMax);
+		Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / (Averages + b.Averages);
+		HumidityMin = std::min(std::min(Humidity, HumidityMin), b.HumidityMin);
+		HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
+		Pressure = ((Pressure * Averages) + (b.Pressure * b.Averages)) / (Averages + b.Averages);
+		PressureMin = std::min(std::min(Pressure, PressureMin), b.PressureMin);
+		PressureMax = std::max(std::max(Pressure, PressureMax), b.PressureMax);
+		Battery = std::min(Battery, b.Battery);
+		Averages += b.Averages; // existing average + new average
+	}
+	return(*this);
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
