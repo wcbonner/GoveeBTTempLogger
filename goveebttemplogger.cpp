@@ -982,6 +982,11 @@ Ruuvi_Tag::Ruuvi_Tag(const std::string& data) : Time(0), Temperature(0), Humidit
 		ssValue >> AccelerationX;
 		ssValue >> AccelerationY;
 		ssValue >> AccelerationZ;
+		ssValue >> MovementCounter;
+		ssValue >> MeasurementSequenceNumber;
+		std::string TheBlueToothAddressString;
+		ssValue >> TheBlueToothAddressString;
+		BluetoothAddress = string2ba(TheBlueToothAddressString);
 		Averages = 1;
 	}
 }
@@ -997,7 +1002,7 @@ std::string Ruuvi_Tag::WriteTXT(const char seperator) const
 	ssValue << seperator << AccelerationX;
 	ssValue << seperator << AccelerationY;
 	ssValue << seperator << AccelerationZ;
-	ssValue << seperator << MovementCounter;
+	ssValue << seperator << int(MovementCounter);
 	ssValue << seperator << MeasurementSequenceNumber;
 	ssValue << seperator << ba2string(BluetoothAddress);
 	return(ssValue.str());
@@ -1035,12 +1040,7 @@ bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>&
 		TXPower = (int(Data[13]) << 8 | int(Data[14])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
 		MovementCounter = Data[15];
 		MeasurementSequenceNumber = int(Data[16]) << 8 | int(Data[17]);
-		BluetoothAddress.b[0] = Data[23];
-		BluetoothAddress.b[1] = Data[22];
-		BluetoothAddress.b[2] = Data[21];
-		BluetoothAddress.b[3] = Data[20];
-		BluetoothAddress.b[4] = Data[19];
-		BluetoothAddress.b[5] = Data[18];
+		BluetoothAddress = { Data[23], Data[22], Data[21], Data[20], Data[19], Data[18] };
 		Averages = 1;
 		time(&Time);
 		rval = true;
