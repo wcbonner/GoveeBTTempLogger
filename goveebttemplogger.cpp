@@ -5070,7 +5070,8 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 		DBusError dbus_error;
 		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
-		dbus_message_unref(dbus_msg);
+		if (dbus_msg)
+			dbus_message_unref(dbus_msg);
 		if (dbus_reply)
 		{
 			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
@@ -5123,7 +5124,8 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 					} while (dbus_message_iter_next(&root_iter));
 				}
 			}
-			dbus_message_unref(dbus_reply);
+			if (dbus_reply)
+				dbus_message_unref(dbus_reply);
 		}
 		dbus_error_free(&dbus_error);
 	}
@@ -5154,8 +5156,10 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 			}
 			ssOutput << std::endl;
 			dbus_error_free(&dbus_error);
-			dbus_message_unref(dbus_reply);
-			dbus_message_unref(dbus_msg);
+			if (dbus_reply)
+				dbus_message_unref(dbus_reply);
+			if (dbus_msg)
+				dbus_message_unref(dbus_msg);
 		}
 		ObjectsToDelete.pop();
 	}
