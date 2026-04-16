@@ -861,73 +861,8 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	return(*this);
 }
 /////////////////////////////////////////////////////////////////////////////
-class Ruuvi_Tag {
-public:
-	time_t Time;
-	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0) {};
-	std::string WriteConsole(void) const;
-	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
-	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
-	double GetHumidity(void) const { return(Humidity * 0.0025); };
-	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
-	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
-	double GetTXPower(void) const { return((TXPower * 2) - 40); };
-	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
-	double GetAccelerationY(void) const { return(AccelerationY/1000.0); };
-	double GetAccelerationZ(void) const { return(AccelerationZ/1000.0); };
-	bool IsValid(void) const { return((Averages > 0)); };
-protected:
-	short Temperature; // Temperature in 0.005 degrees
-	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
-	unsigned short Pressure; // Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
-	short AccelerationX; // Acceleration in X axis
-	short AccelerationY; // Acceleration in Y axis
-	short AccelerationZ; // Acceleration in Z axis
-	unsigned short Battery; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range). 
-	unsigned short TXPower; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
-	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
-	unsigned int MeasurementSequenceNumber; // Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
-	bdaddr_t BluetoothAddress;
-	int Averages;
-};
-std::string Ruuvi_Tag::WriteConsole(void) const
-{
-	std::ostringstream ssValue;
-	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
-	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << GetHumidity() << std::left << "%";
-	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << GetPressure() << std::left << " hPa";
-	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << GetBattery() << std::left << " V";
-	ssValue << " (TXPower) " << std::setw(3) << std::right << std::setprecision(0) << GetTXPower() << std::left << " dBm";
-	ssValue << " (AccelerationX) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationX() << std::left << " g";
-	ssValue << " (AccelerationY) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationY() << std::left << " g";
-	ssValue << " (AccelerationZ) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationZ() << std::left << " g";
-	ssValue << " (Ruuvi)";
-	return(ssValue.str());
-}
-bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
-{
-	bool rval = false;
-	if ((Manufacturer == 0x0499) && (Data[0] == 5)) // Ruuvi Data format 5 (RAWv2)
-	{
-		// [2026-04-15T09:36:03] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E65C7C10378FE3CFFCCB9760EE1CADD4CE87A116E
-		Temperature = short(Data[1]) << 8 | short(Data[2]);
-		Humidity = int(Data[3]) << 8 | int(Data[4]);
-		Pressure = int(Data[5]) << 8 | int(Data[6]);
-		AccelerationX = short(Data[7]) << 8 | short(Data[8]);
-		AccelerationY = short(Data[9]) << 8 | short(Data[10]);
-		AccelerationZ = short(Data[11]) << 8 | short(Data[12]);
-		Battery = (int(Data[13]) << 8 | int(Data[14])) >> 5; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
-		TXPower = (int(Data[13]) << 8 | int(Data[14])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
-		Averages = 1;
-		time(&Time);
-		rval = true;
-	}
-	return(rval);
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
-bool operator <(const bdaddr_t &a, const bdaddr_t &b)
+bool operator <(const bdaddr_t& a, const bdaddr_t& b)
 {
 	unsigned long long A = a.b[5];
 	A = A << 8 | a.b[4];
@@ -992,6 +927,125 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 			TheBlueToothAddress.b[index--] = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
 	}
 	return(TheBlueToothAddress);
+}
+/////////////////////////////////////////////////////////////////////////////
+class Ruuvi_Tag {
+public:
+	time_t Time;
+	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0) {};
+	Ruuvi_Tag(const std::string& data);
+	std::string WriteTXT(const char seperator = '\t') const;
+	std::string WriteConsole(void) const;
+	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
+	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
+	double GetHumidity(void) const { return(Humidity * 0.0025); };
+	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
+	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
+	double GetTXPower(void) const { return((TXPower * 2) - 40); };
+	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
+	double GetAccelerationY(void) const { return(AccelerationY/1000.0); };
+	double GetAccelerationZ(void) const { return(AccelerationZ/1000.0); };
+	bool IsValid(void) const { return((Averages > 0)); };
+protected:
+	short Temperature; // Temperature in 0.005 degrees
+	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
+	unsigned short Pressure; // Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
+	short AccelerationX; // Acceleration in X axis
+	short AccelerationY; // Acceleration in Y axis
+	short AccelerationZ; // Acceleration in Z axis
+	unsigned short Battery; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range). 
+	unsigned short TXPower; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
+	unsigned int MeasurementSequenceNumber; // Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
+	bdaddr_t BluetoothAddress;
+	int Averages;
+};
+Ruuvi_Tag::Ruuvi_Tag(const std::string& data) : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0)
+{
+	std::istringstream ssValue(data);
+	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
+	while (!std::isdigit(ssValue.peek()))
+		ssValue.get();
+	if (!ssValue.eof()) // Quick check to make sure we didn't have a with only invalid characters
+	{
+		std::string theDay;
+		ssValue >> theDay;
+		std::string theHour;
+		ssValue >> theHour;
+		std::string theDate(theDay + " " + theHour);
+		Time = ISO8601totime(theDate);
+		ssValue >> Temperature;
+		ssValue >> Humidity;
+		ssValue >> Pressure;
+		ssValue >> Battery;
+		ssValue >> TXPower;
+		ssValue >> AccelerationX;
+		ssValue >> AccelerationY;
+		ssValue >> AccelerationZ;
+		Averages = 1;
+	}
+}
+std::string Ruuvi_Tag::WriteTXT(const char seperator) const
+{
+	std::ostringstream ssValue;
+	ssValue << timeToExcelDate(Time);
+	ssValue << seperator << Temperature;
+	ssValue << seperator << Humidity;
+	ssValue << seperator << Pressure;
+	ssValue << seperator << Battery;
+	ssValue << seperator << TXPower;
+	ssValue << seperator << AccelerationX;
+	ssValue << seperator << AccelerationY;
+	ssValue << seperator << AccelerationZ;
+	ssValue << seperator << MovementCounter;
+	ssValue << seperator << MeasurementSequenceNumber;
+	ssValue << seperator << ba2string(BluetoothAddress);
+	return(ssValue.str());
+}
+std::string Ruuvi_Tag::WriteConsole(void) const
+{
+	std::ostringstream ssValue;
+	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
+	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << GetHumidity() << std::left << "%";
+	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << GetPressure() << std::left << " hPa";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << GetBattery() << std::left << " V";
+	ssValue << " (TXPower) " << std::setw(3) << std::right << std::setprecision(0) << GetTXPower() << std::left << " dBm";
+	ssValue << " (AccelerationX) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationX() << std::left << " g";
+	ssValue << " (AccelerationY) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationY() << std::left << " g";
+	ssValue << " (AccelerationZ) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationZ() << std::left << " g";
+	ssValue << " (MovementCounter) " << int(MovementCounter);
+	ssValue << " (MeasurementSequenceNumber) " << MeasurementSequenceNumber;
+	ssValue << " (BluetoothAddress) " << ba2string(BluetoothAddress);
+	ssValue << " (Ruuvi)";
+	return(ssValue.str());
+}
+bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
+{
+	bool rval = false;
+	if ((Manufacturer == 0x0499) && (Data[0] == 5)) // Ruuvi Data format 5 (RAWv2)
+	{
+		// [2026-04-15T09:36:03] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E65C7C10378FE3CFFCCB9760EE1CADD4CE87A116E
+		Temperature = short(Data[1]) << 8 | short(Data[2]);
+		Humidity = int(Data[3]) << 8 | int(Data[4]);
+		Pressure = int(Data[5]) << 8 | int(Data[6]);
+		AccelerationX = short(Data[7]) << 8 | short(Data[8]);
+		AccelerationY = short(Data[9]) << 8 | short(Data[10]);
+		AccelerationZ = short(Data[11]) << 8 | short(Data[12]);
+		Battery = (int(Data[13]) << 8 | int(Data[14])) >> 5; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
+		TXPower = (int(Data[13]) << 8 | int(Data[14])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+		MovementCounter = Data[15];
+		MeasurementSequenceNumber = int(Data[16]) << 8 | int(Data[17]);
+		BluetoothAddress.b[0] = Data[23];
+		BluetoothAddress.b[1] = Data[22];
+		BluetoothAddress.b[2] = Data[21];
+		BluetoothAddress.b[3] = Data[20];
+		BluetoothAddress.b[4] = Data[19];
+		BluetoothAddress.b[5] = Data[18];
+		Averages = 1;
+		time(&Time);
+		rval = true;
+	}
+	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
@@ -1368,6 +1422,69 @@ void GetMRTGOutput(const std::string& TheBlueToothAddressString, const int Minut
 		std::cout << " " << std::endl; // string (in any human readable format), uptime of the target.
 		std::cout << TheBlueToothAddressString << std::endl; // string, name of the target.
 	}
+}
+/////////////////////////////////////////////////////////////////////////////
+// Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
+std::filesystem::path GenerateRuuviLogFileName(const bdaddr_t& a, time_t timer = 0)
+{
+	std::ostringstream OutputFilename;
+	OutputFilename << "ruuvi-";
+	std::string btAddress(ba2string(a));
+	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+		btAddress.erase(pos, 1);
+	OutputFilename << btAddress;
+	if (timer == 0)
+		time(&timer);
+	struct tm UTC;
+	if (0 != gmtime_r(&timer, &UTC))
+		if (!((UTC.tm_year == 70) && (UTC.tm_mon == 0) && (UTC.tm_mday == 1)))
+			OutputFilename << "-" << std::dec << UTC.tm_year + 1900 << "-" << std::setw(2) << std::setfill('0') << UTC.tm_mon + 1;
+	OutputFilename << ".txt";
+	std::filesystem::path FileName(LogDirectory / OutputFilename.str());
+	return(FileName);
+}
+bool GenerateLogFile(std::map<bdaddr_t, std::queue<Ruuvi_Tag>>& AddressTemperatureMap)
+{
+	bool rval = false;
+	if (!LogDirectory.empty())
+	{
+		if (ConsoleVerbosity > 1)
+			std::cout << "[" << getTimeISO8601(true) << "] GenerateLogFile: " << LogDirectory.native() << std::endl;
+		for (auto& [TheAddress, LogData] : AddressTemperatureMap)
+		{
+			if (!LogData.empty()) // Only open the log file if there are entries to add
+			{
+				std::filesystem::path filename(GenerateRuuviLogFileName(TheAddress));
+				std::ofstream LogFile(filename, std::ios_base::out | std::ios_base::app | std::ios_base::ate);
+				if (LogFile.is_open())
+				{
+					time_t MostRecentData(0);
+					while (!LogData.empty())
+					{
+						LogFile << LogData.front().WriteTXT() << std::endl;
+						MostRecentData = std::max(LogData.front().Time, MostRecentData);
+						LogData.pop();
+					}
+					LogFile.close();
+					struct utimbuf Log_ut({ 0 });
+					Log_ut.actime = MostRecentData;
+					Log_ut.modtime = MostRecentData;
+					utime(filename.c_str(), &Log_ut);
+					rval = true;
+					if (ConsoleVerbosity > 1)
+						std::cout << "[" << getTimeISO8601(true) << "] Writing: " << filename.native() << std::endl;
+				}
+			}
+		}
+	}
+	else
+	{
+		// clear the queued data if LogDirectory not specified
+		for (auto& [TheAddress, LogData] : AddressTemperatureMap)
+			while (!LogData.empty())
+				LogData.pop();
+	}
+	return(rval);
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
@@ -3717,6 +3834,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
 									GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers);
+									GenerateLogFile(RuuviTags);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
@@ -3745,6 +3863,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			}
 			hci_close_dev(BlueToothDevice_Handle);
 			GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers); // flush contents of accumulated map to logfiles
+			GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 		}
 
 		if (ConsoleVerbosity > 1)
@@ -5669,6 +5788,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeLog = TimeNow;
 								GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers);
+								GenerateLogFile(RuuviTags);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
@@ -5738,6 +5858,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 		}
 	}
 	GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers); // flush contents of accumulated map to logfiles
+	GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
