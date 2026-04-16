@@ -871,14 +871,18 @@ public:
 	double GetHumidity(void) const { return(Humidity * 0.0025); };
 	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
 	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
+	double GetTXPower(void) const { return((TXPower * 2) - 40); };
+	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
+	double GetAccelerationY(void) const { return(AccelerationY/1000.0); };
+	double GetAccelerationZ(void) const { return(AccelerationZ/1000.0); };
 	bool IsValid(void) const { return((Averages > 0)); };
 protected:
 	short Temperature; // Temperature in 0.005 degrees
 	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
 	unsigned short Pressure; // Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
-	short AccelerationX; // Acceleration in X axis in 0.001 G units, with offset of -32 G
-	short AccelerationY; // Acceleration in Y axis in 0.001 G units, with offset of -32 G
-	short AccelerationZ; // Acceleration in Z axis in 0.001 G units, with offset of -32 G
+	short AccelerationX; // Acceleration in X axis
+	short AccelerationY; // Acceleration in Y axis
+	short AccelerationZ; // Acceleration in Z axis
 	unsigned short Battery; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range). 
 	unsigned short TXPower; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
 	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
@@ -893,6 +897,10 @@ std::string Ruuvi_Tag::WriteConsole(void) const
 	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << GetHumidity() << std::left << "%";
 	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << GetPressure() << std::left << " hPa";
 	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << GetBattery() << std::left << " V";
+	ssValue << " (TXPower) " << std::setw(3) << std::right << std::setprecision(0) << GetTXPower() << std::left << " dBm";
+	ssValue << " (AccelerationX) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationX() << std::left << " g";
+	ssValue << " (AccelerationY) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationY() << std::left << " g";
+	ssValue << " (AccelerationZ) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationZ() << std::left << " g";
 	ssValue << " (Ruuvi)";
 	return(ssValue.str());
 }
