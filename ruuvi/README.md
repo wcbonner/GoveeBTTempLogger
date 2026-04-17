@@ -1,6 +1,6 @@
 # Ruuvi Tag Information
 I purchased a RuuviTag Pro Sensor and have been working with it because my Victron gateway will recognize and record data from it. 
-They are significantly more expensive than the Govee tags, but are well documented. 
+They are significantly more expensive than the Govee tags and are well documented. 
 https://ruuvi.com/
 
 ## RuuviTag Pro Sensor – (4in1) temperature, humidity, pressure, motion
@@ -15,10 +15,11 @@ https://ruuvi.com/
 ## Data format 5 (RAWv2)
 https://docs.ruuvi.com/communication/bluetooth-advertisements/data-format-5-rawv2
 
-The data is decoded from "Manufacturer Specific Data" -field, for more details please check Bluetooth Advertisements section. Manufacturer ID is 0x0499 , which is transmitted as 0x9904 in raw data. The actual data payload is:
+The data is decoded from "Manufacturer Specific Data" -field, for more details please check Bluetooth Advertisements section. 
+Manufacturer ID is `0x0499`, which is transmitted as `0x9904` in raw data. The actual data payload is:
 
-| | |
 | Offset | Allowed values | Description |
+| --- | --- | --- |
 | 0 | 5 | Data format (8bit) |
 | 1-2 | -32767 ... 32767 | Temperature in 0.005 degrees |
 | 3-4 | 0 ... 40 000 | Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%) |
@@ -31,4 +32,102 @@ The data is decoded from "Manufacturer Specific Data" -field, for more details p
 | 16-17 | 0 ... 65534 | Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent. |
 | 18-23 | Any valid mac | 48bit MAC address. |
 
-Not available is signified by largest presentable number for unsigned values, smallest presentable number for signed values and all bits set for mac. All fields are MSB first 2-complement, i.e. 0xFC18 is read as -1000 and 0x03E8 is read as 1000. If original data overflows the data format, data is clipped to closests value that can be represented. For example temperature 170.00 C becomes 163.835 C and acceleration -40.000 G becomes -32.767 G.
+Not available is signified by largest presentable number for unsigned values, smallest presentable number for signed values 
+and all bits set for mac. All fields are MSB first 2-complement, i.e. `0xFC18` is read as `-1000` and `0x03E8` is read as `1000`. 
+If original data overflows the data format, data is clipped to closests value that can be represented. For example 
+temperature 170.00 C becomes 163.835 C and acceleration -40.000 G becomes -32.767 G.
+
+## Data field descriptions
+### Temperature
+Values supported: (-163.835 °C to +163.835 °C in 0.005 °C increments.
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 0x0000 | 0 °C |
+| 0x01C3 | +2.255 °C |
+| 0xFE3D | -2.255 °C |
+| 0x8000 | Invalid / not available |
+
+
+### Humidity
+Values supported: 0.0 % to 100 % in 0.0025 % increments. Higher values than 100 % are possible, but they generally indicate a faulty or miscalibrated sensor.
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 0 | 0% |
+| 10010 | 25.025% |
+| 40000 | 100.0% |
+| 65535 | Invalid / not available |
+
+### Atmospheric Pressure
+Values supported: 50000 Pa to 115536 Pa in 1 Pa increments.
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 00000 | 50000 Pa |
+| 51325 | 101325 Pa (average sea-level pressure) |
+| 65534 | 115534 Pa |
+| 65535 | Invalid / not available |
+
+### Acceleration
+Values supported: -32767 to 32767 (mG), however the sensor on RuuviTag supports only 16 G max (2 G in default configuration). Values are 2-complement int16_t, MSB first. All channels are identical.
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 0xFC18 | -1000 mG |
+| 0x03E8 | 1000 mG |
+| 0x8000 | Invalid / not available |
+
+### Battery voltage
+Values supported: 1600 mV to 3647 mV in 1 mV increments, practically 1800 ... 3600 mV.
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 0000 | 1600 mV |
+| 1400 | 3000 mV |
+| 2047 | Invalid / not available |
+
+
+### Tx Power
+Values supported: -40 dBm to +22 dBm in 2 dBm increments.
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 00 | -40 dBm |
+| 22 | +4 dBm |
+| 31 | Invalid / not available |
+
+
+### Movement counter
+Movement counter is one-byte counter which gets triggered when LIS2DH12 gives "activity interrupt". Sensitivity depends on the firmware, by default the sensitivity is a movement over 64 mG. The counter will roll over. Movement is deduced by "rate of change". Please note that the highest valid value is 254, and 255 is reserved for the "not available".
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 00 | 0 counts |
+| 100 | 100 counts |
+| 255 | Invalid / not available |
+
+### Measurement sequence number
+Measurement sequence number gets incremented by one for every measurement. It can be used to gauge signal quality and packet loss as well as to deduplicate data entries. You should note that the measurement sequence refers to data rather than transmission, so you might receive many transmissions with the same measurement sequence number. Please note that the highest valid value is 65534, and 65535 is reserved for the "not available".
+
+Example
+
+| Value | Measurement |
+| --- | --- |
+| 0000 | 0 counts |
+| 1000 | 1000 counts |
+| 65535 | Invalid / not available |
