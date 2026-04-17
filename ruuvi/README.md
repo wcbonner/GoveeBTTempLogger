@@ -135,14 +135,15 @@ Example
 | 65535 | Invalid / not available |
 
 ```
-wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeBTTempLogger.out --HCI --verbose 3 --celsius --only DD:4C:E8:7A:11:6E
-[2026-04-15T12:19:21] GoveeBTTempLogger Version (non-CMake) Built on: Apr 15 2026 at 11:59:42
+wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeBTTempLogger.out --HCI --controller 2C:CF:67:0B:78:71 --verbose 3 --only DD:4C:E8:7A:11:6E
+[2026-04-17T12:05:35] GoveeBTTempLogger Version (non-CMake) Built on: Apr 17 2026 at 12:05:17
+[                   ]  verbose: 3
 [                   ]      log: ""
 [                   ]    cache: ""
 [                   ]      svg: ""
 [                   ]  battery: 0
 [                   ]   minmax: 0
-[                   ]  celsius: true
+[                   ]  celsius: false
 [                   ] titlemap: ""
 [                   ]     time: 60
 [                   ]  average: 5
@@ -151,14 +152,14 @@ wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeB
 [                   ] no-bluetooth: false
 [                   ]      HCI: true
 [                   ] only listening to: [DD:4C:E8:7A:11:6E]
-[2026-04-15T12:19:21] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 11 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[2026-04-17T12:05:35] /dev/rfkill 11 Bluetooth, Blocked: NO (Soft: no, Hard: no)
 [                   ] Host Controller Address: 04:7F:0E:00:FD:5C BlueTooth Device ID: 0 HCI Name: hci0
 [                   ] Host Controller Address: F4:4E:FC:A0:F7:DA BlueTooth Device ID: 1 HCI Name: hci1
 [                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueTooth Device ID: 2 HCI Name: hci2
@@ -166,16 +167,17 @@ wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeB
 [                   ] Reset device: hci2. Success(0)
 [                   ] DOWN device: hci2. Success(0)
 [                   ] UP device: hci2. Success(0)
-[2026-04-15T12:19:21] Using Controller Address: 2C:CF:67:0B:78:71
-[2026-04-15T12:19:21] LocalName: WimPi5 #3
-[2026-04-15T12:19:21] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
-[2026-04-15T12:19:21] Scanning Stopped.
-[2026-04-15T12:19:21] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
-[2026-04-15T12:19:21] Scanning Started. ScanInterval(11.25 msec) ScanWindow(11.25 msec) ScanType(1)
-[2026-04-15T12:19:21] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1F5048C80F0380FE40FFC4B9161EF0AFDD4CE87A116E (Temp) 13.0°C (Humidity) 51.38% (Pressure) 1012.15 hPa (Battery) 3.080 V (Ruuvi)
-[2026-04-15T12:19:31] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1D5049C80E0378FE38FFCCB9161EF0B3DD4CE87A116E (Temp) 12.9°C (Humidity) 51.38% (Pressure) 1012.14 hPa (Battery) 3.080 V (Ruuvi)
-[2026-04-15T12:19:33] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1D5049C80E0378FE38FFCCB9161EF0B3DD4CE87A116E (Temp) 12.9°C (Humidity) 51.38% (Pressure) 1012.14 hPa (Battery) 3.080 V (Ruuvi)
+[2026-04-17T12:05:35] Using Controller Address: 2C:CF:67:0B:78:71
+[2026-04-17T12:05:35] LocalName: WimPi5 #3
+[2026-04-17T12:05:35] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
+[2026-04-17T12:05:35] Scanning Stopped.
+[2026-04-17T12:05:35] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
+[2026-04-17T12:05:35] Scanning Started. ScanInterval(11.25 msec) ScanWindow(11.25 msec) ScanType(1)
+[2026-04-17T12:05:36] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:051C012806CE230390FE34FFD0C0765AF615DD4CE87A116E (Temp) 35.8°C (Humidity) 25.62% (Pressure) 1027.71 hPa (Battery) 3.139 V (TXPower)   4 dBm (AccelerationX)  0.912 g (AccelerationY) -0.460 g (AccelerationZ) -0.048 g (MovementCounter) 90 (MeasurementSequenceNumber) 62997 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
+[2026-04-17T12:05:45] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:051C0227FBCE20038CFE38FFC8C0765AF618DD4CE87A116E (Temp) 35.9°C (Humidity) 25.59% (Pressure) 1027.68 hPa (Battery) 3.139 V (TXPower)   4 dBm (AccelerationX)  0.908 g (AccelerationY) -0.456 g (AccelerationZ) -0.056 g (MovementCounter) 90 (MeasurementSequenceNumber) 63000 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
+[2026-04-17T12:05:47] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:051C0227F0CE20038CFE34FFCCC0765AF619DD4CE87A116E (Temp) 35.9°C (Humidity) 25.56% (Pressure) 1027.68 hPa (Battery) 3.139 V (TXPower)   4 dBm (AccelerationX)  0.908 g (AccelerationY) -0.460 g (AccelerationZ) -0.052 g (MovementCounter) 90 (MeasurementSequenceNumber) 63001 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
+[2026-04-17T12:05:52] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:051C0227EECE200388FE38FFC0C0765AF61BDD4CE87A116E (Temp) 35.9°C (Humidity) 25.55% (Pressure) 1027.68 hPa (Battery) 3.139 V (TXPower)   4 dBm (AccelerationX)  0.904 g (AccelerationY) -0.456 g (AccelerationZ) -0.064 g (MovementCounter) 90 (MeasurementSequenceNumber) 63003 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
 ^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
-[2026-04-15T12:19:42] Scanning Stopped.
-GoveeBTTempLogger Version (non-CMake) Built on: Apr 15 2026 at 11:59:42 (exiting)
+[2026-04-17T12:05:56] Scanning Stopped.
+GoveeBTTempLogger Version (non-CMake) Built on: Apr 17 2026 at 12:05:17 (exiting)
 ```
