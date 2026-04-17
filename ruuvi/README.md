@@ -1,6 +1,8 @@
 # Ruuvi Tag Information
 I purchased a RuuviTag Pro Sensor and have been working with it because my Victron gateway will recognize and record data from it. 
-They are significantly more expensive than the Govee tags and are well documented. 
+They are significantly more expensive than the Govee tags and are well documented. The Ruuvi Tag is a popular bluetooth temperature and humidity sensor. It has a different bluetooth protocol than the Govee devices. 
+I have added code to decode the Ruuvi Tag data and write it to the log files in asimilar format to the Govee devices. 
+
 https://ruuvi.com/
 
 ## RuuviTag Pro Sensor – (4in1) temperature, humidity, pressure, motion
@@ -131,3 +133,49 @@ Example
 | 0000 | 0 counts |
 | 1000 | 1000 counts |
 | 65535 | Invalid / not available |
+
+```
+wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeBTTempLogger.out --HCI --verbose 3 --celsius --only DD:4C:E8:7A:11:6E
+[2026-04-15T12:19:21] GoveeBTTempLogger Version (non-CMake) Built on: Apr 15 2026 at 11:59:42
+[                   ]      log: ""
+[                   ]    cache: ""
+[                   ]      svg: ""
+[                   ]  battery: 0
+[                   ]   minmax: 0
+[                   ]  celsius: true
+[                   ] titlemap: ""
+[                   ]     time: 60
+[                   ]  average: 5
+[                   ] download: 0 (days betwen data download)
+[                   ]  passive: false
+[                   ] no-bluetooth: false
+[                   ]      HCI: true
+[                   ] only listening to: [DD:4C:E8:7A:11:6E]
+[2026-04-15T12:19:21] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
+[2026-04-15T12:19:21] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
+[                   ] Host Controller Address: 04:7F:0E:00:FD:5C BlueTooth Device ID: 0 HCI Name: hci0
+[                   ] Host Controller Address: F4:4E:FC:A0:F7:DA BlueTooth Device ID: 1 HCI Name: hci1
+[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueTooth Device ID: 2 HCI Name: hci2
+[                   ] BlueToothDevice_ID: 2
+[                   ] Reset device: hci2. Success(0)
+[                   ] DOWN device: hci2. Success(0)
+[                   ] UP device: hci2. Success(0)
+[2026-04-15T12:19:21] Using Controller Address: 2C:CF:67:0B:78:71
+[2026-04-15T12:19:21] LocalName: WimPi5 #3
+[2026-04-15T12:19:21] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
+[2026-04-15T12:19:21] Scanning Stopped.
+[2026-04-15T12:19:21] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
+[2026-04-15T12:19:21] Scanning Started. ScanInterval(11.25 msec) ScanWindow(11.25 msec) ScanType(1)
+[2026-04-15T12:19:21] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1F5048C80F0380FE40FFC4B9161EF0AFDD4CE87A116E (Temp) 13.0°C (Humidity) 51.38% (Pressure) 1012.15 hPa (Battery) 3.080 V (Ruuvi)
+[2026-04-15T12:19:31] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1D5049C80E0378FE38FFCCB9161EF0B3DD4CE87A116E (Temp) 12.9°C (Humidity) 51.38% (Pressure) 1012.14 hPa (Battery) 3.080 V (Ruuvi)
+[2026-04-15T12:19:33] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1D5049C80E0378FE38FFCCB9161EF0B3DD4CE87A116E (Temp) 12.9°C (Humidity) 51.38% (Pressure) 1012.14 hPa (Battery) 3.080 V (Ruuvi)
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+[2026-04-15T12:19:42] Scanning Stopped.
+GoveeBTTempLogger Version (non-CMake) Built on: Apr 15 2026 at 11:59:42 (exiting)
+```

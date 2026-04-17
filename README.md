@@ -7,55 +7,8 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
-### 2026-04-15 Ruuvi Tag support
-I'm starting an investigation of reading the ruuvi tag bluetooth advertisments. The Ruuvi Tag is a popular bluetooth temperature and humidity sensor. It has a different bluetooth protocol than the Govee devices. 
-I have added code to decode the Ruuvi Tag data and write it to the log files in asimilar format to the Govee devices. 
-https://docs.ruuvi.com/communication/bluetooth-advertisements/data-format-5-rawv2
-```
-wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeBTTempLogger.out --HCI --verbose 3 --celsius --only DD:4C:E8:7A:11:6E
-[2026-04-15T12:19:21] GoveeBTTempLogger Version (non-CMake) Built on: Apr 15 2026 at 11:59:42
-[                   ]      log: ""
-[                   ]    cache: ""
-[                   ]      svg: ""
-[                   ]  battery: 0
-[                   ]   minmax: 0
-[                   ]  celsius: true
-[                   ] titlemap: ""
-[                   ]     time: 60
-[                   ]  average: 5
-[                   ] download: 0 (days betwen data download)
-[                   ]  passive: false
-[                   ] no-bluetooth: false
-[                   ]      HCI: true
-[                   ] only listening to: [DD:4C:E8:7A:11:6E]
-[2026-04-15T12:19:21] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 0 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 1 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 2 Bluetooth, Blocked: NO (Soft: no, Hard: no)
-[2026-04-15T12:19:21] /dev/rfkill 3 Wireless LAN, Blocked: NO (Soft: no, Hard: no)
-[                   ] Host Controller Address: 04:7F:0E:00:FD:5C BlueTooth Device ID: 0 HCI Name: hci0
-[                   ] Host Controller Address: F4:4E:FC:A0:F7:DA BlueTooth Device ID: 1 HCI Name: hci1
-[                   ] Host Controller Address: 2C:CF:67:0B:78:71 BlueTooth Device ID: 2 HCI Name: hci2
-[                   ] BlueToothDevice_ID: 2
-[                   ] Reset device: hci2. Success(0)
-[                   ] DOWN device: hci2. Success(0)
-[                   ] UP device: hci2. Success(0)
-[2026-04-15T12:19:21] Using Controller Address: 2C:CF:67:0B:78:71
-[2026-04-15T12:19:21] LocalName: WimPi5 #3
-[2026-04-15T12:19:21] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
-[2026-04-15T12:19:21] Scanning Stopped.
-[2026-04-15T12:19:21] BlueTooth Address Filter: [DD:4C:E8:7A:11:6E]
-[2026-04-15T12:19:21] Scanning Started. ScanInterval(11.25 msec) ScanWindow(11.25 msec) ScanType(1)
-[2026-04-15T12:19:21] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1F5048C80F0380FE40FFC4B9161EF0AFDD4CE87A116E (Temp) 13.0°C (Humidity) 51.38% (Pressure) 1012.15 hPa (Battery) 3.080 V (Ruuvi)
-[2026-04-15T12:19:31] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1D5049C80E0378FE38FFCCB9161EF0B3DD4CE87A116E (Temp) 12.9°C (Humidity) 51.38% (Pressure) 1012.14 hPa (Battery) 3.080 V (Ruuvi)
-[2026-04-15T12:19:33] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A1D5049C80E0378FE38FFCCB9161EF0B3DD4CE87A116E (Temp) 12.9°C (Humidity) 51.38% (Pressure) 1012.14 hPa (Battery) 3.080 V (Ruuvi)
-^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
-[2026-04-15T12:19:42] Scanning Stopped.
-GoveeBTTempLogger Version (non-CMake) Built on: Apr 15 2026 at 11:59:42 (exiting)
-```
+### 2026-04-17 Ruuvi Tag support
+I'm starting reading the ruuvi tag bluetooth advertisments. See [ruuvi](ruuvi/README.md) for more details.
 
 ### 2026-02-12 Modification to user creation and groups
 Access to the /dev/rfkill device for writing seems to be allowed by adding the user goveebttemplogger to the group "netdev". 
