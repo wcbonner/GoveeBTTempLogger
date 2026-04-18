@@ -1580,6 +1580,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Ruuvi_Tag>>& AddressTemperatu
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
+std::map<bdaddr_t, std::vector<Ruuvi_Tag>> RuuviMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 /////////////////////////////////////////////////////////////////////////////
 std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress)
 {
@@ -2122,12 +2123,12 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 	}
 }
 // Takes a Bluetooth address and current datapoint and updates the mapped structure in memory simulating the contents of a MRTG log file.
-void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
+void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue, std::map<bdaddr_t, std::vector<Govee_Temp>>& MRTGLogs)
 {
 	if (TheValue.IsValid())	// Sanity Check
 	{
 		std::vector<Govee_Temp> foo;
-		auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
+		auto ret = MRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
 		std::vector<Govee_Temp>& FakeMRTGFile = ret.first->second;
 		if (FakeMRTGFile.empty())
 		{
@@ -2210,6 +2211,94 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
 		}
 	}
 }
+void UpdateMRTGData(const bdaddr_t& TheAddress, const Ruuvi_Tag& TheValue)
+{
+	if (TheValue.IsValid())	// Sanity Check
+	{
+		std::vector<Ruuvi_Tag> foo;
+		auto ret = RuuviMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Ruuvi_Tag>>(TheAddress, foo));
+		std::vector<Ruuvi_Tag>& FakeMRTGFile = ret.first->second;
+		if (FakeMRTGFile.empty())
+		{
+			FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
+			FakeMRTGFile[0] = TheValue;	// current value
+			FakeMRTGFile[1] = TheValue;
+			for (auto index = std::size_t(0); index < DAY_COUNT; index++)
+				FakeMRTGFile[index + 2].Time = FakeMRTGFile[index + 1].Time - DAY_SAMPLE;
+			for (auto index = std::size_t(0); index < WEEK_COUNT; index++)
+				FakeMRTGFile[index + 2 + DAY_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT].Time - WEEK_SAMPLE;
+			for (auto index = std::size_t(0); index < MONTH_COUNT; index++)
+				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
+			for (auto index = std::size_t(0); index < YEAR_COUNT; index++)
+				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
+		}
+		else
+		{
+			if (TheValue.Time > FakeMRTGFile[0].Time)
+			{
+				FakeMRTGFile[0] = TheValue;	// current value
+				FakeMRTGFile[1] += TheValue; // averaged value up to DAY_SAMPLE size
+			}
+		}
+		bool ZeroAccumulator = false;
+		auto DaySampleFirst = FakeMRTGFile.begin() + 2;
+		auto DaySampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT;
+		auto WeekSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT;
+		auto WeekSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
+		// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
+		while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
+		{
+			ZeroAccumulator = true;
+			// shuffle all the day samples toward the end
+			std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
+			*DaySampleFirst = FakeMRTGFile[1];
+			DaySampleFirst->NormalizeTime(Ruuvi_Tag::granularity::day);
+			if (difftime(DaySampleFirst->Time, (DaySampleFirst + 1)->Time) > DAY_SAMPLE)
+				DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
+			if (DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::year)
+			{
+				if (ConsoleVerbosity > 3)
+					std::cout << "[" << getTimeISO8601(true) << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
+				// shuffle all the year samples toward the end
+				std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
+				*YearSampleFirst = Ruuvi_Tag();
+				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
+					*YearSampleFirst += *iter;
+			}
+			if ((DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::month))
+			{
+				if (ConsoleVerbosity > 3)
+					std::cout << "[" << getTimeISO8601(true) << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
+				// shuffle all the month samples toward the end
+				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
+				*MonthSampleFirst = Ruuvi_Tag();
+				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
+					*MonthSampleFirst += *iter;
+			}
+			if ((DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::month) ||
+				(DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::week))
+			{
+				if (ConsoleVerbosity > 3)
+					std::cout << "[" << getTimeISO8601(true) << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
+				// shuffle all the month samples toward the end
+				std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
+				*WeekSampleFirst = Ruuvi_Tag();
+				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
+					*WeekSampleFirst += *iter;
+			}
+		}
+		if (ZeroAccumulator)
+		{
+			FakeMRTGFile[1] = Ruuvi_Tag();
+		}
+	}
+}
 void ReadLoggedData(const std::filesystem::path& filename)
 {
 	const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
@@ -2251,14 +2340,24 @@ void ReadLoggedData(const std::filesystem::path& filename)
 					SortableFile.push_back(RawLine);
 				TheFile.close();
 				sort(SortableFile.begin(), SortableFile.end());
-				for (auto const& SortedLine : SortableFile)
-				{
-					Govee_Temp TheValue(SortedLine);
-					if (TheValue.GetModel() == ThermometerType::Unknown)
-						TheValue.SetModel(CacheThermometerType);
-					if (TheValue.IsValid())
-						UpdateMRTGData(TheBlueToothAddress, TheValue);
-				}
+				const std::regex GoveeFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+				const std::regex RuuviFileRegex("ruuvi-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+				if (std::regex_match(filename.filename().string(), GoveeFileRegex))
+					for (auto const& SortedLine : SortableFile)
+					{
+						Govee_Temp TheValue(SortedLine);
+						if (TheValue.GetModel() == ThermometerType::Unknown)
+							TheValue.SetModel(CacheThermometerType);
+						if (TheValue.IsValid())
+							UpdateMRTGData(TheBlueToothAddress, TheValue, GoveeMRTGLogs);
+					}
+				else if (std::regex_match(filename.filename().string(), RuuviFileRegex))
+					for (auto const& SortedLine : SortableFile)
+					{
+						Ruuvi_Tag TheValue(SortedLine);
+						if (TheValue.IsValid())
+							UpdateMRTGData(TheBlueToothAddress, TheValue);
+					}
 			}
 		}
 	}
@@ -2266,7 +2365,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
-	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+	const std::regex LogFileRegex("(gvh|ruuvi)-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -3823,7 +3922,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 																			AddressInGoveeSet = true;
-																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
+																			UpdateMRTGData(info->bdaddr, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
 																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
 																		}
 																	}
@@ -4947,7 +5046,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										std::queue<Govee_Temp> foo;
 										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(dbusBTAddress, foo));
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-										UpdateMRTGData(dbusBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+										UpdateMRTGData(dbusBTAddress, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
 										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
