@@ -2123,13 +2123,13 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 	}
 }
 // Takes a Bluetooth address and current datapoint and updates the mapped structure in memory simulating the contents of a MRTG log file.
-void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue, std::map<bdaddr_t, std::vector<Govee_Temp>>& MRTGLogs)
+template <typename T> void UpdateMRTGData(const bdaddr_t& TheAddress, const T& TheValue, std::map<bdaddr_t, std::vector<T>>& MRTGLogs)
 {
 	if (TheValue.IsValid())	// Sanity Check
 	{
-		std::vector<Govee_Temp> foo;
-		auto ret = MRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
-		std::vector<Govee_Temp>& FakeMRTGFile = ret.first->second;
+		std::vector<T> foo;
+		auto ret = MRTGLogs.insert(std::pair<bdaddr_t, std::vector<T>>(TheAddress, foo));
+		std::vector<T>& FakeMRTGFile = ret.first->second;
 		if (FakeMRTGFile.empty())
 		{
 			FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
@@ -2168,134 +2168,46 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue, std:
 			// shuffle all the day samples toward the end
 			std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
 			*DaySampleFirst = FakeMRTGFile[1];
-			DaySampleFirst->NormalizeTime(Govee_Temp::granularity::day);
+			DaySampleFirst->NormalizeTime(T::granularity::day);
 			if (difftime(DaySampleFirst->Time, (DaySampleFirst + 1)->Time) > DAY_SAMPLE)
 				DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
-			if (DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year)
+			if (DaySampleFirst->GetTimeGranularity() == T::granularity::year)
 			{
 				if (ConsoleVerbosity > 3)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
 				// shuffle all the year samples toward the end
 				std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
-				*YearSampleFirst = Govee_Temp();
+				*YearSampleFirst = T();
 				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
 					*YearSampleFirst += *iter;
 			}
-			if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
-				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
+			if ((DaySampleFirst->GetTimeGranularity() == T::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == T::granularity::month))
 			{
 				if (ConsoleVerbosity > 3)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 				// shuffle all the month samples toward the end
 				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
-				*MonthSampleFirst = Govee_Temp();
+				*MonthSampleFirst = T();
 				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
 					*MonthSampleFirst += *iter;
 			}
-			if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
-				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
-				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::week))
+			if ((DaySampleFirst->GetTimeGranularity() == T::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == T::granularity::month) ||
+				(DaySampleFirst->GetTimeGranularity() == T::granularity::week))
 			{
 				if (ConsoleVerbosity > 3)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 				// shuffle all the month samples toward the end
 				std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
-				*WeekSampleFirst = Govee_Temp();
+				*WeekSampleFirst = T();
 				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
 					*WeekSampleFirst += *iter;
 			}
 		}
 		if (ZeroAccumulator)
 		{
-			FakeMRTGFile[1] = Govee_Temp();
-		}
-	}
-}
-void UpdateMRTGData(const bdaddr_t& TheAddress, const Ruuvi_Tag& TheValue)
-{
-	if (TheValue.IsValid())	// Sanity Check
-	{
-		std::vector<Ruuvi_Tag> foo;
-		auto ret = RuuviMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Ruuvi_Tag>>(TheAddress, foo));
-		std::vector<Ruuvi_Tag>& FakeMRTGFile = ret.first->second;
-		if (FakeMRTGFile.empty())
-		{
-			FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
-			FakeMRTGFile[0] = TheValue;	// current value
-			FakeMRTGFile[1] = TheValue;
-			for (auto index = std::size_t(0); index < DAY_COUNT; index++)
-				FakeMRTGFile[index + 2].Time = FakeMRTGFile[index + 1].Time - DAY_SAMPLE;
-			for (auto index = std::size_t(0); index < WEEK_COUNT; index++)
-				FakeMRTGFile[index + 2 + DAY_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT].Time - WEEK_SAMPLE;
-			for (auto index = std::size_t(0); index < MONTH_COUNT; index++)
-				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT].Time - MONTH_SAMPLE;
-			for (auto index = std::size_t(0); index < YEAR_COUNT; index++)
-				FakeMRTGFile[index + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time = FakeMRTGFile[index + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT].Time - YEAR_SAMPLE;
-		}
-		else
-		{
-			if (TheValue.Time > FakeMRTGFile[0].Time)
-			{
-				FakeMRTGFile[0] = TheValue;	// current value
-				FakeMRTGFile[1] += TheValue; // averaged value up to DAY_SAMPLE size
-			}
-		}
-		bool ZeroAccumulator = false;
-		auto DaySampleFirst = FakeMRTGFile.begin() + 2;
-		auto DaySampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT;
-		auto WeekSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT;
-		auto WeekSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-		auto MonthSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT;
-		auto MonthSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-		auto YearSampleFirst = FakeMRTGFile.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-		auto YearSampleLast = FakeMRTGFile.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
-		// For every time difference between FakeMRTGFile[1] and FakeMRTGFile[2] that's greater than DAY_SAMPLE we shift that data towards the back.
-		while (difftime(FakeMRTGFile[1].Time, DaySampleFirst->Time) > DAY_SAMPLE)
-		{
-			ZeroAccumulator = true;
-			// shuffle all the day samples toward the end
-			std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
-			*DaySampleFirst = FakeMRTGFile[1];
-			DaySampleFirst->NormalizeTime(Ruuvi_Tag::granularity::day);
-			if (difftime(DaySampleFirst->Time, (DaySampleFirst + 1)->Time) > DAY_SAMPLE)
-				DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
-			if (DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::year)
-			{
-				if (ConsoleVerbosity > 3)
-					std::cout << "[" << getTimeISO8601(true) << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
-				// shuffle all the year samples toward the end
-				std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
-				*YearSampleFirst = Ruuvi_Tag();
-				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
-					*YearSampleFirst += *iter;
-			}
-			if ((DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::year) ||
-				(DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::month))
-			{
-				if (ConsoleVerbosity > 3)
-					std::cout << "[" << getTimeISO8601(true) << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
-				// shuffle all the month samples toward the end
-				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
-				*MonthSampleFirst = Ruuvi_Tag();
-				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
-					*MonthSampleFirst += *iter;
-			}
-			if ((DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::year) ||
-				(DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::month) ||
-				(DaySampleFirst->GetTimeGranularity() == Ruuvi_Tag::granularity::week))
-			{
-				if (ConsoleVerbosity > 3)
-					std::cout << "[" << getTimeISO8601(true) << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
-				// shuffle all the month samples toward the end
-				std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
-				*WeekSampleFirst = Ruuvi_Tag();
-				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
-					*WeekSampleFirst += *iter;
-			}
-		}
-		if (ZeroAccumulator)
-		{
-			FakeMRTGFile[1] = Ruuvi_Tag();
+			FakeMRTGFile[1] = T();
 		}
 	}
 }
@@ -2356,7 +2268,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 					{
 						Ruuvi_Tag TheValue(SortedLine);
 						if (TheValue.IsValid())
-							UpdateMRTGData(TheBlueToothAddress, TheValue);
+							UpdateMRTGData(TheBlueToothAddress, TheValue, RuuviMRTGLogs);
 					}
 			}
 		}
