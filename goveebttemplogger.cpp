@@ -1778,10 +1778,10 @@ void ReadMRTGData(const std::filesystem::path& MRTGLogFileName, std::vector<Gove
 	}
 }
 // Returns a curated vector of data points specific to the requested graph type from the internal memory structure map keyed off the Bluetooth address.
-void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
+template <typename T> void ReadMRTGData(const bdaddr_t& TheAddress, const std::map<bdaddr_t, std::vector<T>> &MRTGLogs, std::vector<T>& TheValues, const GraphType graph = GraphType::daily)
 {
-	auto it = GoveeMRTGLogs.find(TheAddress);
-	if (it != GoveeMRTGLogs.end())
+	auto it = MRTGLogs.find(TheAddress);
+	if (it != MRTGLogs.end())
 	{
 		if (it->second.size() > 0)
 		{
@@ -1836,7 +1836,7 @@ void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues
 // Interesting ideas about SVG and possible tools to look at: https://blog.usejournal.com/of-svg-minification-and-gzip-21cd26a5d007
 // Tools Mentioned: svgo gzthermal https://github.com/subzey/svg-gz-supplement/
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
-void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
+template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
 	if (!TheValues.empty())
 	{
@@ -2352,10 +2352,10 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 	}
 	return(rval);
 }
-void WriteAllSVG()
+template <typename T> void WriteAllSVG(const std::map<bdaddr_t, std::vector<T>>& MRTGLogs)
 {
 	ReadTitleMap(SVGTitleMapFilename);
-	for (auto const& [TheAddress, MRTG] : GoveeMRTGLogs)
+	for (auto const& [TheAddress, MRTG] : MRTGLogs)
 	{
 		std::string btAddress(ba2string(TheAddress));
 		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
@@ -2375,28 +2375,28 @@ void WriteAllSVG()
 		OutputFilename << "-day.svg";
 		OutputPath = SVGDirectory / OutputFilename.str();
 		std::vector<Govee_Temp> TheValues;
-		ReadMRTGData(TheAddress, TheValues, GraphType::daily);
+		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::daily);
 		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
 		OutputFilename.str("");
 		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-week.svg";
 		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
+		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::weekly);
 		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
 		OutputFilename.str("");
 		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-month.svg";
 		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
+		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::monthly);
 		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
 		OutputFilename.str("");
 		OutputFilename << "gvh-";
 		OutputFilename << btAddress;
 		OutputFilename << "-year.svg";
 		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
+		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::yearly);
 		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
 	}
 }
@@ -3929,7 +3929,8 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									if (ConsoleVerbosity > 1)
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 									TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-									WriteAllSVG();
+									WriteAllSVG(GoveeMRTGLogs);
+									WriteAllSVG(RuuviMRTGLogs);
 								}
 								if (difftime(TimeNow, TimeStart) > LogFileTime)
 								{
@@ -5855,7 +5856,8 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								if (ConsoleVerbosity > 1)
 									std::cout << "[" << timeToISO8601(TimeNow, true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 								TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-								WriteAllSVG();
+								WriteAllSVG(GoveeMRTGLogs);
+								WriteAllSVG(RuuviMRTGLogs);
 							}
 #ifdef OLD_CONNECT_AND_DOWNLOAD
 							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
@@ -6342,7 +6344,8 @@ int main(int argc, char **argv)
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
 			GenerateCacheFile(GoveeMRTGLogs); // update cache files if any new data was in logs
-			WriteAllSVG();
+			WriteAllSVG(GoveeMRTGLogs);
+			WriteAllSVG(RuuviMRTGLogs);
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Set up CTR-C signal handler
@@ -6401,7 +6404,8 @@ int main(int argc, char **argv)
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601(true) << "] Alarm Recieved" << std::endl;
 				MonitorLoggedData(LogFileTime * 2);
-				WriteAllSVG();
+				WriteAllSVG(GoveeMRTGLogs);
+				WriteAllSVG(RuuviMRTGLogs);
 			}
 		}
 		std::signal(SIGALRM, previousAlarmHandler);	// Restore original Alarm signal handler
