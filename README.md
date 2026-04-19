@@ -7,6 +7,14 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+## Update to Version 4 (2026-04-18)
+### 2026-04-17 Ruuvi Tag support
+I'm reading and logging Ruuvi tag bluetooth advertisments. See [ruuvi](ruuvi/) for more details.
+
+I've changed some code to use templates to allow the same code to be used for both Govee and Ruuvi devices.
+The program will automatically determine if a bluetooth advertisment is from a Govee or Ruuvi device and log the data accordingly. 
+The log file format is similar but different. The Ruuvi log files have "ruuvi" in the filename instead of "gvh".
+
 ### 2026-02-12 Modification to user creation and groups
 Access to the /dev/rfkill device for writing seems to be allowed by adding the user goveebttemplogger to the group "netdev". 
 I've added this to the postinst script. I've also changed the inclusion of the user in the www-data group to be a secondary 

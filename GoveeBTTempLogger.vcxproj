@@ -156,6 +156,7 @@
     <None Include="LICENSE" />
     <None Include="mrtg.conf" />
     <None Include="README.md" />
+    <None Include="ruuvi\README.md" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="BTData\btsnoop-details.txt" />

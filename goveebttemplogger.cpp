@@ -260,6 +260,7 @@ enum class ThermometerType
 	H5183 = 5183,
 	H5184 = 5184,
 	H5055 = 5055,
+	RUUVI = 5,
 }; 
 std::string ThermometerType2String(const ThermometerType GoveeModel)
 {
@@ -297,6 +298,8 @@ std::string ThermometerType2String(const ThermometerType GoveeModel)
 		return(std::string("(GVH5184)"));
 	case ThermometerType::H5055:
 		return(std::string("(GVH5055)"));
+	case ThermometerType::RUUVI:
+		return(std::string("(Ruuvi)"));
 	}
 	return(std::string("(ThermometerType::Unknown)"));
 }
@@ -346,6 +349,8 @@ ThermometerType String2ThermometerType(const std::string Text)
 		rval = ThermometerType::H5184;
 	else if (std::regex_search(Text, std::regex("GVH5055|00005550-0000-1000-8000-00805f9b34fb")))
 		rval = ThermometerType::H5055;
+	else if (std::regex_search(Text, std::regex("Ruuvi|ruuvi|RUUVI")))
+		rval = ThermometerType::RUUVI;
 	return(rval);
 }
 class  Govee_Temp {
@@ -401,25 +406,12 @@ protected:
 };
 Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 {
+	*this = Govee_Temp(); // Set all values to defaults, then overwrite with any values we can read from the data string
 	std::istringstream TheLine(data);
 	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
 	while (!std::isdigit(TheLine.peek()))
 		TheLine.get();
-	if (TheLine.eof()) // Quick check to make sure we didn't have a with only invalid characters
-	{
-		Time = 0;
-		Temperature[0] = 0;
-		TemperatureMin[0] = DBL_MAX;
-		TemperatureMax[0] = -DBL_MAX;
-		Humidity = 0;
-		HumidityMin = DBL_MAX;
-		HumidityMax = -DBL_MAX;
-		Battery = INT_MAX;
-		Averages = 0;
-		Model = ThermometerType::Unknown;
-		return;
-	}
-	else
+	if (!TheLine.eof()) // Quick check to make sure we didn't have a with only invalid characters
 	{
 		std::string theDay;
 		TheLine >> theDay;
@@ -862,7 +854,7 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 }
 /////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
-bool operator <(const bdaddr_t &a, const bdaddr_t &b)
+bool operator <(const bdaddr_t& a, const bdaddr_t& b)
 {
 	unsigned long long A = a.b[5];
 	A = A << 8 | a.b[4];
@@ -929,10 +921,229 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 	return(TheBlueToothAddress);
 }
 /////////////////////////////////////////////////////////////////////////////
+class Ruuvi_Tag {
+public:
+	time_t Time;
+	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0), Model(ThermometerType::RUUVI) {};
+	Ruuvi_Tag(const std::string& data);
+	std::string WriteTXT(const char seperator = '\t') const;
+	std::string WriteConsole(void) const;
+	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
+	void SetMinMax(const Ruuvi_Tag& a);
+	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
+	double GetTemperatureMin(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::min(((Temperature * 0.005 * 9.0 / 5.0) + 32.0), ((TemperatureMin * 0.005 * 9.0 / 5.0) + 32.0))); return(std::min(Temperature * 0.005, TemperatureMin * 0.005)); };
+	double GetTemperatureMax(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::max(((Temperature * 0.005 * 9.0 / 5.0) + 32.0), ((TemperatureMax * 0.005 * 9.0 / 5.0) + 32.0))); return(std::max(Temperature * 0.005, TemperatureMax * 0.005)); };
+	double GetHumidity(void) const { return(Humidity * 0.0025); };
+	double GetHumidityMin(void) const { return(std::min(Humidity * 0.0025, HumidityMin * 0.0025)); };
+	double GetHumidityMax(void) const { return(std::max(Humidity * 0.0025, HumidityMax * 0.0025)); };
+	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
+	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
+	double GetTXPower(void) const { return((TXPower * 2) - 40); };
+	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
+	double GetAccelerationY(void) const { return(AccelerationY/1000.0); };
+	double GetAccelerationZ(void) const { return(AccelerationZ/1000.0); };
+	ThermometerType GetModel(void) const { return(Model); };
+	ThermometerType SetModel(const ThermometerType newModel) { ThermometerType oldModel = Model; Model = newModel; return(oldModel); };
+	enum granularity { minute, day, week, month, year };
+	void NormalizeTime(granularity type);
+	granularity GetTimeGranularity(void) const;
+	bool IsValid(void) const { return((Averages > 0)); };
+	Ruuvi_Tag& operator +=(const Ruuvi_Tag& b);
+protected:
+	short Temperature; // Temperature in 0.005 degrees
+	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
+	unsigned short Pressure; // Pressure (16bit unsigned) in 1 Pa units, with offset of -50 000 Pa
+	short AccelerationX; // Acceleration in X axis
+	short AccelerationY; // Acceleration in Y axis
+	short AccelerationZ; // Acceleration in Z axis
+	unsigned short Battery; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range). 
+	unsigned short TXPower; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
+	unsigned int MeasurementSequenceNumber; // Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
+	bdaddr_t BluetoothAddress;
+	// The Min and Max values are used to track the min and max values for each measurement across multiple readings, so that I can report those in the MRTG graphs.
+	short TemperatureMin;
+	short TemperatureMax;
+	unsigned short HumidityMin;
+	unsigned short HumidityMax;
+	unsigned short PressureMin;
+	unsigned short PressureMax;
+	ThermometerType Model;
+	int Averages;
+};
+Ruuvi_Tag::Ruuvi_Tag(const std::string& data)
+{
+	*this = Ruuvi_Tag();	// Make sure all values are initialized, even if the data is invalid. This allows the IsValid() function to work correctly.
+	std::istringstream ssValue(data);
+	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
+	while (!std::isdigit(ssValue.peek()))
+		ssValue.get();
+	if (!ssValue.eof()) // Quick check to make sure we didn't have a with only invalid characters
+	{
+		std::string theDay;
+		ssValue >> theDay;
+		std::string theHour;
+		ssValue >> theHour;
+		std::string theDate(theDay + " " + theHour);
+		Time = ISO8601totime(theDate);
+		ssValue >> Temperature;
+		ssValue >> Humidity;
+		ssValue >> Pressure;
+		ssValue >> Battery;
+		ssValue >> TXPower;
+		ssValue >> AccelerationX;
+		ssValue >> AccelerationY;
+		ssValue >> AccelerationZ;
+		ssValue >> MovementCounter;
+		ssValue >> MeasurementSequenceNumber;
+		std::string TheBlueToothAddressString;
+		ssValue >> TheBlueToothAddressString;
+		BluetoothAddress = string2ba(TheBlueToothAddressString);
+		Averages = 1;
+	}
+}
+std::string Ruuvi_Tag::WriteTXT(const char seperator) const
+{
+	std::ostringstream ssValue;
+	ssValue << timeToExcelDate(Time);
+	ssValue << seperator << Temperature;
+	ssValue << seperator << Humidity;
+	ssValue << seperator << Pressure;
+	ssValue << seperator << Battery;
+	ssValue << seperator << TXPower;
+	ssValue << seperator << AccelerationX;
+	ssValue << seperator << AccelerationY;
+	ssValue << seperator << AccelerationZ;
+	ssValue << seperator << int(MovementCounter);
+	ssValue << seperator << MeasurementSequenceNumber;
+	ssValue << seperator << ba2string(BluetoothAddress);
+	return(ssValue.str());
+}
+std::string Ruuvi_Tag::WriteConsole(void) const
+{
+	std::ostringstream ssValue;
+	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
+	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << GetHumidity() << std::left << "%";
+	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << GetPressure() << std::left << " hPa";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << GetBattery() << std::left << " V";
+	ssValue << " (TXPower) " << std::setw(3) << std::right << std::setprecision(0) << GetTXPower() << std::left << " dBm";
+	ssValue << " (AccelerationX) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationX() << std::left << " g";
+	ssValue << " (AccelerationY) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationY() << std::left << " g";
+	ssValue << " (AccelerationZ) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationZ() << std::left << " g";
+	ssValue << " (MovementCounter) " << int(MovementCounter);
+	ssValue << " (MeasurementSequenceNumber) " << MeasurementSequenceNumber;
+	ssValue << " (BluetoothAddress) " << ba2string(BluetoothAddress);
+	ssValue << " (Ruuvi)";
+	return(ssValue.str());
+}
+bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
+{
+	bool rval = false;
+	if ((Manufacturer == 0x0499) && (Data[0] == 5)) // Ruuvi Data format 5 (RAWv2)
+	{
+		// [2026-04-15T09:36:03] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050A514E65C7C10378FE3CFFCCB9760EE1CADD4CE87A116E
+		Temperature = short(Data[1]) << 8 | short(Data[2]);
+		Humidity = int(Data[3]) << 8 | int(Data[4]);
+		Pressure = int(Data[5]) << 8 | int(Data[6]);
+		AccelerationX = short(Data[7]) << 8 | short(Data[8]);
+		AccelerationY = short(Data[9]) << 8 | short(Data[10]);
+		AccelerationZ = short(Data[11]) << 8 | short(Data[12]);
+		Battery = (int(Data[13]) << 8 | int(Data[14])) >> 5; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range).
+		TXPower = (int(Data[13]) << 8 | int(Data[14])) & 0x1F; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
+		MovementCounter = Data[15];
+		MeasurementSequenceNumber = int(Data[16]) << 8 | int(Data[17]);
+		BluetoothAddress = { Data[23], Data[22], Data[21], Data[20], Data[19], Data[18] };
+		Averages = 1;
+		time(&Time);
+		rval = true;
+	}
+	return(rval);
+}
+void Ruuvi_Tag::SetMinMax(const Ruuvi_Tag& a)
+{
+	TemperatureMin = TemperatureMin < Temperature ? TemperatureMin : Temperature;
+	TemperatureMax = TemperatureMax > Temperature ? TemperatureMax : Temperature;
+	TemperatureMin = TemperatureMin < a.TemperatureMin ? TemperatureMin : a.TemperatureMin;
+	TemperatureMax = TemperatureMax > a.TemperatureMax ? TemperatureMax : a.TemperatureMax;
+	HumidityMin = HumidityMin < Humidity ? HumidityMin : Humidity;
+	HumidityMax = HumidityMax > Humidity ? HumidityMax : Humidity;
+	HumidityMin = HumidityMin < a.HumidityMin ? HumidityMin : a.HumidityMin;
+	HumidityMax = HumidityMax > a.HumidityMax ? HumidityMax : a.HumidityMax;
+	PressureMin = PressureMin < Pressure ? PressureMin : Pressure;
+	PressureMax = PressureMax > Pressure ? PressureMax : Pressure;
+	PressureMin = PressureMin < a.PressureMin ? PressureMin : a.PressureMin;
+	PressureMax = PressureMax > a.PressureMax ? PressureMax : a.PressureMax;
+}
+void Ruuvi_Tag::NormalizeTime(granularity type)
+{
+	if (type == day)
+		Time = (Time / DAY_SAMPLE) * DAY_SAMPLE;
+	else if (type == week)
+		Time = (Time / WEEK_SAMPLE) * WEEK_SAMPLE;
+	else if (type == month)
+		Time = (Time / MONTH_SAMPLE) * MONTH_SAMPLE;
+	else if (type == year)
+	{
+		struct tm UTC;
+		if (0 != localtime_r(&Time, &UTC))
+		{
+			UTC.tm_hour = 0;
+			UTC.tm_min = 0;
+			UTC.tm_sec = 0;
+			Time = mktime(&UTC);
+		}
+	}
+	else if (type == minute)
+	{
+		struct tm UTC;
+		if (0 != localtime_r(&Time, &UTC))
+		{
+			UTC.tm_sec = 0;
+			Time = mktime(&UTC);
+		}
+	}
+}
+Ruuvi_Tag::granularity Ruuvi_Tag::GetTimeGranularity(void) const
+{
+	granularity rval = granularity::day;
+	struct tm UTC;
+	if (0 != localtime_r(&Time, &UTC))
+	{
+		//if (((UTC.tm_hour == 0) && (UTC.tm_min == 0)) || ((UTC.tm_hour == 23) && (UTC.tm_min == 0) && (UTC.tm_isdst == 1)))
+		if ((UTC.tm_hour == 0) && (UTC.tm_min == 0))
+			rval = granularity::year;
+		else if ((UTC.tm_hour % 2 == 0) && (UTC.tm_min == 0))
+			rval = granularity::month;
+		else if ((UTC.tm_min == 0) || (UTC.tm_min == 30))
+			rval = granularity::week;
+	}
+	return(rval);
+}
+Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
+{
+	if (b.IsValid())
+	{
+		Time = std::max(Time, b.Time); // Use the maximum time (newest time)
+		Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
+		TemperatureMin = std::min(std::min(Temperature, TemperatureMin), b.TemperatureMin);
+		TemperatureMax = std::max(std::max(Temperature, TemperatureMax), b.TemperatureMax);
+		Humidity = ((Humidity * Averages) + (b.Humidity * b.Averages)) / (Averages + b.Averages);
+		HumidityMin = std::min(std::min(Humidity, HumidityMin), b.HumidityMin);
+		HumidityMax = std::max(std::max(Humidity, HumidityMax), b.HumidityMax);
+		Pressure = ((Pressure * Averages) + (b.Pressure * b.Averages)) / (Averages + b.Averages);
+		PressureMin = std::min(std::min(Pressure, PressureMin), b.PressureMin);
+		PressureMax = std::max(std::max(Pressure, PressureMax), b.PressureMax);
+		Battery = std::min(Battery, b.Battery);
+		Averages += b.Averages; // existing average + new average
+	}
+	return(*this);
+}
+/////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
 std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
+std::map<bdaddr_t, std::queue<Ruuvi_Tag>> RuuviTags;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -1011,7 +1222,7 @@ bool ValidateDirectory(const std::filesystem::path& DirectoryName, const bool bW
 	return(rval);
 }
 // Create a standardized logfile name for this program based on a Bluetooth address and the global parameter of the log file directory.
-std::filesystem::path GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
+std::filesystem::path GenerateLogFileName(const bdaddr_t &a, const ThermometerType TheThermometerType = ThermometerType::Unknown, time_t timer = 0)
 {
 	std::ostringstream OutputFilename;
 	// Original version of filename was formatted gvh507x_XXXX with only last two bytes of bluetooth address
@@ -1021,7 +1232,10 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t &a, time_t timer = 0)
 	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[1]);
 	//OutputFilename << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(a.b[0]);
 	// The New Format Log File Name includes the entire Bluetooth Address, making it much easier to recognize and add to MRTG config files.
-	OutputFilename << "gvh-";
+	if (TheThermometerType == ThermometerType::RUUVI)
+		OutputFilename << "ruuvi-";
+	else
+		OutputFilename << "gvh-";
 	std::string btAddress(ba2string(a));
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
@@ -1188,7 +1402,7 @@ void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<b
 		}
 	}
 }
-bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperatureMap, std::map<bdaddr_t, time_t> &PersistenceData, std::map<bdaddr_t, ThermometerType>& ThermometerTypes)
+template <typename T> bool GenerateLogFile(std::map<bdaddr_t, std::queue<T>> &AddressTemperatureMap)
 {
 	bool rval = false;
 	if (!LogDirectory.empty())
@@ -1199,7 +1413,7 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 		{
 			if (!LogData.empty()) // Only open the log file if there are entries to add
 			{
-				std::filesystem::path filename(GenerateLogFileName(TheAddress));
+				std::filesystem::path filename(GenerateLogFileName(TheAddress, LogData.front().GetModel()));
 				std::ofstream LogFile(filename, std::ios_base::out | std::ios_base::app | std::ios_base::ate);
 				if (LogFile.is_open())
 				{
@@ -1221,7 +1435,6 @@ bool GenerateLogFile(std::map<bdaddr_t, std::queue<Govee_Temp>> &AddressTemperat
 				}
 			}
 		}
-		GeneratePersistenceFile(PersistenceData, ThermometerTypes);
 	}
 	else
 	{
@@ -1306,28 +1519,32 @@ void GetMRTGOutput(const std::string& TheBlueToothAddressString, const int Minut
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
+std::map<bdaddr_t, std::vector<Ruuvi_Tag>> RuuviMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 /////////////////////////////////////////////////////////////////////////////
-std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress)
+std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress, const ThermometerType TheThermometerType = ThermometerType::Unknown)
 {
 	std::string btAddress(ba2string(TheBlueToothAddress));
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
 	std::ostringstream OutputFilename;
-	OutputFilename << "gvh-";
+	if (TheThermometerType == ThermometerType::RUUVI)
+		OutputFilename << "ruuvi-";
+	else
+		OutputFilename << "gvh-";
 	OutputFilename << btAddress;
 	OutputFilename << "-cache.txt";
 	std::filesystem::path CacheFileName(CacheDirectory / OutputFilename.str());
 	return(CacheFileName);
 }
-bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Govee_Temp>& GoveeMRTGLog)
+template <typename T> bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<T>& MRTGLog)
 {
 	bool rval(false);
-	if (!GoveeMRTGLog.empty())
+	if (!MRTGLog.empty())
 	{
-		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(TheBlueToothAddress));
+		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(TheBlueToothAddress, MRTGLog[0].GetModel()));
 		struct stat64 Stat({ 0 });	// Zero the stat64 structure when it's allocated
 		stat64(MRTGCacheFile.c_str(), &Stat);	// This shouldn't change Stat if the file doesn't exist.
-		if (difftime(GoveeMRTGLog[0].Time, Stat.st_mtim.tv_sec) > 60 * 60) // If Cache File has data older than 60 minutes, write it
+		if (difftime(MRTGLog[0].Time, Stat.st_mtim.tv_sec) > 60 * 60) // If Cache File has data older than 60 minutes, write it
 		{
 			std::ofstream CacheFile(MRTGCacheFile, std::ios_base::out | std::ios_base::trunc);
 			if (CacheFile.is_open())
@@ -1337,12 +1554,12 @@ bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Go
 				else
 					std::cerr << "Writing: " << MRTGCacheFile.native() << std::endl;
 				CacheFile << "Cache: " << ba2string(TheBlueToothAddress) << " " << ProgramVersionString << std::endl;
-				for (auto & i : GoveeMRTGLog)
+				for (auto & i : MRTGLog)
 					CacheFile << i.WriteCache() << std::endl;
 				CacheFile.close();
 				struct utimbuf ut({ 0 });
-				ut.actime = GoveeMRTGLog[0].Time;
-				ut.modtime = GoveeMRTGLog[0].Time;
+				ut.actime = MRTGLog[0].Time;
+				ut.modtime = MRTGLog[0].Time;
 				utime(MRTGCacheFile.c_str(), &ut);
 				rval = true;
 			}
@@ -1350,7 +1567,7 @@ bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Go
 	}
 	return(rval);
 }
-void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTemperatureMap)
+template <typename T> void GenerateCacheFile(std::map<bdaddr_t, std::vector<T>> &AddressTemperatureMap)
 {
 	if (!CacheDirectory.empty())
 	{
@@ -1502,66 +1719,63 @@ void ReadMRTGData(const std::filesystem::path& MRTGLogFileName, std::vector<Gove
 		}
 	}
 }
-// Returns a curated vector of data points specific to the requested graph type from the internal memory structure map keyed off the Bluetooth address.
-void ReadMRTGData(const bdaddr_t& TheAddress, std::vector<Govee_Temp>& TheValues, const GraphType graph = GraphType::daily)
+// Returns a curated vector of data points specific to the requested graph type from the internal memory structure that fakes the structure of a real MRTG log file on disk. 
+// This is useful for generating SVG files without having to read from disk, but it also allows for more flexibility in how the data is stored in memory and how it can be manipulated before being used to generate SVG files.
+template <typename T> void ReadMRTGData(const std::vector<T>& MRTGLog, std::vector<T>& TheValues, const GraphType graph = GraphType::daily)
 {
-	auto it = GoveeMRTGLogs.find(TheAddress);
-	if (it != GoveeMRTGLogs.end())
+	if (!MRTGLog.empty())
 	{
-		if (it->second.size() > 0)
+		auto DaySampleFirst = MRTGLog.begin() + 2;
+		auto DaySampleLast = MRTGLog.begin() + 1 + DAY_COUNT;
+		auto WeekSampleFirst = MRTGLog.begin() + 2 + DAY_COUNT;
+		auto WeekSampleLast = MRTGLog.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleFirst = MRTGLog.begin() + 2 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleLast = MRTGLog.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleFirst = MRTGLog.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleLast = MRTGLog.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
+		if (graph == GraphType::daily)
 		{
-			auto DaySampleFirst = it->second.begin() + 2;
-			auto DaySampleLast = it->second.begin() + 1 + DAY_COUNT;
-			auto WeekSampleFirst = it->second.begin() + 2 + DAY_COUNT;
-			auto WeekSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-			auto MonthSampleFirst = it->second.begin() + 2 + DAY_COUNT + WEEK_COUNT;
-			auto MonthSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-			auto YearSampleFirst = it->second.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-			auto YearSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
-			if (graph == GraphType::daily)
-			{
-				TheValues.resize(DAY_COUNT);
-				std::copy(DaySampleFirst, DaySampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-				TheValues.begin()->Time = it->second.begin()->Time; //HACK: include the most recent time sample
-			}
-			else if (graph == GraphType::weekly)
-			{
-				TheValues.resize(WEEK_COUNT);
-				std::copy(WeekSampleFirst, WeekSampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-			}
-			else if (graph == GraphType::monthly)
-			{
-				TheValues.resize(MONTH_COUNT);
-				std::copy(MonthSampleFirst, MonthSampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-			}
-			else if (graph == GraphType::yearly)
-			{
-				TheValues.resize(YEAR_COUNT);
-				std::copy(YearSampleFirst, YearSampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-			}
+			TheValues.resize(DAY_COUNT);
+			std::copy(DaySampleFirst, DaySampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
+			TheValues.begin()->Time = MRTGLog.begin()->Time; //HACK: include the most recent time sample
+		}
+		else if (graph == GraphType::weekly)
+		{
+			TheValues.resize(WEEK_COUNT);
+			std::copy(WeekSampleFirst, WeekSampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
+		}
+		else if (graph == GraphType::monthly)
+		{
+			TheValues.resize(MONTH_COUNT);
+			std::copy(MonthSampleFirst, MonthSampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
+		}
+		else if (graph == GraphType::yearly)
+		{
+			TheValues.resize(YEAR_COUNT);
+			std::copy(YearSampleFirst, YearSampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
 		}
 	}
 }
 // Interesting ideas about SVG and possible tools to look at: https://blog.usejournal.com/of-svg-minification-and-gzip-21cd26a5d007
 // Tools Mentioned: svgo gzthermal https://github.com/subzey/svg-gz-supplement/
 // Takes a curated vector of data points for a specific graph type and writes a SVG file to disk.
-void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
+template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::filesystem::path& SVGFileName, const std::string& Title = "", const GraphType graph = GraphType::daily, const bool Fahrenheit = true, const bool DrawBattery = false, const bool MinMax = false)
 {
 	if (!TheValues.empty())
 	{
@@ -1848,13 +2062,13 @@ void WriteSVG(const std::vector<Govee_Temp>& TheValues, const std::filesystem::p
 	}
 }
 // Takes a Bluetooth address and current datapoint and updates the mapped structure in memory simulating the contents of a MRTG log file.
-void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
+template <typename T> void UpdateMRTGData(const bdaddr_t& TheAddress, const T& TheValue, std::map<bdaddr_t, std::vector<T>>& MRTGLogs)
 {
 	if (TheValue.IsValid())	// Sanity Check
 	{
-		std::vector<Govee_Temp> foo;
-		auto ret = GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheAddress, foo));
-		std::vector<Govee_Temp>& FakeMRTGFile = ret.first->second;
+		std::vector<T> foo;
+		auto ret = MRTGLogs.insert(std::pair<bdaddr_t, std::vector<T>>(TheAddress, foo));
+		std::vector<T>& FakeMRTGFile = ret.first->second;
 		if (FakeMRTGFile.empty())
 		{
 			FakeMRTGFile.resize(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT);
@@ -1893,46 +2107,46 @@ void UpdateMRTGData(const bdaddr_t& TheAddress, const Govee_Temp& TheValue)
 			// shuffle all the day samples toward the end
 			std::copy_backward(DaySampleFirst, DaySampleLast - 1, DaySampleLast);
 			*DaySampleFirst = FakeMRTGFile[1];
-			DaySampleFirst->NormalizeTime(Govee_Temp::granularity::day);
+			DaySampleFirst->NormalizeTime(T::granularity::day);
 			if (difftime(DaySampleFirst->Time, (DaySampleFirst + 1)->Time) > DAY_SAMPLE)
 				DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
-			if (DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year)
+			if (DaySampleFirst->GetTimeGranularity() == T::granularity::year)
 			{
 				if (ConsoleVerbosity > 3)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
 				// shuffle all the year samples toward the end
 				std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
-				*YearSampleFirst = Govee_Temp();
+				*YearSampleFirst = T();
 				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 24))); iter++) // One Day of day samples
 					*YearSampleFirst += *iter;
 			}
-			if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
-				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month))
+			if ((DaySampleFirst->GetTimeGranularity() == T::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == T::granularity::month))
 			{
 				if (ConsoleVerbosity > 3)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 				// shuffle all the month samples toward the end
 				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
-				*MonthSampleFirst = Govee_Temp();
+				*MonthSampleFirst = T();
 				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < (12 * 2))); iter++) // two hours of day samples
 					*MonthSampleFirst += *iter;
 			}
-			if ((DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::year) ||
-				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::month) ||
-				(DaySampleFirst->GetTimeGranularity() == Govee_Temp::granularity::week))
+			if ((DaySampleFirst->GetTimeGranularity() == T::granularity::year) ||
+				(DaySampleFirst->GetTimeGranularity() == T::granularity::month) ||
+				(DaySampleFirst->GetTimeGranularity() == T::granularity::week))
 			{
 				if (ConsoleVerbosity > 3)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 				// shuffle all the month samples toward the end
 				std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
-				*WeekSampleFirst = Govee_Temp();
+				*WeekSampleFirst = T();
 				for (auto iter = DaySampleFirst; (iter->IsValid() && ((iter - DaySampleFirst) < 6)); iter++) // Half an hour of day samples
 					*WeekSampleFirst += *iter;
 			}
 		}
 		if (ZeroAccumulator)
 		{
-			FakeMRTGFile[1] = Govee_Temp();
+			FakeMRTGFile[1] = T();
 		}
 	}
 }
@@ -1977,14 +2191,24 @@ void ReadLoggedData(const std::filesystem::path& filename)
 					SortableFile.push_back(RawLine);
 				TheFile.close();
 				sort(SortableFile.begin(), SortableFile.end());
-				for (auto const& SortedLine : SortableFile)
-				{
-					Govee_Temp TheValue(SortedLine);
-					if (TheValue.GetModel() == ThermometerType::Unknown)
-						TheValue.SetModel(CacheThermometerType);
-					if (TheValue.IsValid())
-						UpdateMRTGData(TheBlueToothAddress, TheValue);
-				}
+				const std::regex GoveeFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+				const std::regex RuuviFileRegex("ruuvi-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+				if (std::regex_match(filename.filename().string(), GoveeFileRegex))
+					for (auto const& SortedLine : SortableFile)
+					{
+						Govee_Temp TheValue(SortedLine);
+						if (TheValue.GetModel() == ThermometerType::Unknown)
+							TheValue.SetModel(CacheThermometerType);
+						if (TheValue.IsValid())
+							UpdateMRTGData(TheBlueToothAddress, TheValue, GoveeMRTGLogs);
+					}
+				else if (std::regex_match(filename.filename().string(), RuuviFileRegex))
+					for (auto const& SortedLine : SortableFile)
+					{
+						Ruuvi_Tag TheValue(SortedLine);
+						if (TheValue.IsValid())
+							UpdateMRTGData(TheBlueToothAddress, TheValue, RuuviMRTGLogs);
+					}
 			}
 		}
 	}
@@ -1992,7 +2216,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 // Finds log files specific to this program then reads the contents into the memory mapped structure simulating MRTG log files.
 void ReadLoggedData(void)
 {
-	const std::regex LogFileRegex("gvh-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
+	const std::regex LogFileRegex("(gvh|ruuvi)-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
 	if (!LogDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -2067,52 +2291,70 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 	}
 	return(rval);
 }
-void WriteAllSVG()
+template <typename T> void WriteAllSVG(const std::map<bdaddr_t, std::vector<T>>& MRTGLogs)
 {
 	ReadTitleMap(SVGTitleMapFilename);
-	for (auto const& [TheAddress, MRTG] : GoveeMRTGLogs)
+	for (auto const& [TheAddress, MRTG] : MRTGLogs)
 	{
-		std::string btAddress(ba2string(TheAddress));
-		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
-			btAddress.erase(pos, 1);
-		ThermometerType CacheThermometerType = ThermometerType::Unknown;
-		auto foo = GoveeThermometers.find(TheAddress);
-		if (foo != GoveeThermometers.end())
-			CacheThermometerType = foo->second;
-		std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
-		if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
-			ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
-		std::filesystem::path OutputPath;
-		std::ostringstream OutputFilename;
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-day.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		std::vector<Govee_Temp> TheValues;
-		ReadMRTGData(TheAddress, TheValues, GraphType::daily);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-week.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, TheValues, GraphType::weekly);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-month.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, TheValues, GraphType::monthly);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-year.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, TheValues, GraphType::yearly);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
+		if (!MRTG.empty())
+		{
+			std::string btAddress(ba2string(TheAddress));
+			for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+				btAddress.erase(pos, 1);
+			ThermometerType CacheThermometerType = MRTG.front().GetModel();
+			if (CacheThermometerType == ThermometerType::Unknown)
+			{
+				auto foo = GoveeThermometers.find(TheAddress);
+				if (foo != GoveeThermometers.end())
+					CacheThermometerType = foo->second;
+			}
+			std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
+			if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
+				ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
+			std::filesystem::path OutputPath;
+			std::ostringstream OutputFilename;
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-day.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			std::vector<T> TheValues;
+			ReadMRTGData(MRTG, TheValues, GraphType::daily);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-week.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			ReadMRTGData(MRTG, TheValues, GraphType::weekly);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-month.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			ReadMRTGData(MRTG, TheValues, GraphType::monthly);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-year.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			ReadMRTGData(MRTG, TheValues, GraphType::yearly);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
+		}
 	}
 }
 void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesystem::path SVGIndexFilename)
@@ -3407,6 +3649,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													int current_offset = 0;
 													bool data_error = false;
 													Govee_Temp localTemp;
+													Ruuvi_Tag localRuuvi;
 													while (!data_error && current_offset < info->length)
 													{
 														size_t data_len = info->data[current_offset];
@@ -3548,9 +3791,17 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 																			AddressInGoveeSet = true;
-																			UpdateMRTGData(info->bdaddr, localTemp);	// puts the measurement in the fake MRTG data structure
+																			UpdateMRTGData(info->bdaddr, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
 																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
 																		}
+																	}
+																	else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
+																	{
+																		TemperatureInAdvertisment = localRuuvi.IsValid();
+																		std::queue<Ruuvi_Tag> foo;
+																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(info->bdaddr, foo));
+																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
+																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
 																	}
 																	else if (ConsoleVerbosity > 1)
 																		ConsoleOutLine << iBeacon(ManufacturerID, ManufacturerData);
@@ -3635,15 +3886,18 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									if (ConsoleVerbosity > 1)
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 									TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-									WriteAllSVG();
+									WriteAllSVG(GoveeMRTGLogs);
+									WriteAllSVG(RuuviMRTGLogs);
 								}
 								if (difftime(TimeNow, TimeStart) > LogFileTime)
 								{
 									if (ConsoleVerbosity > 1)
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
-									GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers);
+									GenerateLogFile(GoveeTemperatures);
+									GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+									GenerateLogFile(RuuviTags);
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
 								}
@@ -3670,7 +3924,9 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 				}
 			}
 			hci_close_dev(BlueToothDevice_Handle);
-			GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers); // flush contents of accumulated map to logfiles
+			GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
+			GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+			GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 		}
 
 		if (ConsoleVerbosity > 1)
@@ -4549,6 +4805,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 	// this should be handling the "a{sv}" portion of the message
 	std::ostringstream ssCompleteLine;
 	Govee_Temp localTemp;
+	Ruuvi_Tag localRuuvi;
 	do
 	{
 		std::ostringstream ssStartLine;
@@ -4645,6 +4902,8 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 											ssOutput << "'Meta Platforms Technologies, LLC'";
 										if (0x02E1 == ManufacturerID)
 											ssOutput << "'Victron Energy BV'";
+										if (0x0499 == ManufacturerID)
+											ssOutput << "'Ruuvi Innovations Ltd.'";
 									}
 									if (localTemp.GetModel() == ThermometerType::Unknown)
 									{
@@ -4659,7 +4918,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										std::queue<Govee_Temp> foo;
 										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(dbusBTAddress, foo));
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-										UpdateMRTGData(dbusBTAddress, localTemp);	// puts the measurement in the fake MRTG data structure
+										UpdateMRTGData(dbusBTAddress, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
 										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
@@ -4677,6 +4936,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 													bluez_connect = true;
 											}
 										}
+									}
+									else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
+									{
+										std::queue<Ruuvi_Tag> foo;
+										auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(dbusBTAddress, foo));
+										ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
+										//										UpdateMRTGData(dbusBTAddress, localRuuvi);	// puts the measurement in the fake MRTG data structure
+										if (ConsoleVerbosity > 1)
+											ssOutput << " " << localRuuvi.WriteConsole();
 									}
 								}
 							}
@@ -4992,7 +5260,8 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 		DBusError dbus_error;
 		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
-		dbus_message_unref(dbus_msg);
+		if (dbus_msg)
+			dbus_message_unref(dbus_msg);
 		if (dbus_reply)
 		{
 			if (dbus_message_get_type(dbus_reply) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
@@ -5045,7 +5314,8 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 					} while (dbus_message_iter_next(&root_iter));
 				}
 			}
-			dbus_message_unref(dbus_reply);
+			if (dbus_reply)
+				dbus_message_unref(dbus_reply);
 		}
 		dbus_error_free(&dbus_error);
 	}
@@ -5076,8 +5346,10 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 			}
 			ssOutput << std::endl;
 			dbus_error_free(&dbus_error);
-			dbus_message_unref(dbus_reply);
-			dbus_message_unref(dbus_msg);
+			if (dbus_reply)
+				dbus_message_unref(dbus_reply);
+			if (dbus_msg)
+				dbus_message_unref(dbus_msg);
 		}
 		ObjectsToDelete.pop();
 	}
@@ -5543,7 +5815,8 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								if (ConsoleVerbosity > 1)
 									std::cout << "[" << timeToISO8601(TimeNow, true) << "] " << std::dec << DAY_SAMPLE << " seconds or more have passed. Writing SVG Files" << std::endl;
 								TimeSVG = (TimeNow / DAY_SAMPLE) * DAY_SAMPLE; // hack to try to line up TimeSVG to be on a five minute period
-								WriteAllSVG();
+								WriteAllSVG(GoveeMRTGLogs);
+								WriteAllSVG(RuuviMRTGLogs);
 							}
 #ifdef OLD_CONNECT_AND_DOWNLOAD
 							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
@@ -5578,8 +5851,10 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								if (ConsoleVerbosity > 1)
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeLog = TimeNow;
-								GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers);
+								GenerateLogFile(GoveeTemperatures);
+								GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+								GenerateLogFile(RuuviTags);
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
 								if (ConsoleVerbosity > 2)
@@ -5647,7 +5922,9 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			dbus_connection_unref(dbus_conn);	// https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga6385ff09bc108238c4429e7c195dab25
 		}
 	}
-	GenerateLogFile(GoveeTemperatures, GoveeLastDownload, GoveeThermometers); // flush contents of accumulated map to logfiles
+	GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
+	GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+	GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -5983,6 +6260,7 @@ int main(int argc, char **argv)
 		std::cout << "[" << getTimeISO8601(true) << "] " << ProgramVersionString << std::endl;
 		if (ConsoleVerbosity > 1)
 		{
+			std::cout << "[                   ]  verbose: " << ConsoleVerbosity << std::endl;
 			std::cout << "[                   ]      log: " << LogDirectory << std::endl;
 			std::cout << "[                   ]    cache: " << CacheDirectory << std::endl;
 			std::cout << "[                   ]      svg: " << SVGDirectory << std::endl;
@@ -6027,7 +6305,8 @@ int main(int argc, char **argv)
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
 			GenerateCacheFile(GoveeMRTGLogs); // update cache files if any new data was in logs
-			WriteAllSVG();
+			WriteAllSVG(GoveeMRTGLogs);
+			WriteAllSVG(RuuviMRTGLogs);
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Set up CTR-C signal handler
@@ -6086,7 +6365,8 @@ int main(int argc, char **argv)
 				if (ConsoleVerbosity > 0)
 					std::cout << "[" << getTimeISO8601(true) << "] Alarm Recieved" << std::endl;
 				MonitorLoggedData(LogFileTime * 2);
-				WriteAllSVG();
+				WriteAllSVG(GoveeMRTGLogs);
+				WriteAllSVG(RuuviMRTGLogs);
 			}
 		}
 		std::signal(SIGALRM, previousAlarmHandler);	// Restore original Alarm signal handler
