@@ -406,25 +406,12 @@ protected:
 };
 Govee_Temp::Govee_Temp(const std::string & data) // Read data from the Log File
 {
+	*this = Govee_Temp(); // Set all values to defaults, then overwrite with any values we can read from the data string
 	std::istringstream TheLine(data);
 	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
 	while (!std::isdigit(TheLine.peek()))
 		TheLine.get();
-	if (TheLine.eof()) // Quick check to make sure we didn't have a with only invalid characters
-	{
-		Time = 0;
-		Temperature[0] = 0;
-		TemperatureMin[0] = DBL_MAX;
-		TemperatureMax[0] = -DBL_MAX;
-		Humidity = 0;
-		HumidityMin = DBL_MAX;
-		HumidityMax = -DBL_MAX;
-		Battery = INT_MAX;
-		Averages = 0;
-		Model = ThermometerType::Unknown;
-		return;
-	}
-	else
+	if (!TheLine.eof()) // Quick check to make sure we didn't have a with only invalid characters
 	{
 		std::string theDay;
 		TheLine >> theDay;
@@ -944,7 +931,11 @@ public:
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
 	void SetMinMax(const Ruuvi_Tag& a);
 	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
+	double GetTemperatureMin(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::min(((Temperature * 0.005 * 9.0 / 5.0) + 32.0), ((TemperatureMin * 0.005 * 9.0 / 5.0) + 32.0))); return(std::min(Temperature * 0.005, TemperatureMin * 0.005)); };
+	double GetTemperatureMax(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::max(((Temperature * 0.005 * 9.0 / 5.0) + 32.0), ((TemperatureMax * 0.005 * 9.0 / 5.0) + 32.0))); return(std::max(Temperature * 0.005, TemperatureMax * 0.005)); };
 	double GetHumidity(void) const { return(Humidity * 0.0025); };
+	double GetHumidityMin(void) const { return(std::min(Humidity * 0.0025, HumidityMin * 0.0025)); };
+	double GetHumidityMax(void) const { return(std::max(Humidity * 0.0025, HumidityMax * 0.0025)); };
 	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
 	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
 	double GetTXPower(void) const { return((TXPower * 2) - 40); };
@@ -980,8 +971,9 @@ protected:
 	ThermometerType Model;
 	int Averages;
 };
-Ruuvi_Tag::Ruuvi_Tag(const std::string& data) : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0)
+Ruuvi_Tag::Ruuvi_Tag(const std::string& data)
 {
+	*this = Ruuvi_Tag();	// Make sure all values are initialized, even if the data is invalid. This allows the IsValid() function to work correctly.
 	std::istringstream ssValue(data);
 	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
 	while (!std::isdigit(ssValue.peek()))
@@ -1724,59 +1716,56 @@ void ReadMRTGData(const std::filesystem::path& MRTGLogFileName, std::vector<Gove
 		}
 	}
 }
-// Returns a curated vector of data points specific to the requested graph type from the internal memory structure map keyed off the Bluetooth address.
-template <typename T> void ReadMRTGData(const bdaddr_t& TheAddress, const std::map<bdaddr_t, std::vector<T>> &MRTGLogs, std::vector<T>& TheValues, const GraphType graph = GraphType::daily)
+// Returns a curated vector of data points specific to the requested graph type from the internal memory structure that fakes the structure of a real MRTG log file on disk. 
+// This is useful for generating SVG files without having to read from disk, but it also allows for more flexibility in how the data is stored in memory and how it can be manipulated before being used to generate SVG files.
+template <typename T> void ReadMRTGData(const std::vector<T>& MRTGLog, std::vector<T>& TheValues, const GraphType graph = GraphType::daily)
 {
-	auto it = MRTGLogs.find(TheAddress);
-	if (it != MRTGLogs.end())
+	if (!MRTGLog.empty())
 	{
-		if (it->second.size() > 0)
+		auto DaySampleFirst = MRTGLog.begin() + 2;
+		auto DaySampleLast = MRTGLog.begin() + 1 + DAY_COUNT;
+		auto WeekSampleFirst = MRTGLog.begin() + 2 + DAY_COUNT;
+		auto WeekSampleLast = MRTGLog.begin() + 1 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleFirst = MRTGLog.begin() + 2 + DAY_COUNT + WEEK_COUNT;
+		auto MonthSampleLast = MRTGLog.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleFirst = MRTGLog.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
+		auto YearSampleLast = MRTGLog.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
+		if (graph == GraphType::daily)
 		{
-			auto DaySampleFirst = it->second.begin() + 2;
-			auto DaySampleLast = it->second.begin() + 1 + DAY_COUNT;
-			auto WeekSampleFirst = it->second.begin() + 2 + DAY_COUNT;
-			auto WeekSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT;
-			auto MonthSampleFirst = it->second.begin() + 2 + DAY_COUNT + WEEK_COUNT;
-			auto MonthSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-			auto YearSampleFirst = it->second.begin() + 2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT;
-			auto YearSampleLast = it->second.begin() + 1 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT;
-			if (graph == GraphType::daily)
-			{
-				TheValues.resize(DAY_COUNT);
-				std::copy(DaySampleFirst, DaySampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-				TheValues.begin()->Time = it->second.begin()->Time; //HACK: include the most recent time sample
-			}
-			else if (graph == GraphType::weekly)
-			{
-				TheValues.resize(WEEK_COUNT);
-				std::copy(WeekSampleFirst, WeekSampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-			}
-			else if (graph == GraphType::monthly)
-			{
-				TheValues.resize(MONTH_COUNT);
-				std::copy(MonthSampleFirst, MonthSampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-			}
-			else if (graph == GraphType::yearly)
-			{
-				TheValues.resize(YEAR_COUNT);
-				std::copy(YearSampleFirst, YearSampleLast, TheValues.begin());
-				auto iter = TheValues.begin();
-				while (iter->IsValid() && (iter != TheValues.end()))
-					iter++;
-				TheValues.resize(iter - TheValues.begin());
-			}
+			TheValues.resize(DAY_COUNT);
+			std::copy(DaySampleFirst, DaySampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
+			TheValues.begin()->Time = MRTGLog.begin()->Time; //HACK: include the most recent time sample
+		}
+		else if (graph == GraphType::weekly)
+		{
+			TheValues.resize(WEEK_COUNT);
+			std::copy(WeekSampleFirst, WeekSampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
+		}
+		else if (graph == GraphType::monthly)
+		{
+			TheValues.resize(MONTH_COUNT);
+			std::copy(MonthSampleFirst, MonthSampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
+		}
+		else if (graph == GraphType::yearly)
+		{
+			TheValues.resize(YEAR_COUNT);
+			std::copy(YearSampleFirst, YearSampleLast, TheValues.begin());
+			auto iter = TheValues.begin();
+			while (iter->IsValid() && (iter != TheValues.end()))
+				iter++;
+			TheValues.resize(iter - TheValues.begin());
 		}
 	}
 }
@@ -2304,47 +2293,65 @@ template <typename T> void WriteAllSVG(const std::map<bdaddr_t, std::vector<T>>&
 	ReadTitleMap(SVGTitleMapFilename);
 	for (auto const& [TheAddress, MRTG] : MRTGLogs)
 	{
-		std::string btAddress(ba2string(TheAddress));
-		for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
-			btAddress.erase(pos, 1);
-		ThermometerType CacheThermometerType = ThermometerType::Unknown;
-		auto foo = GoveeThermometers.find(TheAddress);
-		if (foo != GoveeThermometers.end())
-			CacheThermometerType = foo->second;
-		std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
-		if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
-			ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
-		std::filesystem::path OutputPath;
-		std::ostringstream OutputFilename;
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-day.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		std::vector<Govee_Temp> TheValues;
-		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::daily);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-week.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::weekly);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-month.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::monthly);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
-		OutputFilename.str("");
-		OutputFilename << "gvh-";
-		OutputFilename << btAddress;
-		OutputFilename << "-year.svg";
-		OutputPath = SVGDirectory / OutputFilename.str();
-		ReadMRTGData(TheAddress, GoveeMRTGLogs, TheValues, GraphType::yearly);
-		WriteSVG(TheValues, OutputPath, ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
+		if (!MRTG.empty())
+		{
+			std::string btAddress(ba2string(TheAddress));
+			for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
+				btAddress.erase(pos, 1);
+			ThermometerType CacheThermometerType = MRTG.front().GetModel();
+			if (CacheThermometerType == ThermometerType::Unknown)
+			{
+				auto foo = GoveeThermometers.find(TheAddress);
+				if (foo != GoveeThermometers.end())
+					CacheThermometerType = foo->second;
+			}
+			std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
+			if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
+				ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
+			std::filesystem::path OutputPath;
+			std::ostringstream OutputFilename;
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-day.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			std::vector<T> TheValues;
+			ReadMRTGData(MRTG, TheValues, GraphType::daily);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::daily, SVGFahrenheit, SVGBattery & 0x01, SVGMinMax & 0x01);
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-week.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			ReadMRTGData(MRTG, TheValues, GraphType::weekly);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::weekly, SVGFahrenheit, SVGBattery & 0x02, SVGMinMax & 0x02);
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-month.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			ReadMRTGData(MRTG, TheValues, GraphType::monthly);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::monthly, SVGFahrenheit, SVGBattery & 0x04, SVGMinMax & 0x04);
+			OutputFilename.str("");
+			if (CacheThermometerType == ThermometerType::RUUVI)
+				OutputFilename << "ruuvi-";
+			else
+				OutputFilename << "gvh-";
+			OutputFilename << btAddress;
+			OutputFilename << "-year.svg";
+			OutputPath = SVGDirectory / OutputFilename.str();
+			ReadMRTGData(MRTG, TheValues, GraphType::yearly);
+			WriteSVG(TheValues, OutputPath, ssTitle, GraphType::yearly, SVGFahrenheit, SVGBattery & 0x08, SVGMinMax & 0x08);
+		}
 	}
 }
 void WriteSVGIndex(const std::filesystem::path LogDirectory, const std::filesystem::path SVGIndexFilename)
@@ -3886,8 +3893,8 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									TimeStart = TimeNow;
 									GenerateLogFile(GoveeTemperatures);
 									GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
-									GenerateLogFile(RuuviTags);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+									GenerateLogFile(RuuviTags);
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
 								}
@@ -5843,8 +5850,8 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								TimeLog = TimeNow;
 								GenerateLogFile(GoveeTemperatures);
 								GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
-								GenerateLogFile(RuuviTags);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
+								GenerateLogFile(RuuviTags);
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
 								if (ConsoleVerbosity > 2)
