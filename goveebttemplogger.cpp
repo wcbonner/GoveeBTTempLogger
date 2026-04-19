@@ -1521,27 +1521,30 @@ std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT a
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
 std::map<bdaddr_t, std::vector<Ruuvi_Tag>> RuuviMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 /////////////////////////////////////////////////////////////////////////////
-std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress)
+std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress, const ThermometerType TheThermometerType = ThermometerType::Unknown)
 {
 	std::string btAddress(ba2string(TheBlueToothAddress));
 	for (auto pos = btAddress.find(':'); pos != std::string::npos; pos = btAddress.find(':'))
 		btAddress.erase(pos, 1);
 	std::ostringstream OutputFilename;
-	OutputFilename << "gvh-";
+	if (TheThermometerType == ThermometerType::RUUVI)
+		OutputFilename << "ruuvi-";
+	else
+		OutputFilename << "gvh-";
 	OutputFilename << btAddress;
 	OutputFilename << "-cache.txt";
 	std::filesystem::path CacheFileName(CacheDirectory / OutputFilename.str());
 	return(CacheFileName);
 }
-bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Govee_Temp>& GoveeMRTGLog)
+template <typename T> bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<T>& MRTGLog)
 {
 	bool rval(false);
-	if (!GoveeMRTGLog.empty())
+	if (!MRTGLog.empty())
 	{
-		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(TheBlueToothAddress));
+		std::filesystem::path MRTGCacheFile(GenerateCacheFileName(TheBlueToothAddress, MRTGLog[0].GetModel()));
 		struct stat64 Stat({ 0 });	// Zero the stat64 structure when it's allocated
 		stat64(MRTGCacheFile.c_str(), &Stat);	// This shouldn't change Stat if the file doesn't exist.
-		if (difftime(GoveeMRTGLog[0].Time, Stat.st_mtim.tv_sec) > 60 * 60) // If Cache File has data older than 60 minutes, write it
+		if (difftime(MRTGLog[0].Time, Stat.st_mtim.tv_sec) > 60 * 60) // If Cache File has data older than 60 minutes, write it
 		{
 			std::ofstream CacheFile(MRTGCacheFile, std::ios_base::out | std::ios_base::trunc);
 			if (CacheFile.is_open())
@@ -1551,12 +1554,12 @@ bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Go
 				else
 					std::cerr << "Writing: " << MRTGCacheFile.native() << std::endl;
 				CacheFile << "Cache: " << ba2string(TheBlueToothAddress) << " " << ProgramVersionString << std::endl;
-				for (auto & i : GoveeMRTGLog)
+				for (auto & i : MRTGLog)
 					CacheFile << i.WriteCache() << std::endl;
 				CacheFile.close();
 				struct utimbuf ut({ 0 });
-				ut.actime = GoveeMRTGLog[0].Time;
-				ut.modtime = GoveeMRTGLog[0].Time;
+				ut.actime = MRTGLog[0].Time;
+				ut.modtime = MRTGLog[0].Time;
 				utime(MRTGCacheFile.c_str(), &ut);
 				rval = true;
 			}
@@ -1564,7 +1567,7 @@ bool GenerateCacheFile(const bdaddr_t& TheBlueToothAddress, const std::vector<Go
 	}
 	return(rval);
 }
-void GenerateCacheFile(std::map<bdaddr_t, std::vector<Govee_Temp>> &AddressTemperatureMap)
+template <typename T> void GenerateCacheFile(std::map<bdaddr_t, std::vector<T>> &AddressTemperatureMap)
 {
 	if (!CacheDirectory.empty())
 	{
