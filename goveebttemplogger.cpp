@@ -3802,6 +3802,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(info->bdaddr, foo));
 																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
 																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
+																		UpdateMRTGData(info->bdaddr, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
 																	}
 																	else if (ConsoleVerbosity > 1)
 																		ConsoleOutLine << iBeacon(ManufacturerID, ManufacturerData);
@@ -4942,7 +4943,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										std::queue<Ruuvi_Tag> foo;
 										auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(dbusBTAddress, foo));
 										ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
-										//										UpdateMRTGData(dbusBTAddress, localRuuvi);	// puts the measurement in the fake MRTG data structure
+										UpdateMRTGData(dbusBTAddress, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localRuuvi.WriteConsole();
 									}
