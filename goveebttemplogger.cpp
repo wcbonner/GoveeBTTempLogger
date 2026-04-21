@@ -949,6 +949,8 @@ public:
 	Ruuvi_Tag(const std::string& data);
 	std::string WriteTXT(const char seperator = '\t') const;
 	std::string WriteConsole(void) const;
+	std::string WriteCache(void) const;
+	bool ReadCache(const std::string& data);
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
 	void SetMinMax(const Ruuvi_Tag& a);
 	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
@@ -979,7 +981,7 @@ protected:
 	short AccelerationZ; // Acceleration in Z axis
 	unsigned short Battery; // Power info (11+5bit unsigned), first 11 bits is the battery voltage above 1.6V, in millivolts (1.6V to 3.646V range). 
 	unsigned short TXPower; // Last 5 bits unsigned are the TX power above -40dBm, in 2dBm steps. (-40dBm to +20dBm range)
-	unsigned char MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
+	unsigned int MovementCounter; // Movement counter (8 bit unsigned), incremented by motion detection interrupts from accelerometer
 	unsigned int MeasurementSequenceNumber; // Measurement sequence number (16 bit unsigned), each time a measurement is taken, this is incremented by one, used for measurement de-duplication. Depending on the transmit interval, multiple packets with the same measurements can be sent, and there may be measurements that never were sent.
 	bdaddr_t BluetoothAddress;
 	// The Min and Max values are used to track the min and max values for each measurement across multiple readings, so that I can report those in the MRTG graphs.
@@ -1056,6 +1058,60 @@ std::string Ruuvi_Tag::WriteConsole(void) const
 	ssValue << " (BluetoothAddress) " << ba2string(BluetoothAddress);
 	ssValue << " (Ruuvi)";
 	return(ssValue.str());
+}
+std::string Ruuvi_Tag::WriteCache(void) const
+{
+	std::ostringstream ssValue;
+	ssValue << Time;
+	ssValue << "\t" << Temperature;
+	ssValue << "\t" << TemperatureMin;
+	ssValue << "\t" << TemperatureMax;
+	ssValue << "\t" << Humidity;
+	ssValue << "\t" << HumidityMin;
+	ssValue << "\t" << HumidityMax;
+	ssValue << "\t" << Pressure;
+	ssValue << "\t" << PressureMin;
+	ssValue << "\t" << PressureMax;
+	ssValue << "\t" << AccelerationX;
+	ssValue << "\t" << AccelerationY;
+	ssValue << "\t" << AccelerationZ;
+	ssValue << "\t" << Battery;
+	ssValue << "\t" << TXPower;
+	ssValue << "\t" << int(MovementCounter);
+	ssValue << "\t" << MeasurementSequenceNumber;
+	ssValue << "\t" << Averages;
+	ssValue << "\t" << ba2string(BluetoothAddress);
+	ssValue << "\t" << ThermometerType2String(Model);
+	return(ssValue.str());
+}
+bool Ruuvi_Tag::ReadCache(const std::string& data)
+{
+	bool rval = false;
+	std::istringstream ssValue(data);
+	ssValue >> Time;
+	ssValue >> Temperature;
+	ssValue >> TemperatureMin;
+	ssValue >> TemperatureMax;
+	ssValue >> Humidity;
+	ssValue >> HumidityMin;
+	ssValue >> HumidityMax;
+	ssValue >> Pressure;
+	ssValue >> PressureMin;
+	ssValue >> PressureMax;
+	ssValue >> AccelerationX;
+	ssValue >> AccelerationY;
+	ssValue >> AccelerationZ;
+	ssValue >> Battery;
+	ssValue >> TXPower;
+	ssValue >> MovementCounter;
+	ssValue >> MeasurementSequenceNumber;
+	ssValue >> Averages;
+	std::string TempString;
+	ssValue >> TempString;
+	BluetoothAddress = string2ba(TempString);
+	ssValue >> TempString;
+	Model = String2ThermometerType(TempString);
+	return(rval);
 }
 bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
 {
@@ -1142,7 +1198,11 @@ Ruuvi_Tag::granularity Ruuvi_Tag::GetTimeGranularity(void) const
 }
 Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
 {
-	if (b.IsValid())
+	if (!IsValid() && b.IsValid())	// If "this" is not valid but "b" is valid, then copy "b" to "this". This allows the use of the += operator to initialize an object with the first value, and then average in subsequent values.
+	{
+		*this = b;
+	}	
+	else if (b.IsValid())
 	{
 		Time = std::max(Time, b.Time); // Use the maximum time (newest time)
 		Temperature = ((Temperature * Averages) + (b.Temperature * b.Averages)) / (Averages + b.Averages);
@@ -1154,7 +1214,14 @@ Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
 		Pressure = ((Pressure * Averages) + (b.Pressure * b.Averages)) / (Averages + b.Averages);
 		PressureMin = std::min(std::min(Pressure, PressureMin), b.PressureMin);
 		PressureMax = std::max(std::max(Pressure, PressureMax), b.PressureMax);
+		AccelerationX = ((AccelerationX * Averages) + (b.AccelerationX * b.Averages)) / (Averages + b.Averages);
+		AccelerationY = ((AccelerationY * Averages) + (b.AccelerationY * b.Averages)) / (Averages + b.Averages);
+		AccelerationZ = ((AccelerationZ * Averages) + (b.AccelerationZ * b.Averages)) / (Averages + b.Averages);
 		Battery = std::min(Battery, b.Battery);
+		TXPower = std::min(TXPower, b.TXPower);
+		MovementCounter = std::max(MovementCounter, b.MovementCounter);
+		MeasurementSequenceNumber = std::max(MeasurementSequenceNumber, b.MeasurementSequenceNumber);
+			BluetoothAddress = b.BluetoothAddress; // This is important in case "a" was initialized but not valid
 		Averages += b.Averages; // existing average + new average
 	}
 	return(*this);
@@ -1594,8 +1661,8 @@ template <typename T> void GenerateCacheFile(std::map<bdaddr_t, std::vector<T>> 
 	{
 		if (ConsoleVerbosity > 1)
 			std::cout << "[" << getTimeISO8601(true) << "] GenerateCacheFile: " << CacheDirectory.native() << std::endl;
-		for (auto const& [Key, Value] : AddressTemperatureMap)
-			GenerateCacheFile(Key, Value);
+		for (auto const& [TheBlueToothAddress, MRTGLog] : AddressTemperatureMap)
+			GenerateCacheFile(TheBlueToothAddress, MRTGLog);
 	}
 }
 void ReadCacheDirectory(void)
@@ -3920,6 +3987,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 									GenerateLogFile(RuuviTags);
+									GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
 								}
@@ -5877,6 +5945,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								GenerateLogFile(RuuviTags);
+								GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
 								if (ConsoleVerbosity > 2)
@@ -6327,6 +6396,7 @@ int main(int argc, char **argv)
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
 			ReadLoggedData(); // only read the logged data if creating SVG files
 			GenerateCacheFile(GoveeMRTGLogs); // update cache files if any new data was in logs
+			GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
 			WriteAllSVG(GoveeMRTGLogs);
 			WriteAllSVG(RuuviMRTGLogs);
 		}
