@@ -252,6 +252,7 @@ enum class ThermometerType
 	H5104 = 5104,
 	H5105 = 5105,
 	H5110 = 5110,
+	H5111 = 5111,
 	H5174 = 5174,
 	H5177 = 5177,
 	H5179 = 5179,
@@ -282,6 +283,8 @@ std::string ThermometerType2String(const ThermometerType GoveeModel)
 		return(std::string("(GVH5105)"));
 	case ThermometerType::H5110:
 		return(std::string("(GVH5110)"));
+	case ThermometerType::H5111:
+		return(std::string("(GVH5111)"));
 	case ThermometerType::H5174:
 		return(std::string("(GVH5174)"));
 	case ThermometerType::H5177:
@@ -317,6 +320,8 @@ ThermometerType String2ThermometerType(const std::string Text)
 		rval = ThermometerType::H5105;
 	else if (std::regex_search(Text, std::regex("GVH5110")))
 		rval = ThermometerType::H5110;
+	else if (std::regex_search(Text, std::regex("GVH5111|GV5111")))
+		rval = ThermometerType::H5111;
 	else if (std::regex_search(Text, std::regex("GVH5174")))
 		rval = ThermometerType::H5174;
 	else if (std::regex_search(Text, std::regex("GVH5177")))
@@ -364,6 +369,7 @@ public:
 	Govee_Temp() : Time(0), Temperature{ 0, 0, 0, 0 }, TemperatureMin{ DBL_MAX, DBL_MAX, DBL_MAX, DBL_MAX }, TemperatureMax{ -DBL_MAX, -DBL_MAX, -DBL_MAX, -DBL_MAX }, Humidity(0), HumidityMin(DBL_MAX), HumidityMax(-DBL_MAX), Battery(INT_MAX), Averages(0), Model(ThermometerType::Unknown) { };
 	Govee_Temp(const time_t tim, const double tem, const double hum, const int bat)
 	{
+		*this = Govee_Temp(); // Set all values to defaults, then overwrite with parameter values
 		Time = tim;
 		Temperature[0] = tem;
 		TemperatureMin[0] = tem;
@@ -536,7 +542,7 @@ std::string Govee_Temp::WriteConsole(void) const
 	}
 	if (Model == ThermometerType::H5183)
 		ssValue << " (Alarm) " << GetTemperature(false, 1) << "\u00B0" << "C";
-	if (!((Model == ThermometerType::H5183) || (Model == ThermometerType::H5182) || (Model == ThermometerType::H5184) || (Model == ThermometerType::H5055)))
+	if (!((Model == ThermometerType::H5111) || (Model == ThermometerType::H5183) || (Model == ThermometerType::H5182) || (Model == ThermometerType::H5184) || (Model == ThermometerType::H5055)))
 		ssValue << " (Humidity) " << std::setw(5) << std::right << GetHumidity() << std::left << "%";
 	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(0) << GetBattery() << std::left << "%";
 	ssValue << " " << GetModelAsString();
@@ -645,6 +651,21 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		Battery = int(Data[5]);
 		//if ((Temperature[0] > -20) && (Temperature[0] < 60))
 			Averages = 1;
+		time(&Time);
+		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
+		rval = true;
+	}
+	else if ((Manufacturer == 0x0001) && (Data.size() == 8))// GV5111xxxx
+	{
+		// [2026-04-21T09:09:02] [DD:42:03:06:4D:36] ManufacturerData: 0001:01010332c0640000 (Temp) 21.0°C (Battery) 100% (GVH5111)
+		int iTemp = int(Data[2]) << 16 | int(Data[3]) << 8 | int(Data[4]);
+		bool bNegative = iTemp & 0x800000;	// check sign bit
+		iTemp = iTemp & 0x7ffff;			// mask off sign bit
+		Temperature[0] = float(iTemp) / 10000.0;
+		if (bNegative)						// apply sign bit
+			Temperature[0] = -1.0 * Temperature[0];
+		Battery = int(Data[5]);
+		Averages = 1;
 		time(&Time);
 		TemperatureMin[0] = TemperatureMax[0] = Temperature[0];	//HACK: make sure that these values are set
 		rval = true;
