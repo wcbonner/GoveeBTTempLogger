@@ -30,6 +30,12 @@ Powered by 2 AAA Batteries
 ![image](h5105-phone.jpg)
 Powered by 1 CR2450 Battery
 
+## H5111
+![image](h5111-phone.jpg)
+Powered by 2 AAA Batteries
+High-Precision Temperature Sensor: Features an ultra-sensitive 2.7mm NTC probe with ±0.9°F/±0.5°C precision, and a 2-second response time for real-time monitoring across a wide -40°F to 158°F (-40°C to 70°C) range.
+Built-In 80dB Audible Alarm: This freezer thermometer with alarm features a buzzer to provide loud, instant alerts when temperatures go out of range - suitable for families where immediate response is needed.
+
 ## H5174
 ![image](h5174-phone.jpg)
 Powered by 3 AAA Batteries
