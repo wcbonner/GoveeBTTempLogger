@@ -388,6 +388,9 @@ public:
 	double GetHumidity(void) const { return(Humidity); };
 	double GetHumidityMin(void) const { return(std::min(Humidity, HumidityMin)); };
 	double GetHumidityMax(void) const { return(std::max(Humidity, HumidityMax)); };
+	double GetPressure(void) const { return(0); };		// Fake pressure value to make it easier to use the same code for Ruuvi and Govee data. Ruuvi has a pressure sensor, but Govee does not.
+	double GetPressureMin(void) const { return(0); };	// Fake pressure value to make it easier to use the same code for Ruuvi and Govee data. Ruuvi has a pressure sensor, but Govee does not.
+	double GetPressureMax(void) const { return(0); };	// Fake pressure value to make it easier to use the same code for Ruuvi and Govee data. Ruuvi has a pressure sensor, but Govee does not.
 	int GetBattery(void) const { return(Battery); };
 	ThermometerType GetModel(void) const { return(Model); };
 	const std::string GetModelAsString(void) const { return(ThermometerType2String(Model)); };
@@ -960,6 +963,8 @@ public:
 	double GetHumidityMin(void) const { return(std::min(Humidity * 0.0025, HumidityMin * 0.0025)); };
 	double GetHumidityMax(void) const { return(std::max(Humidity * 0.0025, HumidityMax * 0.0025)); };
 	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
+	double GetPressureMin(void) const { return(std::min((Pressure + 50000.0) / 100.0, (PressureMin + 50000.0) / 100.0)); };
+	double GetPressureMax(void) const { return(std::max((Pressure + 50000.0) / 100.0, (PressureMax + 50000.0) / 100.0)); };
 	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
 	double GetTXPower(void) const { return((TXPower * 2) - 40); };
 	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
@@ -1888,13 +1893,16 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 					std::cerr << "Writing: " << SVGFileName.string() << " With Title: " << Title << std::endl;
 				std::ostringstream tempOString;
 				tempOString << "Temperature (" << std::fixed << std::setprecision(1) << TheValues[0].GetTemperature(Fahrenheit) << "\u00B0" << (Fahrenheit ? "F)" : "C)");
-				std::string YLegendTemperature(tempOString.str());
-				tempOString = std::ostringstream();
+				const std::string YLegendTemperature(tempOString.str());
+				tempOString.str("");
 				tempOString << "Humidity (" << std::fixed << std::setprecision(1) << TheValues[0].GetHumidity() << "%)";
-				std::string YLegendHumidity(tempOString.str());
-				tempOString = std::ostringstream();
+				const std::string YLegendHumidity(tempOString.str());
+				tempOString.str("");
 				tempOString << "Battery (" << TheValues[0].GetBattery() << "%)";
-				std::string YLegendBattery(tempOString.str());
+				const std::string YLegendBattery(tempOString.str());
+				tempOString.str("");
+				tempOString << "Pressure (" << std::fixed << std::setprecision(1) << TheValues[0].GetPressure() << " hPa)";
+				const std::string YLegendPressure(tempOString.str());
 				int GraphTop = FontSize + TickSize;
 				int GraphBottom = SVGHeight - GraphTop;
 				int GraphRight = SVGWidth - GraphTop;
@@ -1902,6 +1910,8 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				double TempMax = -DBL_MAX;
 				double HumiMin = DBL_MAX;
 				double HumiMax = -DBL_MAX;
+				double PressureMin = DBL_MAX;
+				double PressureMax = -DBL_MAX;
 				if (MinMax)
 					for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 					{
@@ -1909,6 +1919,8 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 						TempMax = std::max(TempMax, TheValues[index].GetTemperatureMax(Fahrenheit));
 						HumiMin = std::min(HumiMin, TheValues[index].GetHumidityMin());
 						HumiMax = std::max(HumiMax, TheValues[index].GetHumidityMax());
+						PressureMin = std::min(PressureMin, TheValues[index].GetPressureMin());
+						PressureMax = std::max(PressureMax, TheValues[index].GetPressureMax());
 					}
 				else
 					for (auto index = std::size_t(0); index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
@@ -1917,6 +1929,8 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 						TempMax = std::max(TempMax, TheValues[index].GetTemperature(Fahrenheit));
 						HumiMin = std::min(HumiMin, TheValues[index].GetHumidity());
 						HumiMax = std::max(HumiMax, TheValues[index].GetHumidity());
+						PressureMin = std::min(PressureMin, TheValues[index].GetPressure());
+						PressureMax = std::max(PressureMax, TheValues[index].GetPressure());
 					}
 				const bool DrawHumidity = (HumiMax - HumiMin) > 0.1;
 				if (DrawHumidity)
@@ -1926,13 +1940,23 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				}
 				if (DrawBattery)
 					GraphWidth -= FontSize;
+				const double MinPressureDifferential = 4.0;
+				const bool DrawPressure = PressureMax - PressureMin > MinPressureDifferential;
+				if (DrawPressure)
+				{
+					// Space for legend to be drawn on the right of the graph plus space for one more legend line on the left.
+					GraphWidth -= FontSize * 2;
+					GraphRight -= FontSize + TickSize * 2;
+				}
 				int GraphLeft = GraphRight - GraphWidth;
 				int GraphVerticalDivision = (GraphBottom - GraphTop) / 4;
 
-				double TempVerticalDivision = (TempMax - TempMin) / 4;
-				double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
-				double HumiVerticalDivision = (HumiMax - HumiMin) / 4;
-				double HumiVerticalFactor = (GraphBottom - GraphTop) / (HumiMax - HumiMin);
+				const double TempVerticalDivision = (TempMax - TempMin) / 4;
+				const double TempVerticalFactor = (GraphBottom - GraphTop) / (TempMax - TempMin);
+				const double HumiVerticalDivision = (HumiMax - HumiMin) / 4;
+				const double HumiVerticalFactor = (GraphBottom - GraphTop) / (HumiMax - HumiMin);
+				const double PressureVerticalDivision = (PressureMax - PressureMin) / 4;
+				const double PressureVerticalFactor = (GraphBottom - GraphTop) / (PressureMax - PressureMin);
 				int FreezingLine = 0; // outside the range of the graph
 				if (Fahrenheit)
 				{
@@ -1953,6 +1977,13 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: dimgrey; }" << std::endl;
 				SVGFile << "\t\tline { stroke: dimgrey; }" << std::endl;
 				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
+				SVGFile << "\t\t.barometer-label { font-family: Georgia, serif; font-style: italic; font-size: " << int(PressureVerticalFactor * 10) << "px; opacity: 0.5; clip-path: url(#GraphRegion); text-anchor: middle; dominant-baseline: middle; }" << std::endl;
+#ifdef _DARK_STYLE_
+				SVGFile << "\t@media only screen and (prefers-color-scheme: dark) {" << std::endl;
+				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
+				SVGFile << "\t\tline { stroke: grey; }" << std::endl;
+				SVGFile << "\t}" << std::endl;
+#endif // _DARK_STYLE_
 				SVGFile << "\t</style>" << std::endl;
 #ifdef DEBUG
 				SVGFile << "<!-- HumiMax: " << HumiMax << " -->" << std::endl;
@@ -1975,6 +2006,11 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				{
 					LegendIndex++;
 					SVGFile << "\t<text style=\"fill:OrangeRed\" text-anchor=\"middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendBattery << "</text>" << std::endl;
+				}
+				if (DrawPressure)
+				{
+					LegendIndex++;
+					SVGFile << "\t<text style=\"fill:green;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendPressure << "</text>" << std::endl;
 				}
 				if (DrawHumidity)
 				{
@@ -2022,12 +2058,17 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				SVGFile << "\t<text style=\"fill:blue;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << TempMax << "</text>" << std::endl;
 				if (DrawHumidity)
 					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
+				if (DrawPressure)
+					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << PressureMax << "</text>" << std::endl;
 
 				// Bottom Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
 				SVGFile << "\t<text style=\"fill:blue;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << TempMin << "</text>" << std::endl;
 				if (DrawHumidity)
 					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
+				if (DrawPressure)
+					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << PressureMin << "</text>" << std::endl;
+
 
 				// Left Line
 				SVGFile << "\t<line x1=\"" << GraphLeft << "\" y1=\"" << GraphTop << "\" x2=\"" << GraphLeft << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
@@ -2042,6 +2083,8 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 					SVGFile << "\t<text style=\"fill:blue;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphLeft - TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << TempMax - (TempVerticalDivision * index) << "</text>" << std::endl;
 					if (DrawHumidity)
 						SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
+					if (DrawPressure)
+						SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << PressureMax - (PressureVerticalDivision * index) << "</text>" << std::endl;
 				}
 
 				// Horizontal Line drawn at the freezing point
@@ -2109,6 +2152,17 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 
 				if (MinMax)
 				{
+					// Pressure Values as a filled polygon showing the minimum and maximum
+					if (DrawPressure)
+					{
+						SVGFile << "\t<!-- Pressure MinMax -->" << std::endl;
+						SVGFile << "\t<polygon style=\"fill:green;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
+						for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+							SVGFile << index + GraphLeft << "," << int(((PressureMax - TheValues[index].GetPressureMax()) * PressureVerticalFactor) + GraphTop) << " ";
+						for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)
+							SVGFile << index + GraphLeft << "," << int(((PressureMax - TheValues[index].GetPressureMin()) * PressureVerticalFactor) + GraphTop) << " ";
+						SVGFile << "\" />" << std::endl;
+					}
 					// Temperature Values as a filled polygon showing the minimum and maximum
 					SVGFile << "\t<!-- Temperature MinMax -->" << std::endl;
 					SVGFile << "\t<polygon style=\"fill:blue;stroke:blue;clip-path:url(#GraphRegion)\" points=\"";
@@ -2120,6 +2174,15 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				}
 				else
 				{
+					// Pressure Values as a continuous line
+					if (DrawPressure)
+					{
+						SVGFile << "\t<!-- Pressure -->" << std::endl;
+						SVGFile << "\t<polyline style=\"fill:none;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
+						for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
+							SVGFile << index + GraphLeft << "," << int(((PressureMax - TheValues[index].GetPressure()) * PressureVerticalFactor) + GraphTop) << " ";
+						SVGFile << "\" />" << std::endl;
+					}
 					// Temperature Values as a continuous line
 					SVGFile << "\t<!-- Temperature -->" << std::endl;
 					SVGFile << "\t<polyline style=\"fill:none;stroke:blue;clip-path:url(#GraphRegion)\" points=\"";
