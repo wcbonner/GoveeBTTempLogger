@@ -945,7 +945,7 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 class Ruuvi_Tag {
 public:
 	time_t Time;
-	Ruuvi_Tag() : Time(0), Temperature(0), Humidity(0), Pressure(0), AccelerationX(0), AccelerationY(0), AccelerationZ(0), Battery(0), TXPower(0), MovementCounter(0), MeasurementSequenceNumber(0), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0), Model(ThermometerType::RUUVI) {};
+	Ruuvi_Tag() : Time(0), Temperature(0x8000), Humidity(0xFFFF), Pressure(0xFFFF), AccelerationX(0x8000), AccelerationY(0x8000), AccelerationZ(0x8000), Battery(0x7FF), TXPower(0x1F), MovementCounter(0xFF), MeasurementSequenceNumber(0xFFFF), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0), Model(ThermometerType::RUUVI) {};
 	Ruuvi_Tag(const std::string& data);
 	std::string WriteTXT(const char seperator = '\t') const;
 	std::string WriteConsole(void) const;
