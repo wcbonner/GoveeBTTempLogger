@@ -1945,7 +1945,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				if (DrawPressure)
 				{
 					// Space for legend to be drawn on the right of the graph plus space for one more legend line on the left.
-					GraphWidth -= FontSize * 2;
+					GraphWidth -= FontSize;
 					// I took the next line out because I'm drawing pressure ledgend over the graph surface instead of to the right of the graph, so I don't need to make extra space on the right side of the graph for the legend. This also allows me to use more of the graph surface for drawing the pressure line which is helpful because the pressure differential is often small and can be hard to see if I don't use as much of the graph surface as possible.
 					//GraphRight -= FontSize + TickSize * 2;
 				}

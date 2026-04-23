@@ -23,7 +23,7 @@ endif()
 add_compile_definitions(_BLUEZ_HCI_)
 
 project (GoveeBTTempLogger
-    VERSION 4.20260423.2
+    VERSION 4.20260423.3
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
