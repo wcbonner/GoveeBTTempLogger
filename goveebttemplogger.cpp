@@ -2010,7 +2010,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				if (DrawPressure)
 				{
 					LegendIndex++;
-					SVGFile << "\t<text style=\"fill:green;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendPressure << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:yellow;text-anchor:middle\" x=\"" << FontSize * LegendIndex << "\" y=\"50%\" transform=\"rotate(270 " << FontSize * LegendIndex << "," << (GraphTop + GraphBottom) / 2 << ")\">" << YLegendPressure << "</text>" << std::endl;
 				}
 				if (DrawHumidity)
 				{
@@ -2059,7 +2059,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				if (DrawHumidity)
 					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << HumiMax << "</text>" << std::endl;
 				if (DrawPressure)
-					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << PressureMax << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:yellow;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop << "\">" << std::fixed << std::setprecision(1) << PressureMax << "</text>" << std::endl;
 
 				// Bottom Line
 				SVGFile << "\t<line x1=\"" << GraphLeft - TickSize << "\" y1=\"" << GraphBottom << "\" x2=\"" << GraphRight + TickSize << "\" y2=\"" << GraphBottom << "\"/>" << std::endl;
@@ -2067,7 +2067,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				if (DrawHumidity)
 					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << HumiMin << "</text>" << std::endl;
 				if (DrawPressure)
-					SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << PressureMin << "</text>" << std::endl;
+					SVGFile << "\t<text style=\"fill:yellow;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphBottom << "\">" << std::fixed << std::setprecision(1) << PressureMin << "</text>" << std::endl;
 
 
 				// Left Line
@@ -2084,7 +2084,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 					if (DrawHumidity)
 						SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << HumiMax - (HumiVerticalDivision * index) << "</text>" << std::endl;
 					if (DrawPressure)
-						SVGFile << "\t<text style=\"fill:green;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << PressureMax - (PressureVerticalDivision * index) << "</text>" << std::endl;
+						SVGFile << "\t<text style=\"fill:yellow;text-anchor:end;dominant-baseline:middle\" x=\"" << GraphRight + TickSize << "\" y=\"" << GraphTop + (GraphVerticalDivision * index) << "\">" << std::fixed << std::setprecision(1) << PressureMax - (PressureVerticalDivision * index) << "</text>" << std::endl;
 				}
 
 				// Horizontal Line drawn at the freezing point
@@ -2156,7 +2156,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 					if (DrawPressure)
 					{
 						SVGFile << "\t<!-- Pressure MinMax -->" << std::endl;
-						SVGFile << "\t<polygon style=\"fill:green;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
+						SVGFile << "\t<polygon style=\"fill:yellow;stroke:yellow;clip-path:url(#GraphRegion)\" points=\"";
 						for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((PressureMax - TheValues[index].GetPressureMax()) * PressureVerticalFactor) + GraphTop) << " ";
 						for (auto index = (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()) - 1; index > 0; index--)
@@ -2178,7 +2178,7 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 					if (DrawPressure)
 					{
 						SVGFile << "\t<!-- Pressure -->" << std::endl;
-						SVGFile << "\t<polyline style=\"fill:none;stroke:green;clip-path:url(#GraphRegion)\" points=\"";
+						SVGFile << "\t<polyline style=\"fill:none;stroke:yellow;clip-path:url(#GraphRegion)\" points=\"";
 						for (auto index = 1; index < (GraphWidth < TheValues.size() ? GraphWidth : TheValues.size()); index++)
 							SVGFile << index + GraphLeft << "," << int(((PressureMax - TheValues[index].GetPressure()) * PressureVerticalFactor) + GraphTop) << " ";
 						SVGFile << "\" />" << std::endl;
