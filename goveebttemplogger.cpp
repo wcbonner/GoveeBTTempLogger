@@ -1672,7 +1672,7 @@ template <typename T> void GenerateCacheFile(std::map<bdaddr_t, std::vector<T>> 
 }
 void ReadCacheDirectory(void)
 {
-	const std::regex CacheFileRegex("^gvh-[[:xdigit:]]{12}-cache.txt");
+	const std::regex CacheFileRegex("^(gvh-|ruuvi-)[[:xdigit:]]{12}-cache.txt");
 	if (!CacheDirectory.empty())
 	{
 		if (ConsoleVerbosity > 1)
@@ -1706,22 +1706,40 @@ void ReadCacheDirectory(void)
 							if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 							{
 								bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
-								ThermometerType CacheThermometerType = ThermometerType::Unknown;
-								auto foo = GoveeThermometers.find(TheBlueToothAddress);
-								if (foo != GoveeThermometers.end())
-									CacheThermometerType = foo->second;
-								std::vector<Govee_Temp> FakeMRTGFile;
-								FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
-								while (std::getline(TheFile, TheLine))
+								const std::regex GoveeCacheFileRegex("^gvh-[[:xdigit:]]{12}-cache.txt");
+								const std::regex RuuviCacheFileRegex("^ruuvi-[[:xdigit:]]{12}-cache.txt");
+								if (std::regex_match(files.begin()->filename().string(), GoveeCacheFileRegex))
 								{
-									Govee_Temp TheValue;
-									TheValue.ReadCache(TheLine);
-									if (TheValue.GetModel() == ThermometerType::Unknown)
-										TheValue.SetModel(CacheThermometerType);
-									FakeMRTGFile.push_back(TheValue);
+									ThermometerType CacheThermometerType = ThermometerType::Unknown;
+									auto foo = GoveeThermometers.find(TheBlueToothAddress);
+									if (foo != GoveeThermometers.end())
+										CacheThermometerType = foo->second;
+									std::vector<Govee_Temp> FakeMRTGFile;
+									FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
+									while (std::getline(TheFile, TheLine))
+									{
+										Govee_Temp TheValue;
+										TheValue.ReadCache(TheLine);
+										if (TheValue.GetModel() == ThermometerType::Unknown)
+											TheValue.SetModel(CacheThermometerType);
+										FakeMRTGFile.push_back(TheValue);
+									}
+									if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
+										GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, FakeMRTGFile));
 								}
-								if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
-									GoveeMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Govee_Temp>>(TheBlueToothAddress, FakeMRTGFile));
+								else if (std::regex_match(files.begin()->filename().string(), RuuviCacheFileRegex))
+								{
+									std::vector<Ruuvi_Tag> FakeMRTGFile;
+									FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
+									while (std::getline(TheFile, TheLine))
+									{
+										Ruuvi_Tag TheValue;
+										TheValue.ReadCache(TheLine);
+										FakeMRTGFile.push_back(TheValue);
+									}
+									if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
+										RuuviMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Ruuvi_Tag>>(TheBlueToothAddress, FakeMRTGFile));
+								}
 							}
 						}
 					}
