@@ -3898,7 +3898,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																localTemp.SetModel(localName);
 																if (localTemp.GetModel() != ThermometerType::Unknown)
 																{
-																	GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(info->bdaddr, localTemp.GetModel()));
+																	GoveeThermometers.insert_or_assign(info->bdaddr, localTemp.GetModel());
 																	AddressInGoveeSet = true;
 																}
 																if (ConsoleVerbosity > 2)
@@ -5084,7 +5084,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 											localTemp.SetModel(foo->second);
 									}
 									else
-										GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, localTemp.GetModel()));
+										GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
 									if (localTemp.ReadMSG(ManufacturerID, ManufacturerData))
 									{
 										std::queue<Govee_Temp> foo;
@@ -5144,7 +5144,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					ssOutput << " " << Key << ": " << value.str;
 				localTemp.SetModel(std::string(value.str));
 				if (localTemp.GetModel() != ThermometerType::Unknown)
-					GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, localTemp.GetModel()));
+					GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
 			}
 		}
 		else if (!Key.compare("UUID"))
@@ -5188,7 +5188,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 						ssOutput << " " << Key << ": " << value.str;
 					localTemp.SetModel(std::string(value.str));
 					if (localTemp.GetModel() != ThermometerType::Unknown)
-						GoveeThermometers.insert(std::pair<bdaddr_t, ThermometerType>(dbusBTAddress, localTemp.GetModel()));
+						GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
 					bFirstUUID = false;
 				}
 			} while (dbus_message_iter_next(&array3_iter));
