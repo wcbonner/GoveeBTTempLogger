@@ -4703,9 +4703,9 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 #ifdef DEBUG
 			DataPointsToRequest = 123; // this saves a huge amount of time
 #endif // DEBUG
-			buf[2] = uint8_t(DataPointsToRequest >> 8);
-			buf[3] = uint8_t(DataPointsToRequest);
-			buf[5] = uint8_t(0x01);
+			buf[2] = uint8_t(DataPointsToRequest >> 8);	// high byte of requested start time
+			buf[3] = uint8_t(DataPointsToRequest);		// low byte of requested start time
+			buf[5] = uint8_t(0x01);						// low byte of requested stop time. buf[4] is high byte of requested stop time, it's already 0.
 			// Create a checksum in the last byte by XOR each of the buffer bytes.
 			for (auto index = std::size_t(0); index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
 				buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
