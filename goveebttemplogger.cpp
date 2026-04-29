@@ -6451,7 +6451,7 @@ int main(int argc, char **argv)
 			std::cout << "[                   ] titlemap: " << SVGTitleMapFilename << std::endl;
 			std::cout << "[                   ]     time: " << LogFileTime << std::endl;
 			std::cout << "[                   ]  average: " << MinutesAverage << std::endl;
-			std::cout << "[                   ] download: " << DaysBetweenDataDownload << " (days betwen data download)" << std::endl;
+			std::cout << "[                   ] download: " << DaysBetweenDataDownload << " (days between data download)" << std::endl;
 			std::cout << "[                   ]  passive: " << std::boolalpha << bUse_HCI_Passive << std::endl;
 			std::cout << "[                   ] no-bluetooth: " << std::boolalpha << !UseBluetooth << std::endl;
 			std::cout << "[                   ]      HCI: " << std::boolalpha << bUse_HCI_Interface << std::endl;
