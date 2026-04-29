@@ -2221,6 +2221,14 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 					SVGFile << "\" />" << std::endl;
 				}
 
+				if (DrawPressure)
+					if (graph != GraphType::daily) // this text was way too busy on the daily graph
+					{
+						SVGFile << "\t<text class=\"barometer-label\" x=\"50%\" y=\"" << int(((PressureMax - 974) * PressureVerticalFactor) + GraphTop) << "\">Rain</text>" << std::endl;
+						SVGFile << "\t<text class=\"barometer-label\" x=\"50%\" y=\"" << int(((PressureMax - 999) * PressureVerticalFactor) + GraphTop) << "\">Change</text>" << std::endl;
+						SVGFile << "\t<text class=\"barometer-label\" x=\"50%\" y=\"" << int(((PressureMax - 1024) * PressureVerticalFactor) + GraphTop) << "\">Fair</text>" << std::endl;
+					}
+
 				SVGFile << "</svg>" << std::endl;
 				SVGFile.close();
 				struct utimbuf SVGut({ 0 });
