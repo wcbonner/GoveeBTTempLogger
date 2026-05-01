@@ -299,6 +299,12 @@ My old code didn't properly display the UUID when it was a 128 bit UUID, I stand
 
 **494e5445-4c4c-495f-524f-434b535f2013** is the 128 bit UUID that will return requested historical data.
 
+Finding other code working with Govee devices is easist to search for the UUIDs. 
+Search GitHub code for [Govee Service UUID](https://github.com/search?q=494e5445-4c4c-495f-524f-434b535f4857&type=code), 
+search GitHub code for [Govee Characteristic UUID (write)](https://github.com/search?q=494e5445-4c4c-495f-524f-434b535f2011&type=code),
+search GitHub code for [Govee Characteristic UUID (notify)](https://github.com/search?q=494e5445-4c4c-495f-524f-434b535f2012&type=code),
+or search Google for [all three UUIDs](https://www.google.com/search?q=494e5445-4c4c-495f-524f-434b535f4857+OR+494e5445-4c4c-495f-524f-434b535f2011+OR+494e5445-4c4c-495f-524f-434b535f2012)
+
 Most of the devices hold 20 days of history. The GVH5177 devices hold a month of data. In my output below, the GVH5105 and GVH5179 devices have had their batteries replaced within the last month and I was not able to determine the historical data size.
 
 ```
