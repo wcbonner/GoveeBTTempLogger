@@ -23,7 +23,7 @@ endif()
 add_compile_definitions(_BLUEZ_HCI_)
 
 project (GoveeBTTempLogger
-    VERSION 4.20260429.1
+    VERSION 4.20260503.0
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -33,7 +33,8 @@ configure_file(
     goveebttemplogger-version.h)
 
 include( FindPkgConfig )
-pkg_check_modules( dbus REQUIRED dbus-1 )
+pkg_check_modules(DBUS REQUIRED dbus-1)
+pkg_check_modules(CRYPTO REQUIRED libcrypto)
 
 # Add source to this project's executable.
 add_executable (goveebttemplogger
@@ -49,7 +50,8 @@ add_executable (goveebttemplogger
 target_link_libraries(goveebttemplogger
     -lbluetooth
     -lstdc++fs
-    -ldbus-1
+    ${DBUS_LIBRARIES}
+    ${CRYPTO_LIBRARIES}
     )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -59,7 +61,13 @@ endif()
 target_include_directories(goveebttemplogger PUBLIC
     "${PROJECT_BINARY_DIR}"
     ${EXTRA_INCLUDES}
-    ${dbus_INCLUDE_DIRS}
+    ${DBUS_INCLUDE_DIRS}
+    ${CRYPTO_INCLUDE_DIRS}
+    )
+
+target_compile_options(goveebttemplogger PUBLIC 
+    ${DBUS_CFLAGS_OTHER}
+    ${CRYPTO_CFLAGS_OTHER}
     )
 
 if(EXISTS "/etc/rpi-issue")

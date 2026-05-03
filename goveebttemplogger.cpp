@@ -74,6 +74,7 @@
 #include <linux/rfkill.h>
 #include <locale>
 #include <map>
+#include <openssl/evp.h> // sudo apt install libssl-dev
 #include <netdb.h>
 #include <queue>
 #include <random>
