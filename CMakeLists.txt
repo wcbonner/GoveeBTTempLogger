@@ -23,7 +23,7 @@ endif()
 add_compile_definitions(_BLUEZ_HCI_)
 
 project (GoveeBTTempLogger
-    VERSION 4.20260508.0
+    VERSION 4.20260510.0
     DESCRIPTION "Listen and log Govee Thermometer Bluetooth Low Energy Advertisments via BlueZ and DBus"
     HOMEPAGE_URL https://github.com/wcbonner/GoveeBTTempLogger
 )
@@ -33,6 +33,7 @@ configure_file(
     goveebttemplogger-version.h)
 
 include( FindPkgConfig )
+pkg_check_modules(BLUEZ REQUIRED bluez)
 pkg_check_modules(DBUS REQUIRED dbus-1)
 pkg_check_modules(CRYPTO REQUIRED libcrypto)
 
@@ -48,8 +49,8 @@ add_executable (goveebttemplogger
     )
 
 target_link_libraries(goveebttemplogger
-    -lbluetooth
     -lstdc++fs
+    ${BLUEZ_LIBRARIES}
     ${DBUS_LIBRARIES}
     ${CRYPTO_LIBRARIES}
     )
@@ -61,6 +62,7 @@ endif()
 target_include_directories(goveebttemplogger PUBLIC
     "${PROJECT_BINARY_DIR}"
     ${EXTRA_INCLUDES}
+    ${BLUEZ_INCLUDE_DIRS}
     ${DBUS_INCLUDE_DIRS}
     ${CRYPTO_INCLUDE_DIRS}
     )
@@ -86,15 +88,19 @@ add_executable(gvh-organizelogs
     )
 
 target_link_libraries(gvh-organizelogs
-    -lbluetooth
     -lstdc++fs
+    ${BLUEZ_LIBRARIES}
     )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET gvh-organizelogs PROPERTY CXX_STANDARD 17)
 endif()
 
-target_include_directories(gvh-organizelogs PUBLIC "${PROJECT_BINARY_DIR}" ${EXTRA_INCLUDES} )
+target_include_directories(gvh-organizelogs PUBLIC 
+    "${PROJECT_BINARY_DIR}" 
+    ${EXTRA_INCLUDES} 
+    ${BLUEZ_INCLUDE_DIRS} 
+    )
 
 # TODO: Add tests and install targets if needed.
 include(CTest)
