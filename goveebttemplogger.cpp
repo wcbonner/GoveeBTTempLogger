@@ -3482,38 +3482,39 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						//}
 
 
-						uint16_t bt_Handle_DeviceData = 0;
-						uint16_t bt_Handle_RequestData = 0;
-						uint16_t bt_Handle_ReturnData = 0;
-						uint16_t bt_Handle_AuthWrite = 0;
-						uint16_t bt_Handle_AuthNotify = 0;
-						uint16_t bt_Handle_AuthConfig = 0;
+						uint16_t bt_Handle_DeviceData(0);
+						uint16_t bt_Handle_RequestData(0);
+						uint16_t bt_Handle_ReturnData(0);
+						uint16_t bt_Handle_AuthWrite(0);
+						uint16_t bt_Handle_AuthNotify(0);
+						uint16_t bt_Handle_AuthConfig(0);
+
 						// This loops through and enables notification on each of the Govee service handles
 						buf[0] = 0;
 						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
 						{
-							bt_uuid_t INTELLI_ROCKS_HW; bt_uuid128_create(&INTELLI_ROCKS_HW, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x48, 0x57 });
-							bt_uuid_t INTELLI_ROCKS_11; bt_uuid128_create(&INTELLI_ROCKS_11, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x11 });
-							bt_uuid_t INTELLI_ROCKS_12; bt_uuid128_create(&INTELLI_ROCKS_12, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x12 });
-							bt_uuid_t INTELLI_ROCKS_13; bt_uuid128_create(&INTELLI_ROCKS_13, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x13 });
-							//bt_uuid_t INTELLI_ROCKS_14; bt_uuid128_create(&INTELLI_ROCKS_14, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x14 });
+							bt_uuid_t INTELLI_ROCKS_SERVICE; bt_uuid128_create(&INTELLI_ROCKS_SERVICE, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x48, 0x57 });
+							bt_uuid_t INTELLI_ROCKS_DEVICE; bt_uuid128_create(&INTELLI_ROCKS_DEVICE,   { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x11 });
+							bt_uuid_t INTELLI_ROCKS_COMMAND; bt_uuid128_create(&INTELLI_ROCKS_COMMAND, { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x12 });
+							bt_uuid_t INTELLI_ROCKS_DATA; bt_uuid128_create(&INTELLI_ROCKS_DATA,       { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x13 });
+							//bt_uuid_t INTELLI_ROCKS_14; bt_uuid128_create(&INTELLI_ROCKS_14,         { 0x49, 0x4e, 0x54, 0x45, 0x4c, 0x4c, 0x49, 0x5f, 0x52, 0x4f, 0x43, 0x4b, 0x53, 0x5f, 0x20, 0x14 });
 							bt_uuid_t GOVEE_AUTH_SERVICE; bt_uuid128_create(&GOVEE_AUTH_SERVICE, { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x19, 0x10 });
-							bt_uuid_t GOVEE_AUTH_NOTIFY;  bt_uuid128_create(&GOVEE_AUTH_NOTIFY, { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x10 });
-							bt_uuid_t GOVEE_AUTH_WRITE;   bt_uuid128_create(&GOVEE_AUTH_WRITE, { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x11 });
-							bt_uuid_t GOVEE_AUTH_CONFIG;  bt_uuid128_create(&GOVEE_AUTH_CONFIG, { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x12 });
+							bt_uuid_t GOVEE_AUTH_NOTIFY;  bt_uuid128_create(&GOVEE_AUTH_NOTIFY,  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x10 });
+							bt_uuid_t GOVEE_AUTH_WRITE;   bt_uuid128_create(&GOVEE_AUTH_WRITE,   { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x11 });
+							bt_uuid_t GOVEE_AUTH_CONFIG;  bt_uuid128_create(&GOVEE_AUTH_CONFIG,  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x12 });
 							bt_uuid_t TELINK_OTA_SERVICE; bt_uuid128_create(&TELINK_OTA_SERVICE, { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfe, 0x00 });
 							bt_uuid_t TELINK_OTA_C0;      bt_uuid128_create(&TELINK_OTA_C0,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00 });
 							bt_uuid_t TELINK_OTA_C1;      bt_uuid128_create(&TELINK_OTA_C1,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x01 });
 							bt_uuid_t TELINK_OTA_C2;      bt_uuid128_create(&TELINK_OTA_C2,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x02 });
 							bt_uuid_t TELINK_OTA_C3;      bt_uuid128_create(&TELINK_OTA_C3,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x03 });
-							if (bts->theUUID == INTELLI_ROCKS_HW)
+							if (bts->theUUID == INTELLI_ROCKS_SERVICE)
 								for (auto & btsc : bts->characteristics)
 								{
-									if (btsc.theUUID == INTELLI_ROCKS_11)
+									if (btsc.theUUID == INTELLI_ROCKS_DEVICE)
 										bt_Handle_DeviceData = btsc.ending_handle;
-									if (btsc.theUUID == INTELLI_ROCKS_12)
+									if (btsc.theUUID == INTELLI_ROCKS_COMMAND)
 										bt_Handle_RequestData = btsc.ending_handle;
-									if (btsc.theUUID == INTELLI_ROCKS_13)
+									if (btsc.theUUID == INTELLI_ROCKS_DATA)
 										bt_Handle_ReturnData = btsc.ending_handle;
 									buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
 								}
@@ -3538,7 +3539,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 						}
 
-						if (ConsoleVerbosity > 3)
+						if ((ConsoleVerbosity > 3) && (bt_Handle_DeviceData != 0))
 						{
 							// Request Firmware Version
 							GATT_WritePacket RequestVersionFW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0} });
@@ -3553,6 +3554,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							if (-1 != send(l2cap_socket, &RequestVersionFW, sizeof(RequestVersionFW), 0))
 							{
 								ssize_t bufDataLen(-1);
+								short ExpectedResponseCount(2);
 								do
 								{
 									bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
@@ -3562,7 +3564,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
 											std::cout << " <== BT_ATT_OP_WRITE_RSP";
-											bufDataLen = -1; // hack to end loop
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
@@ -3575,15 +3576,15 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											std::string versionString = std::string((char*)data->value + 2, sizeof(data->value) / sizeof(data->value[0]) - 3);
 											std::cout << " Firmware Version: " << versionString;
 										}
-									}
-									else
-									{
-										std::cout << " ";
-										for (auto index = std::size_t(0); index < bufDataLen; index++)
-											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+										else
+										{
+											std::cout << " ";
+											for (auto index = std::size_t(0); index < bufDataLen; index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+										}
 									}
 									std::cout << std::endl;
-								} while (bufDataLen > 0);
+								} while (bufDataLen > 0 && --ExpectedResponseCount > 0);
 							}
 
 							// Request Hardware Version
@@ -3598,6 +3599,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								std::cout << std::endl;
 							if (-1 != send(l2cap_socket, &RequestVersionHW, sizeof(RequestVersionHW), 0))
 							{
+								short ExpectedResponseCount(2);
 								ssize_t bufDataLen(-1);
 								do
 								{
@@ -3608,7 +3610,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
 											std::cout << " <== BT_ATT_OP_WRITE_RSP";
-											bufDataLen = -1; // hack to end loop
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
@@ -3621,15 +3622,15 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											std::string versionString = std::string((char*)data->value + 2, sizeof(data->value) / sizeof(data->value[0]) - 3);
 											std::cout << " Hardware Version: " << versionString;
 										}
-									}
-									else
-									{
-										std::cout << " ";
-										for (auto index = std::size_t(0); index < bufDataLen; index++)
-											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+										else
+										{
+											std::cout << " ";
+											for (auto index = std::size_t(0); index < bufDataLen; index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+										}
 									}
 									std::cout << std::endl;
-								} while (bufDataLen > 0);
+								} while (bufDataLen > 0 && --ExpectedResponseCount > 0);
 							}
 						}
 
