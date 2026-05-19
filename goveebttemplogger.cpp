@@ -3539,6 +3539,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 						}
 
+#define GOVEE_GET_VERSION
+#ifdef GOVEE_GET_VERSION
 						if ((ConsoleVerbosity > 3) && (bt_Handle_DeviceData != 0))
 						{
 							// Request Firmware Version
@@ -3633,6 +3635,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								} while (bufDataLen > 0 && --ExpectedResponseCount > 0);
 							}
 						}
+#endif // GOVEE_GET_VERSION
 
 						if (bt_Handle_AuthNotify != 0)
 						{
@@ -3652,16 +3655,16 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								{
 									std::cout << "[" << getTimeISO8601(true) << "] " << "Initialized AES-128-ECB context" << std::endl;
 									GATT_WritePacket read_packet = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig, 0x00 };
+									if (ConsoleVerbosity > 1)
+									{
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_READ_REQ AUTH_CONFIG Handle: ";
+										std::cout << std::hex << std::setfill('0') << std::setw(4) << read_packet.handle << " Value: ";
+										for (auto& iterator : read_packet.buf)
+											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+										std::cout << std::endl;
+									}
 									if (-1 != send(l2cap_socket, &read_packet, sizeof(read_packet), 0))
 									{
-										if (ConsoleVerbosity > 1)
-										{
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_READ_REQ AUTH_CONFIG Handle: ";
-											std::cout << std::hex << std::setfill('0') << std::setw(4) << read_packet.handle << " Value: ";
-											for (auto& iterator : read_packet.buf)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-											std::cout << std::endl;
-										}
 										auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
 										if (bufDataLen > 1)
 										{
