@@ -2294,7 +2294,7 @@ template <typename T> void UpdateMRTGData(const bdaddr_t& TheAddress, const T& T
 				DaySampleFirst->Time = (DaySampleFirst + 1)->Time + DAY_SAMPLE;
 			if (DaySampleFirst->GetTimeGranularity() == T::granularity::year)
 			{
-				if (ConsoleVerbosity > 3)
+				if (ConsoleVerbosity > 5)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling year " << timeToExcelLocal(DaySampleFirst->Time) << " > " << timeToExcelLocal(YearSampleFirst->Time) << std::endl;
 				// shuffle all the year samples toward the end
 				std::copy_backward(YearSampleFirst, YearSampleLast - 1, YearSampleLast);
@@ -2305,7 +2305,7 @@ template <typename T> void UpdateMRTGData(const bdaddr_t& TheAddress, const T& T
 			if ((DaySampleFirst->GetTimeGranularity() == T::granularity::year) ||
 				(DaySampleFirst->GetTimeGranularity() == T::granularity::month))
 			{
-				if (ConsoleVerbosity > 3)
+				if (ConsoleVerbosity > 5)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling month " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 				// shuffle all the month samples toward the end
 				std::copy_backward(MonthSampleFirst, MonthSampleLast - 1, MonthSampleLast);
@@ -2317,7 +2317,7 @@ template <typename T> void UpdateMRTGData(const bdaddr_t& TheAddress, const T& T
 				(DaySampleFirst->GetTimeGranularity() == T::granularity::month) ||
 				(DaySampleFirst->GetTimeGranularity() == T::granularity::week))
 			{
-				if (ConsoleVerbosity > 3)
+				if (ConsoleVerbosity > 5)
 					std::cout << "[" << getTimeISO8601(true) << "] shuffling week " << timeToExcelLocal(DaySampleFirst->Time) << std::endl;
 				// shuffle all the month samples toward the end
 				std::copy_backward(WeekSampleFirst, WeekSampleLast - 1, WeekSampleLast);
@@ -3188,7 +3188,6 @@ std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext,
 	memcpy(out.data() + 16, rc4_part.data(), 4);
 	return out;
 }
-
 // ---------------------------------------------------------
 // Decrypt 20-byte packet
 // ---------------------------------------------------------
@@ -3205,7 +3204,22 @@ std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext
 	memcpy(out.data() + 16, rc4_part.data(), 4);
 	return out;
 }
-
+void GATT_WritePacketChecksum(GATT_WritePacket& packet)
+{
+	// Create a checksum in the last byte by XOR each of the buffer bytes.
+	packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] = 0;
+	for (auto index = std::size_t(0); index < sizeof(packet.buf) / sizeof(packet.buf[0]) - 1; index++)
+		packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] ^= packet.buf[index];
+}
+void GATT_WritePacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_WritePacket& packet)
+{
+	std::array<uint8_t, 20> input_packet;
+	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+		input_packet[index] = packet.buf[index];
+	std::array<uint8_t, 20> output_packet = encrypt_packet(input_packet, session_key);
+	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+		packet.buf[index] = output_packet[index];
+}
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
@@ -3296,6 +3310,12 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			}
 			else
 			{
+				// I'm setting up the crypto environment at a wide scope only because I maight want to use the legacy code for the rc5 stuff when I clean up the functions.
+				// I didn't need to use the OSSL_PROVIDER_load(NULL, "default"); and OSSL_PROVIDER_load(NULL, "legacy"); calls at all if I only want to use the AES code from openssl
+				// copying some crypto code from elsewhere https://stackoverflow.com/questions/6908785/openssl-libcrypto-aes-128-encoding-using-the-key
+				OSSL_PROVIDER* defaultp = OSSL_PROVIDER_load(NULL, "default");
+				OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
+
 				/* Set up source address */
 				struct sockaddr_l2 srcaddr;
 				memset(&srcaddr, 0, sizeof(srcaddr));
@@ -3547,68 +3567,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						}
 #endif // BT_GET_INFORMATION
 
-						//buf[0] = 0;
-						//for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
-						//{
-						//	bt_uuid_t GOVEE_AUTH_SERVICE; bt_uuid128_create(&GOVEE_AUTH_SERVICE, { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x19, 0x10 });
-						//	bt_uuid_t GOVEE_AUTH_NOTIFY;  bt_uuid128_create(&GOVEE_AUTH_NOTIFY,  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x10 });
-						//	bt_uuid_t GOVEE_AUTH_WRITE;   bt_uuid128_create(&GOVEE_AUTH_WRITE,   { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x11 });
-						//	bt_uuid_t GOVEE_AUTH_CONFIG;  bt_uuid128_create(&GOVEE_AUTH_CONFIG,  { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x2b, 0x12 });
-						//	if (bts->theUUID == GOVEE_AUTH_SERVICE)
-						//	{
-						//		// According to https://github.com/NHaag87/govee-api/blob/main/API_documentation/H5105_protocol.md the H5105 requires encryption for communication with the unit. 
-						//		// The handles to enable the encryption keys start with the service key of 00010203-0405-0607-0809-0a0b0c0d1910 and the 
-						//		// GATT characteristics keys 00010203-0405-0607-0809-0a0b0c0d2b10
-						//		// 00010203-0405-0607-0809-0a0b0c0d2b11
-						//		// 00010203-0405-0607-0809-0a0b0c0d2b12
-						//		for (auto& btsc : bts->characteristics)
-						//		{
-						//			if (btsc.theUUID == GOVEE_AUTH_CONFIG)
-						//			{
-						//				struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[2]; } pkt = { BT_GATT_CHRC_PROP_READ, btsc.ending_handle, {0x01 ,0x00} };
-						//				if (ConsoleVerbosity > 1)
-						//				{
-						//					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_GATT_CHRC_PROP_READ Handle: ";
-						//					std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
-						//					for (auto& iterator : pkt.buf)
-						//						std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-						//					std::cout << std::endl;
-						//				}
-						//				pkt.handle++;
-						//				if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
-						//					buf[0] = BT_ATT_OP_ERROR_RSP;
-						//				else
-						//				{
-						//					auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-						//					if (-1 == bufDataLen)
-						//						buf[0] = BT_ATT_OP_ERROR_RSP;
-						//					else
-						//					{
-						//						if (buf[0] == BT_ATT_OP_WRITE_RSP)
-						//						{
-						//							if (ConsoleVerbosity > 1)
-						//								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
-						//						}
-						//						else if (buf[0] == BT_ATT_OP_ERROR_RSP)
-						//						{
-						//							struct __attribute__((__packed__)) bt_error { uint8_t opcode; uint8_t req_opcode; uint16_t handle; uint8_t errcode; } *result = (bt_error*)&(buf[0]);
-						//							if (ConsoleVerbosity > 1)
-						//							{
-						//								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_ERROR_RSP";
-						//								std::cout << " Handle: " << std::hex << std::setw(4) << std::setfill('0') << result->handle;
-						//								std::cout << " Error: " << std::dec << result->errcode;
-						//								std::cout << std::endl;
-						//							}
-						//							buf[0] = 0; // this allows me to keep looping
-						//						}
-						//					}
-						//				}
-						//			}
-						//		}
-						//	}
-						//}
-
-
+						std::array<uint8_t, 16> SessionKey{ 0 };
 						uint16_t bt_Handle_DeviceData(0);
 						uint16_t bt_Handle_RequestData(0);
 						uint16_t bt_Handle_ReturnData(0);
@@ -3666,7 +3625,269 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 						}
 
-//#define GOVEE_GET_VERSION
+
+						if (bt_Handle_AuthNotify != 0)
+						{
+							GATT_ReadRequestPacket read_packet = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig };
+							if (ConsoleVerbosity > 1)
+							{
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_READ_REQ AUTH_CONFIG Handle: ";
+								std::cout << std::hex << std::setfill('0') << std::setw(4) << read_packet.handle;
+								std::cout << std::endl;
+							}
+							if (-1 != send(l2cap_socket, &read_packet, sizeof(read_packet), 0))
+							{
+								auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+								if (bufDataLen > 1)
+								{
+									if (buf[0] == BT_ATT_OP_READ_RSP)
+									{
+										// Success: <== BT_ATT_OP_READ_RSP 0201000002010000000000000000000000000000
+										if (ConsoleVerbosity > 1)
+										{
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_RSP ";
+											for (auto index = 1; index < bufDataLen; index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+											std::cout << std::endl;
+										}
+									}
+									else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
+									{
+										struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+										if (ConsoleVerbosity > 1)
+										{
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+										}
+										if (data->handle == bt_Handle_AuthNotify)
+										{
+											std::cout << " Auth Value: ";
+											for (auto& iterator : data->value)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+										}
+										else
+										{
+											if (ConsoleVerbosity > 1)
+											{
+												std::cout << " Value: ";
+												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+											}
+										}
+										if (ConsoleVerbosity > 1)
+											std::cout << std::endl;
+									}
+									else if (buf[0] == BT_ATT_OP_ERROR_RSP)
+									{
+										struct __attribute__((__packed__)) bt_error { uint8_t opcode; uint8_t req_opcode; uint16_t handle; uint8_t errcode; } *result = (bt_error*)&(buf[0]);
+										if (ConsoleVerbosity > 1)
+										{
+											// 01 0a 0000 04
+											std::cout << "[                   ] [                 ] <== BT_ATT_OP_ERROR_RSP";
+											std::cout << " Req Opcode: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(result->req_opcode);
+											std::cout << " Handle: " << std::hex << std::setw(4) << std::setfill('0') << result->handle;
+											std::cout << " Error: " << std::dec << unsigned(result->errcode);
+											std::cout << std::endl;
+											std::cout << "[                   ] [                 ] <== ";
+											for (auto index = 0; index < bufDataLen; index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+											std::cout << std::endl;
+										}
+									}
+									else if (ConsoleVerbosity > 1)
+									{
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== ";
+										for (auto index = 0; index < bufDataLen; index++)
+											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+										std::cout << std::endl;
+									}
+
+								}
+								else if (bufDataLen == 1)
+								{
+									if (ConsoleVerbosity > 1)
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
+								}
+								else if (ConsoleVerbosity > 1)
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen < 0" << std::endl;
+
+							}
+
+							int outlen = 0;
+							GATT_WritePacket write_packet = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, 0x00 };
+							// According to what I understand from https://github.com/NHaag87/govee-api/blob/main/API_documentation/H5105_protocol.md
+							// I want to create a write packet that the first two bytes of the buffer are 0xe7, 0x01 and the remaining 14 bytes of the buffer are 0x00, 
+							// then encrypt the first 16 bytes of the buffer with AES-128-ECB using the hardcoded PSK, and then encrypt the last 4 bytes of the buffer with RC4 using the same PSK. 
+							// The resulting 20 byte buffer is what I write to the Govee device as TX1 on the AUTH_WRITE GATT handle to enable encryption for subsequent communication.
+							// I should then recieve data on the AUTH_NOTIFY GATT handle that I can decrypt with RC4 using the same PSK to confirm that encryption is enabled, and then
+							// I can encrypt my commands with AES-128-ECB and RC4 as described above and write them to the AUTH_WRITE GATT handle.
+							// the author refers to CCCDS. I had to look it up. 
+							// In Bluetooth Low Energy (BLE), the Client Characteristic Configuration Descriptor (CCCD) is a 2‑byte attribute that 
+							// controls whether a characteristic’s value is sent as a notification or indication to a client. Each bonded device 
+							// has its own CCCD value, and reads/writes only affect that client’s configuration
+							std::array<uint8_t, 20> TX1{ 0xe7, 0x01 };
+							std::array<uint8_t, 20> TX2{ 0xe7, 0x02 };
+							const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
+							for (auto index = 0; index < sizeof(write_packet.buf) / sizeof(write_packet.buf[0]); index++)
+								write_packet.buf[index] = TX1[index];
+							GATT_WritePacketChecksum(write_packet);
+							GATT_WritePacketEncrypt(PreSharedKey, write_packet);
+							if (ConsoleVerbosity > 1)
+							{
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD AUTH_TX1 Handle: ";
+								std::cout << std::hex << std::setfill('0') << std::setw(4) << write_packet.handle << " Value: ";
+								for (auto& iterator : write_packet.buf)
+									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+								std::cout << std::endl;
+							}
+							// BT_ATT_OP_WRITE_CMD AUTH_TX1 Handle: 0021 Value: a070ef269debe4dfeb8af6f7e67e83a6c6888d2a
+							if (-1 != send(l2cap_socket, &write_packet, sizeof(write_packet), 0))
+							{
+								bool bWaitingForSessionKeyResponse = true;
+								int RetryCount(4);
+								while (bWaitingForSessionKeyResponse && RetryCount > 0)
+								{
+									auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+									RetryCount--;
+									if (bufDataLen > 1)
+									{
+										if (buf[0] == BT_ATT_OP_WRITE_RSP)
+										{
+											if (ConsoleVerbosity > 1)
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+										}
+										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
+										{
+											struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+											if (ConsoleVerbosity > 1)
+											{
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+											}
+											if (data->handle == bt_Handle_AuthNotify)
+											{
+												std::cout << " Auth Value: ";
+												for (auto& iterator : data->value)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+												// This should be RX1 (notify on AUTH_NOTIFY): device's encrypted challenge response — used to derive session key
+												// <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Auth Value: 652b972126ff8915aba63085c4cd5440114f40a9
+												std::array<uint8_t, 20> auth_rx1;
+												for (auto index = 0; index < 20; index++)
+													auth_rx1[index] = data->value[index];
+												SessionKey = derive_session_key(auth_rx1, PreSharedKey);
+												std::cout << " SessionKey: ";
+												for (auto& iterator : SessionKey)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+												bWaitingForSessionKeyResponse = false;
+											}
+											else
+											{
+												if (ConsoleVerbosity > 1)
+												{
+													std::cout << " Value: ";
+													for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+												}
+											}
+											if (ConsoleVerbosity > 1)
+												std::cout << std::endl;
+										}
+									}
+									else if (bufDataLen == 1)
+									{
+										if (ConsoleVerbosity > 1)
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
+									}
+									else
+									{
+										if (ConsoleVerbosity > 1)
+										{
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response (0 bytes)" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
+										}
+										usleep(100000); // 1,000,000 = 1 second.
+									}
+								}
+							}
+
+							for (auto index = 0; index < sizeof(write_packet.buf) / sizeof(write_packet.buf[0]); index++)
+								write_packet.buf[index] = TX2[index];
+							GATT_WritePacketChecksum(write_packet);
+							GATT_WritePacketEncrypt(PreSharedKey, write_packet);
+							if (ConsoleVerbosity > 1)
+							{
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD AUTH_TX2 Handle: ";
+								std::cout << std::hex << std::setfill('0') << std::setw(4) << write_packet.handle << " Value: ";
+								for (auto& iterator : write_packet.buf)
+									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+								std::cout << std::endl;
+							}
+							if (-1 != send(l2cap_socket, &write_packet, sizeof(write_packet), 0))
+							{
+								bool bWaitingForSessionKeyResponse = true;
+								int RetryCount(4);
+								while (bWaitingForSessionKeyResponse && RetryCount > 0)
+								{
+									auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+									RetryCount--;
+									if (bufDataLen > 1)
+									{
+										if (buf[0] == BT_ATT_OP_WRITE_RSP)
+										{
+											if (ConsoleVerbosity > 1)
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+										}
+										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
+										{
+											struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+											if (ConsoleVerbosity > 1)
+											{
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+											}
+											if (data->handle == bt_Handle_AuthNotify)
+											{
+												std::cout << " Auth Value: ";
+												for (auto& iterator : data->value)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+												// This should be RX1 (notify on AUTH_NOTIFY): device's encrypted challenge response — used to derive session key
+												// <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Auth Value: 652b972126ff8915aba63085c4cd5440114f40a9
+												bWaitingForSessionKeyResponse = false;
+											}
+											else
+											{
+												if (ConsoleVerbosity > 1)
+												{
+													std::cout << " Value: ";
+													for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+												}
+											}
+											if (ConsoleVerbosity > 1)
+												std::cout << std::endl;
+										}
+									}
+									else if (bufDataLen == 1)
+									{
+										if (ConsoleVerbosity > 1)
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
+									}
+									else
+									{
+										if (ConsoleVerbosity > 1)
+										{
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response (0 bytes)" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
+										}
+										usleep(100000); // 1,000,000 = 1 second.
+									}
+								}
+							}
+						}
+
+#define GOVEE_GET_VERSION
 #ifdef GOVEE_GET_VERSION
 						if ((ConsoleVerbosity > 3) && (bt_Handle_DeviceData != 0))
 						{
@@ -3674,12 +3895,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							GATT_WritePacket RequestVersionFW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0} });
 							RequestVersionFW.buf[0] = 0xaa;
 							RequestVersionFW.buf[1] = 0x0e;
-							RequestVersionFW.buf[(sizeof(RequestVersionFW.buf) / sizeof(RequestVersionFW.buf[0])) - 1] = 0xa4;
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
-								std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionFW.handle << " Value: ";
-								for (auto& iterator : RequestVersionFW.buf)
-									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-								std::cout << std::endl;
+							GATT_WritePacketChecksum(RequestVersionFW);
+							if (SessionKey[0] != 0)
+								GATT_WritePacketEncrypt(SessionKey, RequestVersionFW);
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+							std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionFW.handle << " Value: ";
+							for (auto& iterator : RequestVersionFW.buf)
+								std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+							std::cout << std::endl;
 							if (-1 != send(l2cap_socket, &RequestVersionFW, sizeof(RequestVersionFW), 0))
 							{
 								ssize_t bufDataLen(-1);
@@ -3702,6 +3925,17 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											std::cout << " Value: ";
 											for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
 												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+
+											if (SessionKey[0] != 0)
+											{
+												std::array<uint8_t, 20> ciphertext;
+												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+													ciphertext[index] = data->value[index];
+												std::array<uint8_t, 20> decodedtext = decrypt_packet(ciphertext, SessionKey);
+												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+													data->value[index] = decodedtext[index];
+											}
+
 											std::string versionString = std::string((char*)data->value + 2, sizeof(data->value) / sizeof(data->value[0]) - 3);
 											std::cout << " Firmware Version: " << versionString;
 										}
@@ -3720,12 +3954,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							GATT_WritePacket RequestVersionHW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0} });
 							RequestVersionHW.buf[0] = 0xaa;
 							RequestVersionHW.buf[1] = 0x0d;
-							RequestVersionHW.buf[(sizeof(RequestVersionHW.buf) / sizeof(RequestVersionHW.buf[0])) - 1] = 0xa7;
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
-								std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionHW.handle << " Value: ";
-								for (auto& iterator : RequestVersionHW.buf)
-									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-								std::cout << std::endl;
+							GATT_WritePacketChecksum(RequestVersionHW);
+							if (SessionKey[0] != 0)
+								GATT_WritePacketEncrypt(SessionKey, RequestVersionHW);
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+							std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionHW.handle << " Value: ";
+							for (auto& iterator : RequestVersionHW.buf)
+								std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+							std::cout << std::endl;
 							if (-1 != send(l2cap_socket, &RequestVersionHW, sizeof(RequestVersionHW), 0))
 							{
 								short ExpectedResponseCount(2);
@@ -3748,6 +3984,17 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											std::cout << " Value: ";
 											for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
 												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+
+											if (SessionKey[0] != 0)
+											{
+												std::array<uint8_t, 20> ciphertext;
+												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+													ciphertext[index] = data->value[index];
+												std::array<uint8_t, 20> decodedtext = decrypt_packet(ciphertext, SessionKey);
+												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
+													data->value[index] = decodedtext[index];
+											}
+
 											std::string versionString = std::string((char*)data->value + 2, sizeof(data->value) / sizeof(data->value[0]) - 3);
 											std::cout << " Hardware Version: " << versionString;
 										}
@@ -3763,242 +4010,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 						}
 #endif // GOVEE_GET_VERSION
-
-						if (bt_Handle_AuthNotify != 0)
-						{
-
-							// copying some crypto code from elsewhere https://stackoverflow.com/questions/6908785/openssl-libcrypto-aes-128-encoding-using-the-key
-							OSSL_PROVIDER* defaultp = OSSL_PROVIDER_load(NULL, "default");
-							OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
-							EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-							if (ctx != 0) // if either of these are 0, then we have a problem and can't do crypto
-							{
-								std::cout << "[" << getTimeISO8601(true) << "] " << "Initialized AES and RC4 contexts" << std::endl;
-								const uint8_t TX1[] = { 0xe7, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-								const uint8_t TX2[] = { 0xe7, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-								EVP_CIPHER_CTX_init(ctx);
-								uint8_t PSK[16]{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
-								if (1 == EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, PSK, NULL))
-								{
-									std::cout << "[" << getTimeISO8601(true) << "] " << "Initialized AES-128-ECB context" << std::endl;
-									GATT_ReadRequestPacket read_packet = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig };
-									if (ConsoleVerbosity > 1)
-									{
-										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_READ_REQ AUTH_CONFIG Handle: ";
-										std::cout << std::hex << std::setfill('0') << std::setw(4) << read_packet.handle;
-										std::cout << std::endl;
-									}
-									if (-1 != send(l2cap_socket, &read_packet, sizeof(read_packet), 0))
-									{
-										auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-										if (bufDataLen > 1)
-										{
-											if (buf[0] == BT_ATT_OP_READ_RSP)
-											{
-												// Success: <== BT_ATT_OP_READ_RSP 0201000002010000000000000000000000000000
-												if (ConsoleVerbosity > 1)
-												{
-													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_RSP ";
-													for (auto index = 1; index < bufDataLen; index++)
-														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
-													std::cout << std::endl;
-												}
-											}
-											else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
-											{
-												struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
-												if (ConsoleVerbosity > 1)
-												{
-													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
-													std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
-												}
-												if (data->handle == bt_Handle_AuthNotify)
-												{
-													std::cout << " Auth Value: ";
-													for (auto& iterator : data->value)
-														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-												}
-												else
-												{
-													if (ConsoleVerbosity > 1)
-													{
-														std::cout << " Value: ";
-														for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-															std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
-													}
-												}
-												if (ConsoleVerbosity > 1)
-													std::cout << std::endl;
-											}
-											else if (buf[0] == BT_ATT_OP_ERROR_RSP)
-											{
-												struct __attribute__((__packed__)) bt_error { uint8_t opcode; uint8_t req_opcode; uint16_t handle; uint8_t errcode; } *result = (bt_error*)&(buf[0]);
-												if (ConsoleVerbosity > 1)
-												{
-													// 01 0a 0000 04
-													std::cout << "[                   ] [                 ] <== BT_ATT_OP_ERROR_RSP";
-													std::cout << " Req Opcode: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(result->req_opcode);
-													std::cout << " Handle: " << std::hex << std::setw(4) << std::setfill('0') << result->handle;
-													std::cout << " Error: " << std::dec << unsigned(result->errcode);
-													std::cout << std::endl;
-													std::cout << "[                   ] [                 ] <== ";
-													for (auto index = 0; index < bufDataLen; index++)
-														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
-													std::cout << std::endl;
-												}
-											}
-											else if (ConsoleVerbosity > 1)
-											{
-												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== ";
-												for (auto index = 0; index < bufDataLen; index++)
-													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
-												std::cout << std::endl;
-											}
-
-										}
-										else if (bufDataLen == 1)
-										{
-											if (ConsoleVerbosity > 1)
-												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
-										}
-										else if (ConsoleVerbosity > 1)
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen < 0" << std::endl;
-
-									}
-
-									int outlen = 0;
-									GATT_WritePacket write_packet = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, 0x00 };
-									// According to what I understand from https://github.com/NHaag87/govee-api/blob/main/API_documentation/H5105_protocol.md
-									// I want to create a write packet that the first two bytes of the buffer are 0xe7, 0x01 and the remaining 14 bytes of the buffer are 0x00, 
-									// then encrypt the first 16 bytes of the buffer with AES-128-ECB using the hardcoded PSK, and then encrypt the last 4 bytes of the buffer with RC4 using the same PSK. 
-									// The resulting 20 byte buffer is what I write to the Govee device as TX1 on the AUTH_WRITE GATT handle to enable encryption for subsequent communication.
-									// I should then recieve data on the AUTH_NOTIFY GATT handle that I can decrypt with RC4 using the same PSK to confirm that encryption is enabled, and then
-									// I can encrypt my commands with AES-128-ECB and RC4 as described above and write them to the AUTH_WRITE GATT handle.
-									// the author refers to CCCDS. I had to look it up. 
-									// In Bluetooth Low Energy (BLE), the Client Characteristic Configuration Descriptor (CCCD) is a 2‑byte attribute that 
-									// controls whether a characteristic’s value is sent as a notification or indication to a client. Each bonded device 
-									// has its own CCCD value, and reads/writes only affect that client’s configuration
-									//uint8_t TX1[20];
-									//std::random_device rd; // Create a random device for seeding
-									//std::mt19937 gen(rd()); // Use Mersenne Twister engine
-									//std::uniform_int_distribution<int> dist(std::numeric_limits<uint8_t>::min(),std::numeric_limits<uint8_t>::max()); // Distribution for uint8_t range [0, 255]
-									//// Generate random uint8_t values
-									//for (auto &iterator : TX1)
-									//	iterator = static_cast<uint8_t>(dist(gen));
-									//TX1[0] = 0xe7;
-									//TX1[1] = 0x01;
-									if (1 == EVP_EncryptUpdate(ctx, write_packet.buf, &outlen, TX1, 16))
-									{
-										std::cout << "[" << getTimeISO8601(true) << "] " << "Encrypted first 16 bytes of buffer with AES-128-ECB" << std::endl;
-										// Buffer passed to EVP_EncryptFinal() must be after data just encrypted to avoid overwriting it.									 
-										int tmplen = 0;
-										if (1 == EVP_EncryptFinal_ex(ctx, write_packet.buf + outlen, &tmplen))
-										{
-											std::cout << "[" << getTimeISO8601(true) << "] " << "Finalized AES-128-ECB encryption" << std::endl;
-											outlen += tmplen; // I'm not using this, it'll be overwritten by the RC4 encryption, but I'm following the pattern.
-											// I don't need the AES context anymore, and I want to free it before I start using the RC4 context just in case there's some weird interaction between them.
-											EVP_CIPHER_CTX_reset(ctx);
-											if (1 == EVP_EncryptInit_ex(ctx, EVP_rc4(), NULL, PSK, NULL))
-											{
-												std::cout << "[" << getTimeISO8601(true) << "] " << "Initialized RC4 context" << std::endl;
-												if (1 == EVP_EncryptUpdate(ctx, write_packet.buf + 16, &outlen, TX1 + 16, 4))
-												{
-													std::cout << "[" << getTimeISO8601(true) << "] " << "Encrypted last 4 bytes of buffer with RC4" << std::endl;
-													if (1 == EVP_EncryptFinal_ex(ctx, write_packet.buf + 16 + outlen, &tmplen))
-													{
-														std::cout << "[" << getTimeISO8601(true) << "] " << "Finalized RC4 encryption" << std::endl;
-														outlen += tmplen;
-														// HACK: I'm going to write a set of data I captured using WireShark for TX1 to see if I get a response I can work with.
-														// 5c13b48a02a4a47ed30c5d84ead4d5c426622e3f
-														uint8_t hack_TX1[20]{ 0x5c, 0x13, 0xb4, 0x8a, 0x02, 0xa4, 0xa4, 0x7e, 0xd3, 0x0c, 0x5d, 0x84, 0xea, 0xd4, 0xd5, 0xc4, 0x26, 0x62, 0x2e, 0x3f };
-														for (auto index = 0; index < sizeof(write_packet.buf) / sizeof(write_packet.buf[0]); index++)
-															write_packet.buf[index] = hack_TX1[index];
-														if (ConsoleVerbosity > 1)
-														{
-															std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD AUTH_TX1 Handle: ";
-															std::cout << std::hex << std::setfill('0') << std::setw(4) << write_packet.handle << " Value: ";
-															for (auto& iterator : write_packet.buf)
-																std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-															std::cout << std::endl;
-														}
-														// BT_ATT_OP_WRITE_CMD AUTH_TX1 Handle: 0021 Value: a070ef269debe4dfeb8af6f7e67e83a6c6888d2a
-														if (-1 != send(l2cap_socket, &write_packet, sizeof(write_packet), 0))
-														{
-															bool bWaitingForSessionKeyResponse = true;
-															int RetryCount(4);
-															while (bWaitingForSessionKeyResponse && RetryCount > 0)
-															{
-																auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-																RetryCount--;
-																if (bufDataLen > 1)
-																{
-																	if (buf[0] == BT_ATT_OP_WRITE_RSP)
-																	{
-																		if (ConsoleVerbosity > 1)
-																			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
-																	}
-																	else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
-																	{
-																		bWaitingForSessionKeyResponse = false;
-																		struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
-																		if (ConsoleVerbosity > 1)
-																		{
-																			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
-																			std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
-																		}
-																		if (data->handle == bt_Handle_AuthNotify)
-																		{
-																			std::cout << " Auth Value: ";
-																			for (auto& iterator : data->value)
-																				std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-																			// This should be RX1 (notify on AUTH_NOTIFY): device's encrypted challenge response — used to derive session key
-																			// <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Auth Value: 652b972126ff8915aba63085c4cd5440114f40a9
-																		}
-																		else
-																		{
-																			if (ConsoleVerbosity > 1)
-																			{
-																				std::cout << " Value: ";
-																				for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-																					std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
-																			}
-																		}
-																		if (ConsoleVerbosity > 1)
-																			std::cout << std::endl;
-																	}
-																}
-																else if (bufDataLen == 1)
-																{
-																	if (ConsoleVerbosity > 1)
-																		std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
-																}
-																else
-																{
-																	if (ConsoleVerbosity > 1)
-																	{
-																		std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response (0 bytes)" << std::endl;
-																		std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
-																		std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
-																	}
-																	usleep(100000); // 1,000,000 = 1 second.
-																}
-															}
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-							else
-							{
-								std::cout << "[" << getTimeISO8601(true) << "] " << "Error initializing crypto context: " << (ctx != 0) << std::endl;
-							}
-							EVP_CIPHER_CTX_free(ctx); // automatically cleans and frees
-							OSSL_PROVIDER_unload(legacy);
-							OSSL_PROVIDER_unload(defaultp);
-						}
 
 						std::queue<GATT_WritePacket> WritePacketQueue;
 						GATT_WritePacket MyRequest({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0} });
@@ -4158,6 +4169,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						close(l2cap_socket);
 					}
 				}
+				OSSL_PROVIDER_unload(legacy);
+				OSSL_PROVIDER_unload(defaultp);
 			}
 		}
 		if (handle != 0)
