@@ -54,7 +54,9 @@
 //
 
 #include <algorithm>
+#include <array>
 #include <cerrno>       // errno
+#include <cassert>
 #include <cfloat>
 #include <climits>
 #include <cmath>
@@ -2635,6 +2637,7 @@ const char* addr_type_name(const int dst_type)
 #define ATT_CID 4
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } GATT_DeclarationPacket;
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_WritePacket;
+typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; } GATT_ReadRequestPacket;
 class BlueToothServiceCharacteristic { public: uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; bt_uuid_t theUUID; };
 class BlueToothService { public: bt_uuid_t theUUID; uint16_t starting_handle; uint16_t ending_handle; std::vector<BlueToothServiceCharacteristic> characteristics; };
 const int bt_TimeOut = 1000;
@@ -3079,6 +3082,130 @@ unsigned char BlueZ_HCI_GATT_EnableNotification(const bdaddr_t& GoveeBTAddress, 
 	}
 	return buf[0];
 }
+// ---------------------------------------------------------
+// RC4 (manual implementation matching Python version)
+// ---------------------------------------------------------
+std::vector<uint8_t> rc4(const std::vector<uint8_t>& key, const std::vector<uint8_t>& data)
+{
+	std::vector<uint8_t> S(256);
+	for (int i = 0; i < 256; i++) S[i] = i;
+
+	int j = 0;
+	for (int i = 0; i < 256; i++) {
+		j = (j + S[i] + key[i % key.size()]) & 0xFF;
+		std::swap(S[i], S[j]);
+	}
+
+	std::vector<uint8_t> out;
+	out.reserve(data.size());
+
+	int i = 0;
+	j = 0;
+	for (uint8_t byte : data) {
+		i = (i + 1) & 0xFF;
+		j = (j + S[i]) & 0xFF;
+		std::swap(S[i], S[j]);
+		uint8_t K = S[(S[i] + S[j]) & 0xFF];
+		out.push_back(byte ^ K);
+	}
+
+	return out;
+}
+
+// ---------------------------------------------------------
+// AES-ECB Encrypt/Decrypt using EVP
+// ---------------------------------------------------------
+std::array<uint8_t, 16> aes_ecb_encrypt(const uint8_t* key, const uint8_t* plaintext16)
+{
+	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+	std::array<uint8_t, 16> out{};
+	int outlen = 0;
+
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key, nullptr);
+	EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+	EVP_EncryptUpdate(ctx, out.data(), &outlen, plaintext16, 16);
+
+	EVP_CIPHER_CTX_free(ctx);
+	return out;
+}
+
+std::array<uint8_t, 16> aes_ecb_decrypt(const uint8_t* key, const uint8_t* ciphertext16)
+{
+	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+	std::array<uint8_t, 16> out{};
+	int outlen = 0;
+
+	EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key, nullptr);
+	EVP_CIPHER_CTX_set_padding(ctx, 0);
+
+	EVP_DecryptUpdate(ctx, out.data(), &outlen, ciphertext16, 16);
+
+	EVP_CIPHER_CTX_free(ctx);
+	return out;
+}
+
+// ---------------------------------------------------------
+// Derive session key (Python equivalent)
+// ---------------------------------------------------------
+std::array<uint8_t, 16> derive_session_key(const std::array<uint8_t, 20>& auth_rx1, const std::array<uint8_t, 16>& PSK)
+{
+	// AES decrypt first 16 bytes
+	auto aes_part = aes_ecb_decrypt(PSK.data(), auth_rx1.data());
+
+	// RC4 decrypt last 4 bytes
+	std::vector<uint8_t> key_vec(PSK.begin(), PSK.end());
+	std::vector<uint8_t> tail(auth_rx1.begin() + 16, auth_rx1.end());
+	auto rc4_part = rc4(key_vec, tail);
+
+	// Combine
+	uint8_t decrypted[20];
+	memcpy(decrypted, aes_part.data(), 16);
+	memcpy(decrypted + 16, rc4_part.data(), 4);
+
+	// Verify magic header
+	assert(decrypted[0] == 0xE7 && decrypted[1] == 0x01);
+
+	// Session key = bytes 2–17
+	std::array<uint8_t, 16> session_key;
+	memcpy(session_key.data(), decrypted + 2, 16);
+	return session_key;
+}
+
+// ---------------------------------------------------------
+// Encrypt 20-byte packet
+// ---------------------------------------------------------
+std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext, const std::array<uint8_t, 16>& session_key)
+{
+	auto aes_part = aes_ecb_encrypt(session_key.data(), plaintext.data());
+
+	std::vector<uint8_t> key_vec(session_key.begin(), session_key.end());
+	std::vector<uint8_t> tail(plaintext.begin() + 16, plaintext.end());
+	auto rc4_part = rc4(key_vec, tail);
+
+	std::array<uint8_t, 20> out{};
+	memcpy(out.data(), aes_part.data(), 16);
+	memcpy(out.data() + 16, rc4_part.data(), 4);
+	return out;
+}
+
+// ---------------------------------------------------------
+// Decrypt 20-byte packet
+// ---------------------------------------------------------
+std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext, const std::array<uint8_t, 16>& session_key)
+{
+	auto aes_part = aes_ecb_decrypt(session_key.data(), ciphertext.data());
+
+	std::vector<uint8_t> key_vec(session_key.begin(), session_key.end());
+	std::vector<uint8_t> tail(ciphertext.begin() + 16, ciphertext.end());
+	auto rc4_part = rc4(key_vec, tail);
+
+	std::array<uint8_t, 20> out{};
+	memcpy(out.data(), aes_part.data(), 16);
+	memcpy(out.data() + 16, rc4_part.data(), 4);
+	return out;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
@@ -3539,7 +3666,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 						}
 
-#define GOVEE_GET_VERSION
+//#define GOVEE_GET_VERSION
 #ifdef GOVEE_GET_VERSION
 						if ((ConsoleVerbosity > 3) && (bt_Handle_DeviceData != 0))
 						{
@@ -3654,13 +3781,11 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								if (1 == EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, PSK, NULL))
 								{
 									std::cout << "[" << getTimeISO8601(true) << "] " << "Initialized AES-128-ECB context" << std::endl;
-									GATT_WritePacket read_packet = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig, 0x00 };
+									GATT_ReadRequestPacket read_packet = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig };
 									if (ConsoleVerbosity > 1)
 									{
 										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_READ_REQ AUTH_CONFIG Handle: ";
-										std::cout << std::hex << std::setfill('0') << std::setw(4) << read_packet.handle << " Value: ";
-										for (auto& iterator : read_packet.buf)
-											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+										std::cout << std::hex << std::setfill('0') << std::setw(4) << read_packet.handle;
 										std::cout << std::endl;
 									}
 									if (-1 != send(l2cap_socket, &read_packet, sizeof(read_packet), 0))
@@ -3670,8 +3795,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										{
 											if (buf[0] == BT_ATT_OP_READ_RSP)
 											{
+												// Success: <== BT_ATT_OP_READ_RSP 0201000002010000000000000000000000000000
 												if (ConsoleVerbosity > 1)
-													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_RSP" << std::endl;
+												{
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_RSP ";
+													for (auto index = 1; index < bufDataLen; index++)
+														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+													std::cout << std::endl;
+												}
 											}
 											else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 											{
@@ -3777,7 +3908,11 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													{
 														std::cout << "[" << getTimeISO8601(true) << "] " << "Finalized RC4 encryption" << std::endl;
 														outlen += tmplen;
-
+														// HACK: I'm going to write a set of data I captured using WireShark for TX1 to see if I get a response I can work with.
+														// 5c13b48a02a4a47ed30c5d84ead4d5c426622e3f
+														uint8_t hack_TX1[20]{ 0x5c, 0x13, 0xb4, 0x8a, 0x02, 0xa4, 0xa4, 0x7e, 0xd3, 0x0c, 0x5d, 0x84, 0xea, 0xd4, 0xd5, 0xc4, 0x26, 0x62, 0x2e, 0x3f };
+														for (auto index = 0; index < sizeof(write_packet.buf) / sizeof(write_packet.buf[0]); index++)
+															write_packet.buf[index] = hack_TX1[index];
 														if (ConsoleVerbosity > 1)
 														{
 															std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD AUTH_TX1 Handle: ";
@@ -3816,6 +3951,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 																			std::cout << " Auth Value: ";
 																			for (auto& iterator : data->value)
 																				std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+																			// This should be RX1 (notify on AUTH_NOTIFY): device's encrypted challenge response — used to derive session key
+																			// <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Auth Value: 652b972126ff8915aba63085c4cd5440114f40a9
 																		}
 																		else
 																		{
