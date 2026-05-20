@@ -3177,15 +3177,22 @@ std::array<uint8_t, 16> derive_session_key(const std::array<uint8_t, 20>& auth_r
 // ---------------------------------------------------------
 std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext, const std::array<uint8_t, 16>& session_key)
 {
-	auto aes_part = aes_ecb_encrypt(session_key.data(), plaintext.data());
-
+	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, session_key.data(), nullptr);
+	EVP_CIPHER_CTX_set_padding(ctx, 0);
+	int outlen = 0;
+	std::array<uint8_t, 16> aes_part;
+	EVP_EncryptUpdate(ctx, aes_part.data(), &outlen, plaintext.data(), 16);
+	EVP_CIPHER_CTX_free(ctx);
 	std::vector<uint8_t> key_vec(session_key.begin(), session_key.end());
 	std::vector<uint8_t> tail(plaintext.begin() + 16, plaintext.end());
 	auto rc4_part = rc4(key_vec, tail);
 
-	std::array<uint8_t, 20> out{};
-	memcpy(out.data(), aes_part.data(), 16);
-	memcpy(out.data() + 16, rc4_part.data(), 4);
+	std::array<uint8_t, 20> out;
+	for (auto index = 0; index < 16; index++)
+		out[index] = aes_part[index];
+	for (auto index = 0; index < 4; index++)
+		out[16 + index] = rc4_part[index];
 	return out;
 }
 // ---------------------------------------------------------
@@ -3925,6 +3932,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
 											std::cout << " <== BT_ATT_OP_WRITE_RSP";
+											ExpectedResponseCount = 0;
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
@@ -3970,6 +3978,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
 											std::cout << " <== BT_ATT_OP_WRITE_RSP";
+											ExpectedResponseCount = 0;
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
