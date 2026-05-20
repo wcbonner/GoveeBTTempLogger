@@ -2636,7 +2636,7 @@ const char* addr_type_name(const int dst_type)
 }
 #define ATT_CID 4
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } GATT_DeclarationPacket;
-typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_WritePacket;
+typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_DataPacket;
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; } GATT_ReadRequestPacket;
 class BlueToothServiceCharacteristic { public: uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; bt_uuid_t theUUID; };
 class BlueToothService { public: bt_uuid_t theUUID; uint16_t starting_handle; uint16_t ending_handle; std::vector<BlueToothServiceCharacteristic> characteristics; };
@@ -3204,21 +3204,37 @@ std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext
 	memcpy(out.data() + 16, rc4_part.data(), 4);
 	return out;
 }
-void GATT_WritePacketChecksum(GATT_WritePacket& packet)
+void GATT_DataPacketChecksum(GATT_DataPacket& packet)
 {
 	// Create a checksum in the last byte by XOR each of the buffer bytes.
 	packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] = 0;
 	for (auto index = std::size_t(0); index < sizeof(packet.buf) / sizeof(packet.buf[0]) - 1; index++)
 		packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] ^= packet.buf[index];
 }
-void GATT_WritePacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_WritePacket& packet)
+void GATT_DataPacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_DataPacket& packet)
 {
-	std::array<uint8_t, 20> input_packet;
-	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-		input_packet[index] = packet.buf[index];
-	std::array<uint8_t, 20> output_packet = encrypt_packet(input_packet, session_key);
-	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-		packet.buf[index] = output_packet[index];
+	GATT_DataPacketChecksum(packet);
+	if (session_key[0] != 0)
+	{
+		std::array<uint8_t, 20> input_packet;
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			input_packet[index] = packet.buf[index];
+		std::array<uint8_t, 20> output_packet = encrypt_packet(input_packet, session_key);
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			packet.buf[index] = output_packet[index];
+	}
+}
+void GATT_DataPacketDecrypt(const std::array<uint8_t, 16>& session_key, GATT_DataPacket& packet)
+{
+	if (session_key[0] != 0)
+	{
+		std::array<uint8_t, 20> input_packet;
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			input_packet[index] = packet.buf[index];
+		std::array<uint8_t, 20> output_packet = decrypt_packet(input_packet, session_key);
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			packet.buf[index] = output_packet[index];
+	}
 }
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
@@ -3714,7 +3730,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 
 							int outlen = 0;
-							GATT_WritePacket write_packet = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, 0x00 };
+							GATT_DataPacket write_packet = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, 0x00 };
 							// According to what I understand from https://github.com/NHaag87/govee-api/blob/main/API_documentation/H5105_protocol.md
 							// I want to create a write packet that the first two bytes of the buffer are 0xe7, 0x01 and the remaining 14 bytes of the buffer are 0x00, 
 							// then encrypt the first 16 bytes of the buffer with AES-128-ECB using the hardcoded PSK, and then encrypt the last 4 bytes of the buffer with RC4 using the same PSK. 
@@ -3730,8 +3746,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
 							for (auto index = 0; index < sizeof(write_packet.buf) / sizeof(write_packet.buf[0]); index++)
 								write_packet.buf[index] = TX1[index];
-							GATT_WritePacketChecksum(write_packet);
-							GATT_WritePacketEncrypt(PreSharedKey, write_packet);
+							GATT_DataPacketEncrypt(PreSharedKey, write_packet);
 							if (ConsoleVerbosity > 1)
 							{
 								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD AUTH_TX1 Handle: ";
@@ -3813,8 +3828,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 
 							for (auto index = 0; index < sizeof(write_packet.buf) / sizeof(write_packet.buf[0]); index++)
 								write_packet.buf[index] = TX2[index];
-							GATT_WritePacketChecksum(write_packet);
-							GATT_WritePacketEncrypt(PreSharedKey, write_packet);
+							GATT_DataPacketChecksum(write_packet);
+							GATT_DataPacketEncrypt(PreSharedKey, write_packet);
 							if (ConsoleVerbosity > 1)
 							{
 								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD AUTH_TX2 Handle: ";
@@ -3887,18 +3902,12 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 						}
 
-#define GOVEE_GET_VERSION
-#ifdef GOVEE_GET_VERSION
-						if ((ConsoleVerbosity > 3) && (bt_Handle_DeviceData != 0))
+						if ((ConsoleVerbosity > 1) && (bt_Handle_DeviceData != 0))
 						{
 							// Request Firmware Version
-							GATT_WritePacket RequestVersionFW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0} });
-							RequestVersionFW.buf[0] = 0xaa;
-							RequestVersionFW.buf[1] = 0x0e;
-							GATT_WritePacketChecksum(RequestVersionFW);
-							if (SessionKey[0] != 0)
-								GATT_WritePacketEncrypt(SessionKey, RequestVersionFW);
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+							GATT_DataPacket RequestVersionFW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0e} });
+							GATT_DataPacketEncrypt(SessionKey, RequestVersionFW);
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ     Handle: ";
 							std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionFW.handle << " Value: ";
 							for (auto& iterator : RequestVersionFW.buf)
 								std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
@@ -3919,24 +3928,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
-											struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+											GATT_DataPacket *data = (GATT_DataPacket*)&(buf[0]);
 											std::cout << " <== BT_ATT_OP_HANDLE_VAL_NOT";
 											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 											std::cout << " Value: ";
-											for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
-
-											if (SessionKey[0] != 0)
-											{
-												std::array<uint8_t, 20> ciphertext;
-												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-													ciphertext[index] = data->value[index];
-												std::array<uint8_t, 20> decodedtext = decrypt_packet(ciphertext, SessionKey);
-												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-													data->value[index] = decodedtext[index];
-											}
-
-											std::string versionString = std::string((char*)data->value + 2, sizeof(data->value) / sizeof(data->value[0]) - 3);
+											for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
+											GATT_DataPacketDecrypt(SessionKey, *data);
+											std::string versionString = std::string((char*)data->buf + 2, sizeof(data->buf) / sizeof(data->buf[0]) - 3);
 											std::cout << " Firmware Version: " << versionString;
 										}
 										else
@@ -3951,13 +3950,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 
 							// Request Hardware Version
-							GATT_WritePacket RequestVersionHW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0} });
-							RequestVersionHW.buf[0] = 0xaa;
-							RequestVersionHW.buf[1] = 0x0d;
-							GATT_WritePacketChecksum(RequestVersionHW);
-							if (SessionKey[0] != 0)
-								GATT_WritePacketEncrypt(SessionKey, RequestVersionHW);
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+							GATT_DataPacket RequestVersionHW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0d} });
+							GATT_DataPacketEncrypt(SessionKey, RequestVersionHW);
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ     Handle: ";
 							std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionHW.handle << " Value: ";
 							for (auto& iterator : RequestVersionHW.buf)
 								std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
@@ -3978,24 +3973,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
-											struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+											GATT_DataPacket *data = (GATT_DataPacket*)&(buf[0]);
 											std::cout << " <== BT_ATT_OP_HANDLE_VAL_NOT";
 											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 											std::cout << " Value: ";
-											for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
-
-											if (SessionKey[0] != 0)
-											{
-												std::array<uint8_t, 20> ciphertext;
-												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-													ciphertext[index] = data->value[index];
-												std::array<uint8_t, 20> decodedtext = decrypt_packet(ciphertext, SessionKey);
-												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-													data->value[index] = decodedtext[index];
-											}
-
-											std::string versionString = std::string((char*)data->value + 2, sizeof(data->value) / sizeof(data->value[0]) - 3);
+											for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
+											GATT_DataPacketDecrypt(SessionKey, *data);
+											std::string versionString = std::string((char*)data->buf + 2, sizeof(data->buf) / sizeof(data->buf[0]) - 3);
 											std::cout << " Hardware Version: " << versionString;
 										}
 										else
@@ -4009,10 +3994,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								} while (bufDataLen > 0 && --ExpectedResponseCount > 0);
 							}
 						}
-#endif // GOVEE_GET_VERSION
 
-						std::queue<GATT_WritePacket> WritePacketQueue;
-						GATT_WritePacket MyRequest({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0} });
+						std::queue<GATT_DataPacket> WritePacketQueue;
+						GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0} });
 						MyRequest.buf[0] = uint8_t(0x33);
 						MyRequest.buf[1] = uint8_t(0x01);
 						time(&TimeDownloadStart);
@@ -4078,6 +4062,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
 									std::cout << std::endl;
 								}
+								GATT_DataPacketEncrypt(SessionKey, pkt); // if session key is zero this does nothing
 								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
 								{
 									buf[0] = BT_ATT_OP_ERROR_RSP;
@@ -4099,7 +4084,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									}
 									else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 									{
-										struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
+										GATT_DataPacket *data = (GATT_DataPacket*)&(buf[0]);
+										GATT_DataPacketDecrypt(SessionKey, *data); // if SessionKey is zero this does nothing
 										if (ConsoleVerbosity > 1)
 										{
 											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
@@ -4108,7 +4094,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										if (data->handle == bt_Handle_ReturnData)
 										{
 											NotificationCount++;
-											offset = uint16_t(data->value[0]) << 8 | uint16_t(data->value[1]);
+											offset = uint16_t(data->buf[0]) << 8 | uint16_t(data->buf[1]);
 											if (offset < 7)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
 												bDownloadInProgress = false;
 											else if (NotificationCount > 75)
@@ -4121,7 +4107,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 												std::cout << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
 											for (auto index = std::size_t(2); (index < (bufDataLen - sizeof(uint8_t) - sizeof(uint16_t))) && (offset > 0); index += 3)
 											{
-												int iTemp = int(data->value[index]) << 16 | int(data->value[index + 1]) << 8 | int(data->value[index + 2]);
+												int iTemp = int(data->buf[index]) << 16 | int(data->buf[index + 1]) << 8 | int(data->buf[index + 2]);
 												bool bNegative = iTemp & 0x800000;	// check sign bit
 												iTemp = iTemp & 0x7ffff;			// mask off sign bit
 												double Temperature = float(iTemp) / 10000.0;
@@ -4146,8 +4132,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											if (ConsoleVerbosity > 1)
 											{
 												std::cout << " Value: ";
-												for (auto index = std::size_t(0); index < sizeof(data->value) / sizeof(data->value[0]); index++)
-													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->value[index]);
+												for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
 											}
 										}
 										if (ConsoleVerbosity > 1)
