@@ -308,81 +308,82 @@ or search Google for [all three UUIDs](https://www.google.com/search?q=494e5445-
 Most of the devices hold 20 days of history. The GVH5177 devices hold a month of data. In my output below, the GVH5105 and GVH5179 devices have had their batteries replaced within the last month and I was not able to determine the historical data size.
 
 ```
-Download from device: [E3:5E:CC:21:5C:0F] 2025-02-10 20:53:00 2025-03-02 20:57:00 (28804) (GVH5074)
-Download from device: [E3:60:59:21:80:65] 2025-02-10 20:48:00 2025-03-02 20:50:00 (28802) (GVH5074)
+Download from device: [E3:5E:CC:21:5C:0F] 2026-05-01 00:42:00 2026-05-21 00:44:00 (28802) (GVH5074) HW:1.01.00
+Download from device: [E3:60:59:21:80:65] 2026-05-01 00:38:00 2026-05-21 00:43:00 (28805) (GVH5074) HW:1.01.04
 Download from device: [A4:C1:38:D5:A3:3B] 2025-02-10 20:55:00 2025-03-02 20:57:00 (28802) (GVH5074)
-Download from device: [A4:C1:38:05:C7:A1] 2025-02-10 21:03:00 2025-03-02 21:05:00 (28802) (GVH5074)
-Download from device: [E3:8E:C8:C1:98:9A] 2025-02-10 20:34:00 2025-03-02 20:39:00 (28805) (GVH5074)
-Download from device: [E3:60:59:23:14:7D] 2025-02-10 20:36:00 2025-03-02 20:40:00 (28804) (GVH5074)
-Download from device: [A4:C1:38:37:BC:AE] 2025-02-10 21:03:00 2025-03-02 21:06:00 (28803) (GVH5075)
-Download from device: [A4:C1:38:0D:42:7B] 2025-02-10 20:49:00 2025-03-02 20:49:00 (28800) (GVH5075)
-Download from device: [C2:35:33:30:25:50] 2025-02-10 20:55:00 2025-03-02 20:55:00 (28800) (GVH5100)
-Download from device: [C3:36:35:30:61:77] 2025-02-10 20:51:00 2025-03-02 20:51:00 (28800) (GVH5104)
-Download from device: [D0:35:33:33:44:03] 2025-02-19 16:13:00 2025-03-02 21:05:00 (16132) (GVH5105)
-Download from device: [A4:C1:38:DC:CC:3D] 2025-02-10 21:02:00 2025-03-02 21:06:00 (28804) (GVH5174)
-Download from device: [A4:C1:38:0D:3B:10] 2025-01-31 20:55:00 2025-03-02 20:56:00 (43201) (GVH5177)
-Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:51:00 2025-03-02 20:44:00 (21953) (GVH5179)
+Download from device: [A4:C1:38:05:C7:A1] 2026-05-01 00:54:00 2026-05-21 00:54:00 (28800) (GVH5074)
+Download from device: [E3:8E:C8:C1:98:9A] 2026-05-01 00:41:00 2026-05-21 00:41:00 (28800) (GVH5074) HW:1.01.04
+Download from device: [E3:60:59:23:14:7D] 2026-05-01 00:36:00 2026-05-21 00:38:00 (28802) (GVH5074) HW:1.01.04
+Download from device: [A4:C1:38:37:BC:AE] 2026-05-01 00:41:00 2026-05-21 00:42:00 (28801) (GVH5075)
+Download from device: [A4:C1:38:0D:42:7B] 2026-05-01 00:40:00 2026-05-21 00:43:00 (28803) (GVH5075)
+Download from device: [C2:35:33:30:25:50] 2026-05-01 00:39:00 2026-05-21 00:39:00 (28800) (GVH5100) FW:1.00.14 HW:3.01.01
+Download from device: [C3:36:35:30:61:77] 2026-05-01 00:05:00 2026-05-21 00:05:00 (28800) (GVH5104) FW:1.00.05 HW:3.01.01
+Download from device: [D0:35:33:33:44:03] 2026-05-05 09:40:00 2026-05-21 00:40:00 (22500) (GVH5105) FW:1.00.17 HW:3.01.00
+Download from device: [DD:42:03:06:4D:36] 2026-05-01 00:47:00 2026-05-21 00:47:00 (28800) (GVH5111) FW:1.00.11 HW:3.01.00
+Download from device: [A4:C1:38:DC:CC:3D] 2026-05-01 00:49:00 2026-05-21 00:49:00 (28800) (GVH5174)
+Download from device: [A4:C1:38:0D:3B:10] 2026-04-21 00:36:00 2026-05-21 00:41:00 (43205) (GVH5177)
+Download from device: [D3:21:C4:06:25:0D] 2026-05-01 00:58:00 2026-05-21 00:58:00 (28800) (GVH5179) FW:1.00.11 HW:3.01.02
+```
+## 2026-05-21 Encryption Details
+When I added the H5111 to my list of devices I ran into a problem where it wouldn't download historical data. Asking for help got me information that newer firmware on the H5105 uses encryption. I was able to get the H5105 to download data by using the same encryption method as the H5111. The H5105 and H5111 use a different key, but the same method of encryption. The key is derived from the bluetooth address of the device, and is different for each device. The key is derived from the bluetooth address by taking the last 6 bytes of the address, reversing them, and then using them as the key for AES-128 encryption in ECB mode.
+
+**00010203-0405-0607-0809-0a0b0c0d1910** is the custom 128 bit UUID that the Govee thermometers seem to use for their encryption service.
+If this service exists, the first thing that happens using connected protocols is to negotiate a session key from the pre shared key.
+The 16-byte pre shared key: **MakingLifeSmarte** `PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }`
+
+There are three characteristics under the encryption service. The first is used to write the session key negotiation request, the second is used to read the session key negotiation response, and the third is used to write encrypted data and read encrypted responses.
+
+**00010203-0405-0607-0809-0a0b0c0d2b10**
+
+**00010203-0405-0607-0809-0a0b0c0d2b11**
+
+**00010203-0405-0607-0809-0a0b0c0d2b12**
+
+All data packets written to the device are 20 bytes long with a checksum in the last byte. 
+The first two bytes are the command to the device.
+The current steps to negotiate encryption follow. The Values are shown unencrypted and without checksums. 
+TX1 is sent after creating a checksum and encrypting with the presharedkey.
+```
+==> BT_ATT_OP_READ_REQ Handle: 0025 (AUTH_CONFIG)
+<== BT_ATT_OP_READ_RSP 0201000002010000000000000000000000000000
+==> BT_ATT_OP_WRITE_CMD      Handle: 0021 Value: e701000000000000000000000000000000000000 (TX1)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Value: e90a9018c1214627f283a0956027fa665ef440a9 (SessionKey: 8d2514a073136a3eb9e120bc5f8f361a)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0021 Value: e702000000000000000000000000000000000000 (TX2)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Value: 9066b902c068ba6541ee1542efc9b3793ad355e7
 ```
 
 ```
-[2025-02-18T09:17:35] 46 [C2:35:33:30:25:50] (Flags) 06 (Name) GVH5100_2550 (UUID) ec88 (Manu) 0001:010102B1903D (Temp) 17.7°C (Humidity)  52.8% (Battery)  61% (GVH5100)
-[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
-[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
-[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
-[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
-[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
-[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
-[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
-[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
-[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
-[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
-[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
-[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
-[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
-[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
-[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
-[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
-[2025-02-18T09:18:45] [C2:35:33:30:25:50] Download from device: [C2:35:33:30:25:50] 2025-01-29 09:17:00 2025-02-18 09:17:00 (28800) (GVH5100)
+[2026-05-21T00:38:39] 26 [E3:60:59:23:14:7D] (Temp) 17.4°C (Humidity)  71.9% (Battery) 100% (GVH5074)
+[-------------------] Service Handles: 0x0001..0x0005 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x02 UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
+[-------------------] Service Handles: 0x0006..0x0009 UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x0007..0x0008 Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000a..0x0016 UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x02 UUID: 2a29 (Manufacturer Name String)
+[                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a24 (Model Number String)
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x02 UUID: 2a26 (Firmware Revision String)
+[                   ] Characteristic Handles: 0x0011..0x0012 Properties: 0x02 UUID: 2a28 (Software Revision String)
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x02 UUID: 2a23 (System ID)
+[                   ] Characteristic Handles: 0x0015..0x0016 Properties: 0x02 UUID: 2a50 (PnP ID)
+[-------------------] Service Handles: 0x0017..0x002a UUID: fef5 (Dialog Semiconductor GmbH)
+[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x0a UUID: 8082caa8-41a6-4021-91c6-56f9b954cc34
+[                   ] Characteristic Handles: 0x001a..0x001b Properties: 0x0a UUID: 724249f0-5ec3-4b5f-8804-42345af08651
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 6c53db25-47a1-45fe-a022-7c92fb334fd4
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x0a UUID: 9d84b9a3-000c-49d8-9183-855b673fda31
+[                   ] Characteristic Handles: 0x0020..0x0021 Properties: 0x0e UUID: 457871e8-d516-4ca1-9116-57d0b17b9cb2
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x12 UUID: 5f78df94-798c-46f5-990a-b3eb6a065c88
+[                   ] Characteristic Handles: 0x0025..0x0026 Properties: 0x02 UUID: 64b4e8b5-0de5-401b-a21d-acc8db3b913a
+[                   ] Characteristic Handles: 0x0027..0x0028 Properties: 0x02 UUID: 42c3dfdd-77be-4d9c-8454-8f875267fb3b
+[                   ] Characteristic Handles: 0x0029..0x002a Properties: 0x02 UUID: b7de1eea-823d-43bb-a3af-c4903dfce23c
+[-------------------] Service Handles: 0x002b..0x003b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x002c..0x002d Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0030..0x0031 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[                   ] Characteristic Handles: 0x0034..0x0035 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0038..0x0039 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2014
+[2026-05-21T00:39:13] Download from device: [E3:60:59:23:14:7D] 2026-05-01 00:36:00 2026-05-21 00:38:00 (28802) (GVH5074) HW:1.01.04
 
-[2024-02-04T04:00:25] 46 [D0:35:33:33:44:03] (Flags) 06 (Name) GVH5105_4403 (UUID) 88EC (Manu) 0100010102868262 (Temp) 16.5506°C (Humidity) 50.6% (Battery) 98% (GVH5105)
-[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
-[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
-[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
-[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
-[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
-[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
-[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
-[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
-[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
-[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
-[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
-[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
-[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
-[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
-[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
-[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
-[2024-02-04T04:01:31] [D0:35:33:33:44:03] Download from device. 2024-01-14 20:00:00 2024-02-03 20:00:00 (28800)
-
-[2025-02-18T09:28:42] 45 [D3:21:C4:06:25:0D] (Flags) 06 (Name) GV5179_250D (UUID) ec88 (Manu) 0001:010102A1F064 (Temp) 17.3°C (Humidity)  52.8% (Battery) 100% (GVH5179)
-[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
-[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
-[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
-[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
-[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
-[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
-[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
-[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
-[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
-[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
-[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
-[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
-[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
-[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
-[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
-[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
-[2025-02-18T09:28:58] [D3:21:C4:06:25:0D] Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:47:00 2025-02-18 09:28:00 (4001) (GVH5179)
-
-[2025-02-18T09:52:43] 46 [A4:C1:38:0D:42:7B] (Name) GVH5075_427B (UUID) ec88 (Flags) 05 (Manu) EC88:0002542F5100 (Temp) 15.2°C (Humidity)  62.3% (Battery)  81% (GVH5075)
+[2026-05-21T00:42:02] 46 [A4:C1:38:37:BC:AE] (Temp) 19.8°C (Humidity)  45.5% (Battery)  16% (GVH5075)
 [-------------------] Service Handles: 0x0001..0x0007 UUID: 1800 (Generic Access)
 [                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x12 UUID: 2a00 (Device Name)
 [                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
@@ -397,7 +398,144 @@ Download from device: [D3:21:C4:06:25:0D] 2025-02-15 14:51:00 2025-03-02 20:44:0
 [                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
 [-------------------] Service Handles: 0x001c..0x001f UUID: 00010203-0405-0607-0809-0a0b0c0d1912
 [                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
-[2025-02-18T09:53:10] [A4:C1:38:0D:42:7B] Download from device: [A4:C1:38:0D:42:7B] 2025-01-29 09:51:00 2025-02-18 09:52:00 (28801) (GVH5075)
+[2026-05-21T00:42:42] Download from device: [A4:C1:38:37:BC:AE] 2026-05-01 00:41:00 2026-05-21 00:42:00 (28801) (GVH5075)
+
+[2026-05-21T00:39:13] 46 [C2:35:33:30:25:50] (Temp) 16.5°C (Humidity)  54.5% (Battery)  73% (GVH5100)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2026-05-21T00:40:21] Download from device: [C2:35:33:30:25:50] 2026-05-01 00:39:00 2026-05-21 00:39:00 (28800) (GVH5100) FW:1.00.14 HW:3.01.01
+
+[2026-05-21T00:38:00] 46 [C3:36:35:30:61:77] (Temp) 17.1°C (Humidity)  53.3% (Battery)  78% (GVH5104)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2026-05-21T00:38:39] Download from device: [C3:36:35:30:61:77] 2026-05-01 00:38:00 2026-05-21 00:38:00 (28800) (GVH5104) FW:1.00.05 HW:3.01.01
+
+[2026-05-21T00:40:21] 46 [D0:35:33:33:44:03] (Temp) 17.1°C (Humidity)  50.6% (Battery)  97% (GVH5105)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1e UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1e UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0027 UUID: 00010203-0405-0607-0809-0a0b0c0d1910
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x12 UUID: 00010203-0405-0607-0809-0a0b0c0d2b10
+[                   ] Characteristic Handles: 0x0020..0x0021 Properties: 0x1e UUID: 00010203-0405-0607-0809-0a0b0c0d2b11
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0e UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[-------------------] Service Handles: 0x0028..0x0032 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x0029..0x002a Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x002b..0x002c Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x002f..0x0030 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0031..0x0032 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2026-05-21T00:40:54] Download from device: [D0:35:33:33:44:03] 2026-05-05 09:40:00 2026-05-21 00:40:00 (22500) (GVH5105) FW:1.00.17 HW:3.01.00
+
+[2026-05-21T00:46:53] 46 [DD:42:03:06:4D:36] (Temp) 16.5°C (Battery)  94% (GVH5111)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1e UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1e UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0027 UUID: 00010203-0405-0607-0809-0a0b0c0d1910
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x12 UUID: 00010203-0405-0607-0809-0a0b0c0d2b10
+[                   ] Characteristic Handles: 0x0020..0x0021 Properties: 0x1e UUID: 00010203-0405-0607-0809-0a0b0c0d2b11
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0e UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[-------------------] Service Handles: 0x0028..0x0032 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x0029..0x002a Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x002b..0x002c Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x002f..0x0030 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0031..0x0032 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2026-05-21T00:47:40] Download from device: [DD:42:03:06:4D:36] 2026-05-01 00:47:00 2026-05-21 00:47:00 (28800) (GVH5111) FW:1.00.11 HW:3.01.00
+
+[2026-05-21T00:48:26] 46 [A4:C1:38:DC:CC:3D] (Temp) 16.7°C (Humidity)  56.6% (Battery)  81% (GVH5174)
+[-------------------] Service Handles: 0x0001..0x0007 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x12 UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[-------------------] Service Handles: 0x0008..0x000b UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x0009..0x000a Properties: 0x20 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000c..0x000e UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a50 (PnP ID)
+[-------------------] Service Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001c..0x001f UUID: 00010203-0405-0607-0809-0a0b0c0d1912
+[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[2026-05-21T00:49:24] Download from device: [A4:C1:38:DC:CC:3D] 2026-05-01 00:49:00 2026-05-21 00:49:00 (28800) (GVH5174)
+
+[2026-05-21T00:40:55] 46 [A4:C1:38:0D:3B:10] (Temp) 15.6°C (Humidity)  55.6% (Battery)   2% (GVH5177)
+[-------------------] Service Handles: 0x0001..0x0007 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x12 UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[-------------------] Service Handles: 0x0008..0x000b UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x0009..0x000a Properties: 0x20 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000c..0x000e UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a50 (PnP ID)
+[-------------------] Service Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001c..0x001f UUID: 00010203-0405-0607-0809-0a0b0c0d1912
+[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[2026-05-21T00:41:24] Download from device: [A4:C1:38:0D:3B:10] 2026-04-21 00:36:00 2026-05-21 00:41:00 (43205) (GVH5177)
+
+[2026-05-21T00:58:09] 45 [D3:21:C4:06:25:0D] (Temp) 17.1°C (Humidity)  48.3% (Battery)  47% (GVH5179)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x001e..0x001f Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x0022..0x0023 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[2026-05-21T00:58:39] Download from device: [D3:21:C4:06:25:0D] 2026-05-01 00:58:00 2026-05-21 00:58:00 (28800) (GVH5179) FW:1.00.11 HW:3.01.02
 ```
 
 ## BTData directory contains Data Dumps

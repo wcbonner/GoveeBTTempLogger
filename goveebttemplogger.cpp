@@ -3106,88 +3106,68 @@ std::vector<uint8_t> rc4(const std::vector<uint8_t>& key, const std::vector<uint
 	EVP_CIPHER_CTX_free(ctx);
 	return out;
 }
-std::array<uint8_t, 16> derive_session_key(const std::array<uint8_t, 20>& auth_rx1, const std::array<uint8_t, 16>& PSK)
-{
-	// AES decrypt first 16 bytes
-	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-	EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, PSK.data(), nullptr);
-	EVP_CIPHER_CTX_set_padding(ctx, 0);
-	int outlen = 0;
-	std::array<uint8_t, 16> aes_part;
-	EVP_DecryptUpdate(ctx, aes_part.data(), &outlen, auth_rx1.data(), 16);
-	EVP_CIPHER_CTX_free(ctx);
-
-	// RC4 decrypt last 4 bytes
-	std::vector<uint8_t> key_vec(PSK.begin(), PSK.end());
-	std::vector<uint8_t> tail(auth_rx1.begin() + 16, auth_rx1.end());
-
-	auto rc4_part = rc4(key_vec, tail);
-
-	// Combine
-	uint8_t decrypted[20];
-	for (auto index = 0; index < 16; index++)
-		decrypted[index] = aes_part[index];
-	for (auto index = 0; index < 4; index++)
-		decrypted[16 + index] = rc4_part[index];
-
-	// Verify magic header
-	assert(decrypted[0] == 0xE7 && decrypted[1] == 0x01);
-
-	// Session key = bytes 2–17
-	std::array<uint8_t, 16> session_key;
-	for (auto index = 0; index < 16; index++)
-		session_key[index] = decrypted[2 + index];
-	return session_key;
-}
 // ---------------------------------------------------------
 // AES-ECB Encrypt/Decrypt using EVP
 // Encrypt 20-byte packet
 // ---------------------------------------------------------
-std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext, const std::array<uint8_t, 16>& session_key)
+std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext, const std::array<uint8_t, 16>& key)
 {
 	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-	EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, session_key.data(), nullptr);
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr);
 	EVP_CIPHER_CTX_set_padding(ctx, 0);
 	int outlen = 0;
 	std::array<uint8_t, 16> aes_part;
 	EVP_EncryptUpdate(ctx, aes_part.data(), &outlen, plaintext.data(), 16);
 	EVP_CIPHER_CTX_free(ctx);
 
-	std::vector<uint8_t> key_vec(session_key.begin(), session_key.end());
+	std::vector<uint8_t> key_vec(key.begin(), key.end());
 	std::vector<uint8_t> tail(plaintext.begin() + 16, plaintext.end());
 	auto rc4_part = rc4(key_vec, tail);
 
-	std::array<uint8_t, 20> out;
+	std::array<uint8_t, 20> ciphertext;
 	for (auto index = 0; index < 16; index++)
-		out[index] = aes_part[index];
+		ciphertext[index] = aes_part[index];
 	for (auto index = 0; index < 4; index++)
-		out[16 + index] = rc4_part[index];
-	return out;
+		ciphertext[16 + index] = rc4_part[index];
+	return ciphertext;
 }
 // ---------------------------------------------------------
 // AES-ECB Encrypt/Decrypt using EVP
 // Decrypt 20-byte packet
 // ---------------------------------------------------------
-std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext, const std::array<uint8_t, 16>& session_key)
+std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext, const std::array<uint8_t, 16>& key)
 {
 	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
 	std::array<uint8_t, 16> aes_part;
-	EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, session_key.data(), nullptr);
+	EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr);
 	EVP_CIPHER_CTX_set_padding(ctx, 0);
 	int outlen = 0;
 	EVP_DecryptUpdate(ctx, aes_part.data(), &outlen, ciphertext.data(), 16);
 	EVP_CIPHER_CTX_free(ctx);
 
-	std::vector<uint8_t> key_vec(session_key.begin(), session_key.end());
+	std::vector<uint8_t> key_vec(key.begin(), key.end());
 	std::vector<uint8_t> tail(ciphertext.begin() + 16, ciphertext.end());
 	auto rc4_part = rc4(key_vec, tail);
 
-	std::array<uint8_t, 20> out{};
+	std::array<uint8_t, 20> plaintext;
 	for (auto index = 0; index < 16; index++)
-		out[index] = aes_part[index];
+		plaintext[index] = aes_part[index];
 	for (auto index = 0; index < 4; index++)
-		out[16 + index] = rc4_part[index];
-	return out;
+		plaintext[16 + index] = rc4_part[index];
+	return plaintext;
+}
+std::array<uint8_t, 16> derive_session_key(const std::array<uint8_t, 20>& ciphertext, const std::array<uint8_t, 16>& key)
+{
+	auto plaintext = decrypt_packet(ciphertext, key);
+
+	// Verify magic header
+	assert(plaintext[0] == 0xE7 && plaintext[1] == 0x01);
+
+	// Session key = bytes 2–17
+	std::array<uint8_t, 16> session_key;
+	for (auto index = 0; index < 16; index++)
+		session_key[index] = plaintext[2 + index];
+	return session_key;
 }
 void GATT_DataPacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_DataPacket& packet)
 {
@@ -4059,7 +4039,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
 									std::cout << std::endl;
 								}
-								GATT_DataPacketEncrypt(SessionKey, pkt); // if session key is zero this does nothing
+								GATT_DataPacketEncrypt(SessionKey, pkt); // This always creates a checksum in the last byte of the data, it only encrypts the data if the session key is set
 								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
 								{
 									buf[0] = BT_ATT_OP_ERROR_RSP;
@@ -4097,7 +4077,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											else if (NotificationCount > 75)
 											{
 												// Keep-Alive command
-												WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0xaa,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xab} });
+												WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0xaa, 0x01} });
 												NotificationCount = 0;
 											}
 											if (ConsoleVerbosity > 1)
