@@ -3227,6 +3227,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
 	const auto ConnectedThermometerType = GoveeThermometers.find(GoveeBTAddress)->second;
+	std::string DeviceFirmwareVersion;
+	std::string DeviceHardwareVersion;
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
 	socklen_t olen = sizeof(original_filter);
@@ -3623,7 +3625,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 						}
 
-
 						if (bt_Handle_AuthNotify != 0)
 						{
 							GATT_ReadRequestPacket read_packet = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig };
@@ -3710,8 +3711,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen < 0" << std::endl;
 							}
 
-							int outlen = 0;
-							GATT_DataPacket TX1 = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, {0xe7, 0x01} };
 							// According to what I understand from https://github.com/NHaag87/govee-api/blob/main/API_documentation/H5105_protocol.md
 							// I want to create a write packet that the first two bytes of the buffer are 0xe7, 0x01 and the remaining 14 bytes of the buffer are 0x00, 
 							// then encrypt the first 16 bytes of the buffer with AES-128-ECB using the hardcoded PSK, and then encrypt the last 4 bytes of the buffer with RC4 using the same PSK. 
@@ -3722,6 +3721,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							// In Bluetooth Low Energy (BLE), the Client Characteristic Configuration Descriptor (CCCD) is a 2‑byte attribute that 
 							// controls whether a characteristic’s value is sent as a notification or indication to a client. Each bonded device 
 							// has its own CCCD value, and reads/writes only affect that client’s configuration
+							GATT_DataPacket TX1 = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, {0xe7, 0x01} };
 							if (ConsoleVerbosity > 1)
 							{
 								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD      Handle: ";
@@ -3883,15 +3883,18 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							}
 						}
 
-						if ((ConsoleVerbosity > 1) && (bt_Handle_DeviceData != 0))
+						if (bt_Handle_DeviceData != 0)
 						{
 							// Request Firmware Version
 							GATT_DataPacket RequestVersionFW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0e} });
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ      Handle: ";
-							std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionFW.handle << " Value: ";
-							for (auto& iterator : RequestVersionFW.buf)
-								std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-							std::cout << " (Firmware Request)" << std::endl;
+							if (ConsoleVerbosity > 1)
+							{
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ      Handle: ";
+								std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionFW.handle << " Value: ";
+								for (auto& iterator : RequestVersionFW.buf)
+									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+								std::cout << " (Firmware Request)" << std::endl;
+							}
 							GATT_DataPacketEncrypt(SessionKey, RequestVersionFW);
 							if (-1 != send(l2cap_socket, &RequestVersionFW, sizeof(RequestVersionFW), 0))
 							{
@@ -3900,25 +3903,30 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								do
 								{
 									bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]";
+									if (ConsoleVerbosity > 1)
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]";
 									if (bufDataLen > 0)
 									{
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
-											std::cout << " <== BT_ATT_OP_WRITE_RSP";
+											if (ConsoleVerbosity > 1)
+												std::cout << " <== BT_ATT_OP_WRITE_RSP";
 											ExpectedResponseCount = 0;
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
 											GATT_DataPacket *data = (GATT_DataPacket*)&(buf[0]);
 											GATT_DataPacketDecrypt(SessionKey, *data);
-											std::cout << " <== BT_ATT_OP_HANDLE_VAL_NOT";
-											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
-											std::cout << " Value: ";
-											for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
-											std::string versionString = std::string((char*)data->buf + 2, sizeof(data->buf) / sizeof(data->buf[0]) - 3);
-											std::cout << " (Firmware: " << versionString << ")";
+											DeviceFirmwareVersion = std::string((char*)data->buf + 2, sizeof(data->buf) / sizeof(data->buf[0]) - 3);
+											if (ConsoleVerbosity > 1)
+											{
+												std::cout << " <== BT_ATT_OP_HANDLE_VAL_NOT";
+												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+												std::cout << " Value: ";
+												for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);												
+												std::cout << " (Firmware: " << DeviceFirmwareVersion << ")";
+											}
 										}
 										else
 										{
@@ -3927,17 +3935,21 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
 										}
 									}
-									std::cout << std::endl;
+									if (ConsoleVerbosity > 1)
+										std::cout << std::endl;
 								} while (bufDataLen > 0 && --ExpectedResponseCount > 0);
 							}
 
 							// Request Hardware Version
 							GATT_DataPacket RequestVersionHW({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0d} });
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ      Handle: ";
-							std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionHW.handle << " Value: ";
-							for (auto& iterator : RequestVersionHW.buf)
-								std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-							std::cout << " (Hardware Request)" << std::endl;
+							if (ConsoleVerbosity > 1)
+							{
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ      Handle: ";
+								std::cout << std::hex << std::setfill('0') << std::setw(4) << RequestVersionHW.handle << " Value: ";
+								for (auto& iterator : RequestVersionHW.buf)
+									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+								std::cout << " (Hardware Request)" << std::endl;
+							}
 							GATT_DataPacketEncrypt(SessionKey, RequestVersionHW);
 							if (-1 != send(l2cap_socket, &RequestVersionHW, sizeof(RequestVersionHW), 0))
 							{
@@ -3946,34 +3958,40 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								do
 								{
 									bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
-									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]";
+									if (ConsoleVerbosity > 1)
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]";
 									if (bufDataLen > 0)
 									{
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
-											std::cout << " <== BT_ATT_OP_WRITE_RSP";
+											if (ConsoleVerbosity > 1)
+												std::cout << " <== BT_ATT_OP_WRITE_RSP";
 											ExpectedResponseCount = 0;
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
 											GATT_DataPacket *data = (GATT_DataPacket*)&(buf[0]);
 											GATT_DataPacketDecrypt(SessionKey, *data);
-											std::cout << " <== BT_ATT_OP_HANDLE_VAL_NOT";
-											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
-											std::cout << " Value: ";
-											for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
-											std::string versionString = std::string((char*)data->buf + 2, sizeof(data->buf) / sizeof(data->buf[0]) - 3);
-											std::cout << " (Hardware: " << versionString << ")";
+											DeviceHardwareVersion = std::string((char*)data->buf + 2, sizeof(data->buf) / sizeof(data->buf[0]) - 3);
+											if (ConsoleVerbosity > 1)
+											{
+												std::cout << " <== BT_ATT_OP_HANDLE_VAL_NOT";
+												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+												std::cout << " Value: ";
+												for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
+												std::cout << " (Hardware: " << DeviceHardwareVersion << ")";
+											}
 										}
-										else
+										else if (ConsoleVerbosity > 1)
 										{
 											std::cout << " ";
 											for (auto index = std::size_t(0); index < bufDataLen; index++)
 												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
 										}
 									}
-									std::cout << std::endl;
+									if (ConsoleVerbosity > 1)
+										std::cout << std::endl;
 								} while (bufDataLen > 0 && --ExpectedResponseCount > 0);
 							}
 						}
@@ -4173,6 +4191,10 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 		auto downloadtype = GoveeThermometers.find(GoveeBTAddress);
 		if (downloadtype != GoveeThermometers.end())
 			ssOutput << " " << ThermometerType2String(downloadtype->second);
+		if (!DeviceFirmwareVersion.empty())
+			ssOutput << " FW:" << DeviceFirmwareVersion;
+		if (!DeviceHardwareVersion.empty())
+			ssOutput << " HW:" << DeviceHardwareVersion;
 		if (ConsoleVerbosity > 0)
 			std::cout << ssOutput.str() << std::endl;
 		else
