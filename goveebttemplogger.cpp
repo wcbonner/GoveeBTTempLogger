@@ -3082,39 +3082,30 @@ unsigned char BlueZ_HCI_GATT_EnableNotification(const bdaddr_t& GoveeBTAddress, 
 	}
 	return buf[0];
 }
-// ---------------------------------------------------------
-// RC4 (manual implementation matching Python version)
-// ---------------------------------------------------------
+/////////////////////////////////////////////////////////////////////////////
 std::vector<uint8_t> rc4(const std::vector<uint8_t>& key, const std::vector<uint8_t>& data)
 {
-	std::vector<uint8_t> S(256);
-	for (int i = 0; i < 256; i++) S[i] = i;
-
-	int j = 0;
-	for (int i = 0; i < 256; i++) {
-		j = (j + S[i] + key[i % key.size()]) & 0xFF;
-		std::swap(S[i], S[j]);
+	std::vector<uint8_t> out(data.size());
+	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+	if (!ctx) throw std::runtime_error("EVP_CIPHER_CTX_new failed");
+	// Initialize RC4 with key
+	if (EVP_EncryptInit_ex(ctx, EVP_rc4(), nullptr, key.data(), nullptr) != 1) {
+		EVP_CIPHER_CTX_free(ctx);
+		throw std::runtime_error("EVP_EncryptInit_ex failed");
 	}
-
-	std::vector<uint8_t> out;
-	out.reserve(data.size());
-
-	int i = 0;
-	j = 0;
-	for (uint8_t byte : data) {
-		i = (i + 1) & 0xFF;
-		j = (j + S[i]) & 0xFF;
-		std::swap(S[i], S[j]);
-		uint8_t K = S[(S[i] + S[j]) & 0xFF];
-		out.push_back(byte ^ K);
+	int out_len1 = 0;
+	if (EVP_EncryptUpdate(ctx, out.data(), &out_len1, data.data(), data.size()) != 1) {
+		EVP_CIPHER_CTX_free(ctx);
+		throw std::runtime_error("EVP_EncryptUpdate failed");
 	}
-
+	int out_len2 = 0;
+	if (EVP_EncryptFinal_ex(ctx, out.data() + out_len1, &out_len2) != 1) {
+		EVP_CIPHER_CTX_free(ctx);
+		throw std::runtime_error("EVP_EncryptFinal_ex failed");
+	}
+	EVP_CIPHER_CTX_free(ctx);
 	return out;
 }
-
-// ---------------------------------------------------------
-// Derive session key
-// ---------------------------------------------------------
 std::array<uint8_t, 16> derive_session_key(const std::array<uint8_t, 20>& auth_rx1, const std::array<uint8_t, 16>& PSK)
 {
 	// AES decrypt first 16 bytes
@@ -3129,22 +3120,25 @@ std::array<uint8_t, 16> derive_session_key(const std::array<uint8_t, 20>& auth_r
 	// RC4 decrypt last 4 bytes
 	std::vector<uint8_t> key_vec(PSK.begin(), PSK.end());
 	std::vector<uint8_t> tail(auth_rx1.begin() + 16, auth_rx1.end());
+
 	auto rc4_part = rc4(key_vec, tail);
 
 	// Combine
 	uint8_t decrypted[20];
-	memcpy(decrypted, aes_part.data(), 16);
-	memcpy(decrypted + 16, rc4_part.data(), 4);
+	for (auto index = 0; index < 16; index++)
+		decrypted[index] = aes_part[index];
+	for (auto index = 0; index < 4; index++)
+		decrypted[16 + index] = rc4_part[index];
 
 	// Verify magic header
 	assert(decrypted[0] == 0xE7 && decrypted[1] == 0x01);
 
 	// Session key = bytes 2–17
 	std::array<uint8_t, 16> session_key;
-	memcpy(session_key.data(), decrypted + 2, 16);
+	for (auto index = 0; index < 16; index++)
+		session_key[index] = decrypted[2 + index];
 	return session_key;
 }
-
 // ---------------------------------------------------------
 // AES-ECB Encrypt/Decrypt using EVP
 // Encrypt 20-byte packet
