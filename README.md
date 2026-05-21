@@ -327,30 +327,69 @@ Download from device: [D3:21:C4:06:25:0D] 2026-05-01 00:58:00 2026-05-21 00:58:0
 ## 2026-05-21 Encryption Details
 When I added the H5111 to my list of devices I ran into a problem where it wouldn't download historical data. Asking for help got me information that newer firmware on the H5105 uses encryption. I was able to get the H5105 to download data by using the same encryption method as the H5111. The H5105 and H5111 use a different key, but the same method of encryption. The key is derived from the bluetooth address of the device, and is different for each device. The key is derived from the bluetooth address by taking the last 6 bytes of the address, reversing them, and then using them as the key for AES-128 encryption in ECB mode.
 
-**00010203-0405-0607-0809-0a0b0c0d1910** is the custom 128 bit UUID that the Govee thermometers seem to use for their encryption service.
+**00010203-0405-0607-0809-0a0b0c0d1910** is the custom 128 bit UUID that the Govee thermometers seem to use for their encryption service. Govee App Authentication Service.
 If this service exists, the first thing that happens using connected protocols is to negotiate a session key from the pre shared key.
 The 16-byte pre shared key: **MakingLifeSmarte** `PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }`
 
 There are three characteristics under the encryption service. The first is used to write the session key negotiation request, the second is used to read the session key negotiation response, and the third is used to write encrypted data and read encrypted responses.
 
-**00010203-0405-0607-0809-0a0b0c0d2b10**
+**00010203-0405-0607-0809-0a0b0c0d2b10** DEVICE 
 
-**00010203-0405-0607-0809-0a0b0c0d2b11**
+**00010203-0405-0607-0809-0a0b0c0d2b11** COMMAND
 
-**00010203-0405-0607-0809-0a0b0c0d2b12**
+**00010203-0405-0607-0809-0a0b0c0d2b12** DATA
 
 All data packets written to the device are 20 bytes long with a checksum in the last byte. 
 The first two bytes are the command to the device.
 The current steps to negotiate encryption follow. The Values are shown unencrypted and without checksums. 
-TX1 is sent after creating a checksum and encrypting with the presharedkey.
+TX1 is sent after creating a checksum and encrypting with the presharedkey. 
+The response from TX1 is decrypted with the presharedkey and checked for a valid checksum. 
+If the checksum is valid, the session key is derived from the response.
+TX2 is sent by encrypting with the preshared key. The response from TX2 is decrypted with preshared key, but is currently unknown. 
+TX1 and TX2 are both required. 
+
+After this process is complete, the session key is used to encrypt and decrypt all further communication with the device. The session key is derived from the response to TX1 by taking the last 16 bytes of the response and using them as the key for AES-128 encryption in ECB mode.
 ```
-==> BT_ATT_OP_READ_REQ Handle: 0025 (AUTH_CONFIG)
-<== BT_ATT_OP_READ_RSP 0201000002010000000000000000000000000000
 ==> BT_ATT_OP_WRITE_CMD      Handle: 0021 Value: e701000000000000000000000000000000000000 (TX1)
-<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Value: e90a9018c1214627f283a0956027fa665ef440a9 (SessionKey: 8d2514a073136a3eb9e120bc5f8f361a)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Value: e701b52d7ce81b9b5206e1e9880407171ee20056 (SessionKey: b52d7ce81b9b5206e1e9880407171ee2)
 ==> BT_ATT_OP_WRITE_CMD      Handle: 0021 Value: e702000000000000000000000000000000000000 (TX2)
-<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Value: 9066b902c068ba6541ee1542efc9b3793ad355e7
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001d Value: e7022514a073136a3eb9e120bc5f8f361a651d00
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa0e000000000000000000000000000000000000 (Firmware Version Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0e312e30302e31310000000000000000000095 (Firmware: 1.00.11)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa0d000000000000000000000000000000000000 (Hardware Version Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0d332e30312e30300000000000000000000095 (Hardware: 3.01.00)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa07000000000000000000000000000000000000 (Temperature Offset Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa070000000000000000000000000000000000ad (Temperature Offset: 00)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa06000000000000000000000000000000000000 (Humidity Offset Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa060000000000000000000000000000000000ac (Humidity Offset: 00)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa04000000000000000000000000000000000000 (Temperature Alarm Config Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa040030f8d007010000000000000000000000b0 (Temperature Alarm Config: 00)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa03000000000000000000000000000000000000 (Humidity Alarm Config Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0300000010270000000000000000000000009e (Humidity Alarm Config: 00)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa08000000000000000000000000000000000000 (Battery Level Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa085f00000000000000000000000000000000fd (Battery Level: 95%)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0010 Value: aa0c000000000000000000000000000000000000 (MAC Address and Serial Request)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0c364d060342dd0f2c00000000000000000064 (MAC Address: DD:42:03:06:4D:36 Serial Number: 3884)
+==> BT_ATT_OP_WRITE_CMD      Handle: 0014 Value: 3301007b00010000000000000000000000000000 (Data Request: 123 points)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0014 Value: 3301000000000000000000000000000000000032 (DataPointsReturned: 0)
+<== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0018 Value: 007b033e78034260033e780336a80336a8033e78 offset: 007b 21.26 60 21.36 60 21.26 60 21.06 60 21.06 60 21.26 60
 ```
+None of the queries I'm issuing above are really required, but they were interesting to see. 
+
+| | | | |
+| -- | -- | -- | -- |
+| Characteristic GUID | Command | Description |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 01` | Current Measurement Request | |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 03` | Humidity Alarm Config Request | Requests the humidity alarm configuration of the device. The response is in the format of a signed integer, for example "-5". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 04` | Temperature Alarm Config Request | Requests the temperature alarm configuration of the device. The response is in the format of a signed integer, for example "-5". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 06` | Humidity Offset Request | Requests the humidity offset of the device. The response is in the format of a signed integer, for example "-5". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 07` | Temperature Offset Request | Requests the temperature offset of the device. The response is in the format of a signed integer, for example "-2". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 08` | Battery Level Request | Requests the battery level of the device. The response is in the format of a signed integer, for example "-2". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 0c` | MAC Address and Serial Request | Requests the MAC address and serial number of the device. The response is in the format of a string, for example "DD:42:03:06:4D:36". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 0d` | Hardware Version Request | Requests the hardware version of the device. The response is in the format of a string, for example "3.01.00". |
+| 494e5445-4c4c-495f-524f-434b535f2011 | `aa 0e` | Firmware Version Request | Requests the firmware version of the device. The response is in the format of a string, for example "1.00.11". |
+| 494e5445-4c4c-495f-524f-434b535f2012 | `33 01` | Historical Data Request | Requests data from the device. The response is returned on a different handle. 494e5445-4c4c-495f-524f-434b535f2013 |
+
 
 ```
 [2026-05-21T00:38:39] 26 [E3:60:59:23:14:7D] (Temp) 17.4°C (Humidity)  71.9% (Battery) 100% (GVH5074)
