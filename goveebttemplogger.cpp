@@ -3111,24 +3111,29 @@ std::vector<uint8_t> rc4(const std::vector<uint8_t>& key, const std::vector<uint
 // ---------------------------------------------------------
 std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext, const std::array<uint8_t, 16>& key)
 {
-	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-	EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr);
-	EVP_CIPHER_CTX_set_padding(ctx, 0);
-	int outlen = 0;
-	std::array<uint8_t, 16> aes_part;
-	EVP_EncryptUpdate(ctx, aes_part.data(), &outlen, plaintext.data(), 16);
-	EVP_CIPHER_CTX_free(ctx);
-
-	std::vector<uint8_t> key_vec(key.begin(), key.end());
-	std::vector<uint8_t> tail(plaintext.begin() + 16, plaintext.end());
-	auto rc4_part = rc4(key_vec, tail);
-
 	std::array<uint8_t, 20> ciphertext;
-	for (auto index = 0; index < 16; index++)
-		ciphertext[index] = aes_part[index];
-	for (auto index = 0; index < 4; index++)
-		ciphertext[16 + index] = rc4_part[index];
-	return ciphertext;
+	if (key != std::array<uint8_t, 16>{0})
+	{
+		EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+		EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr);
+		EVP_CIPHER_CTX_set_padding(ctx, 0);
+		int outlen = 0;
+		std::array<uint8_t, 16> aes_part;
+		EVP_EncryptUpdate(ctx, aes_part.data(), &outlen, plaintext.data(), 16);
+		EVP_CIPHER_CTX_free(ctx);
+
+		std::vector<uint8_t> key_vec(key.begin(), key.end());
+		std::vector<uint8_t> tail(plaintext.begin() + 16, plaintext.end());
+		auto rc4_part = rc4(key_vec, tail);
+
+		for (auto index = 0; index < 16; index++)
+			ciphertext[index] = aes_part[index];
+		for (auto index = 0; index < 4; index++)
+			ciphertext[16 + index] = rc4_part[index];
+	}
+	else
+		ciphertext = plaintext;
+	return(ciphertext);
 }
 // ---------------------------------------------------------
 // AES-ECB Encrypt/Decrypt using EVP
@@ -3136,24 +3141,29 @@ std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext,
 // ---------------------------------------------------------
 std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext, const std::array<uint8_t, 16>& key)
 {
-	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-	std::array<uint8_t, 16> aes_part;
-	EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr);
-	EVP_CIPHER_CTX_set_padding(ctx, 0);
-	int outlen = 0;
-	EVP_DecryptUpdate(ctx, aes_part.data(), &outlen, ciphertext.data(), 16);
-	EVP_CIPHER_CTX_free(ctx);
-
-	std::vector<uint8_t> key_vec(key.begin(), key.end());
-	std::vector<uint8_t> tail(ciphertext.begin() + 16, ciphertext.end());
-	auto rc4_part = rc4(key_vec, tail);
-
 	std::array<uint8_t, 20> plaintext;
-	for (auto index = 0; index < 16; index++)
-		plaintext[index] = aes_part[index];
-	for (auto index = 0; index < 4; index++)
-		plaintext[16 + index] = rc4_part[index];
-	return plaintext;
+	if (key != std::array<uint8_t, 16>{0})
+	{
+		EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+		std::array<uint8_t, 16> aes_part;
+		EVP_DecryptInit_ex(ctx, EVP_aes_128_ecb(), nullptr, key.data(), nullptr);
+		EVP_CIPHER_CTX_set_padding(ctx, 0);
+		int outlen = 0;
+		EVP_DecryptUpdate(ctx, aes_part.data(), &outlen, ciphertext.data(), 16);
+		EVP_CIPHER_CTX_free(ctx);
+
+		std::vector<uint8_t> key_vec(key.begin(), key.end());
+		std::vector<uint8_t> tail(ciphertext.begin() + 16, ciphertext.end());
+		auto rc4_part = rc4(key_vec, tail);
+
+		for (auto index = 0; index < 16; index++)
+			plaintext[index] = aes_part[index];
+		for (auto index = 0; index < 4; index++)
+			plaintext[16 + index] = rc4_part[index];
+	}
+	else 
+		plaintext = ciphertext;
+	return(plaintext);
 }
 void GATT_DataPacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_DataPacket& packet)
 {
@@ -3161,28 +3171,24 @@ void GATT_DataPacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_Dat
 	packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] = 0;
 	for (auto index = std::size_t(0); index < sizeof(packet.buf) / sizeof(packet.buf[0]) - 1; index++)
 		packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] ^= packet.buf[index];
-	if (session_key[0] != 0)
-	{
-		std::array<uint8_t, 20> input_packet;
-		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-			input_packet[index] = packet.buf[index];
-		std::array<uint8_t, 20> output_packet = encrypt_packet(input_packet, session_key);
-		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-			packet.buf[index] = output_packet[index];
-	}
+	std::array<uint8_t, 20> input_packet;
+	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+		input_packet[index] = packet.buf[index];
+	auto output_packet = encrypt_packet(input_packet, session_key);
+	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+		packet.buf[index] = output_packet[index];
 }
 void GATT_DataPacketDecrypt(const std::array<uint8_t, 16>& session_key, GATT_DataPacket& packet)
 {
-	if (session_key[0] != 0)
-	{
-		std::array<uint8_t, 20> input_packet;
-		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-			input_packet[index] = packet.buf[index];
-		std::array<uint8_t, 20> output_packet = decrypt_packet(input_packet, session_key);
-		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-			packet.buf[index] = output_packet[index];
-	}
+	std::array<uint8_t, 20> input_packet;
+	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+		input_packet[index] = packet.buf[index];
+	auto output_packet = decrypt_packet(input_packet, session_key);
+	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+		packet.buf[index] = output_packet[index];
 }
+const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
+std::array<uint8_t, 16> SessionKey{ 0 };
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, int BatteryToRecord = 0)
@@ -3275,12 +3281,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			}
 			else
 			{
-				// I'm setting up the crypto environment at a wide scope only because I maight want to use the legacy code for the rc5 stuff when I clean up the functions.
-				// I didn't need to use the OSSL_PROVIDER_load(NULL, "default"); and OSSL_PROVIDER_load(NULL, "legacy"); calls at all if I only want to use the AES code from openssl
-				// copying some crypto code from elsewhere https://stackoverflow.com/questions/6908785/openssl-libcrypto-aes-128-encoding-using-the-key
-				OSSL_PROVIDER* defaultp = OSSL_PROVIDER_load(NULL, "default");
-				OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
-
 				/* Set up source address */
 				struct sockaddr_l2 srcaddr;
 				memset(&srcaddr, 0, sizeof(srcaddr));
@@ -3532,8 +3532,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						}
 #endif // BT_GET_INFORMATION
 
-						const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
-						std::array<uint8_t, 16> SessionKey{ 0 };
 						uint16_t bt_Handle_DeviceData(0);
 						uint16_t bt_Handle_RequestData(0);
 						uint16_t bt_Handle_ReturnData(0);
@@ -4101,8 +4099,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						close(l2cap_socket);
 					}
 				}
-				OSSL_PROVIDER_unload(legacy);
-				OSSL_PROVIDER_unload(defaultp);
 			}
 		}
 		if (handle != 0)
@@ -4142,6 +4138,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			std::cerr << ssOutput.str() << std::endl;
 		TimeDownloadStart -= static_cast<long>(60) * offset;
 	}
+	SessionKey = std::array<uint8_t, 16>{ 0 }; // zero out global session key here at the end just to be safe, in case the program continues running for a while and then tries to connect to another device, we don't want it accidentally using the session key from the previous device
 	return(TimeDownloadStart);
 }
 void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, const bool bMonitorLoggingDirectory, const bool HCI_Passive_Scanning)
@@ -5025,9 +5022,13 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 }
 std::map<bdaddr_t, std::map<std::string, std::string>> bluez_GoveeCharacteristics;
 bool bluez_in_use(false);
+bool bluez_encrypted(false);
 bool bluez_connect(false);
-bool bluez_disconnect(false);
+bool bluez_start_notify(false);
+bool bluez_send_TX1(false);
+bool bluez_send_TX2(false);
 bool bluez_download(false);
+bool bluez_disconnect(false);
 void bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	// this routine requests bluez connect to the device.
@@ -5107,6 +5108,114 @@ https://blog.linumiz.com/archives/16584 BlueZ Part 9: Understanding DBUS – Int
 
 wim@WimPi5:~ $  dbus-send --system --dest=org.bluez --print-reply / org.freedesktop.DBus.ObjectManager.GetManagedObjects
 */
+void bluez_enable_notifications(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
+{
+	std::ostringstream ssOutput;
+	if (ConsoleVerbosity > 2)
+		ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
+	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
+		if (bzGoveeDeviceChars->second.size() > 0)
+		{
+			for (auto& [UUID, Path] : bzGoveeDeviceChars->second)
+			{
+				if (!UUID.compare("494e5445-4c4c-495f-524f-434b535f2011") ||
+					!UUID.compare("494e5445-4c4c-495f-524f-434b535f2012") ||
+					!UUID.compare("494e5445-4c4c-495f-524f-434b535f2013") ||
+					!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b10") ||
+					!UUID.compare("02f00000-0000-0000-0000-00000000ff02"))
+				{
+					DBusMessage* dbus_msg_enable_notification = dbus_message_new_method_call("org.bluez", Path.c_str(), "org.bluez.GattCharacteristic1", "StartNotify");
+					DBusError dbus_error;
+					dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
+					//DBusMessage* dbus_reply_enable_notification = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_enable_notification, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
+					dbus_connection_send(dbus_conn, dbus_msg_enable_notification, nullptr); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#gae1cb64f4cf550949b23fd3a756b2f7d0
+					if (ConsoleVerbosity > 3)
+						ssOutput << "[-------------------] " << UUID << " " << dbus_message_get_path(dbus_msg_enable_notification) << " " << dbus_message_get_interface(dbus_msg_enable_notification) << ": " << dbus_message_get_member(dbus_msg_enable_notification) << std::endl;
+					dbus_message_unref(dbus_msg_enable_notification);
+				}
+				if (!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b10"))
+					bluez_encrypted = true;
+			}
+		}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+}
+bool bluez_Write_TX1(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const bool TX1 = true)
+{
+	bool rval = false;
+	std::ostringstream ssOutput;
+	if (ConsoleVerbosity > 2)
+		ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
+	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
+		if (bzGoveeDeviceChars->second.size() > 0)
+		{
+			auto GoveeDataControl = bzGoveeDeviceChars->second.find("00010203-0405-0607-0809-0a0b0c0d2b11");
+			if (GoveeDataControl != bzGoveeDeviceChars->second.end())
+			{
+				DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", GoveeDataControl->second.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
+				DBusMessageIter iterParameter;
+				dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
+				DBusMessageIter iterArray;
+				// build parameter that matches the signature "ay"
+				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &iterArray);
+
+				// This is copied from the HCI code to have the buffer set up the same way
+				std::array<uint8_t, 20> packet{ 0xe7, 0x01 };
+				if (!TX1)
+					packet[1] = 0x02;
+
+				// Create a checksum in the last byte by XOR each of the buffer bytes.
+				packet.back() = 0;
+				for (auto index = std::size_t(0); index < packet.size() - 1; index++)
+					packet.back() ^= packet[index];
+				packet = encrypt_packet(packet, PreSharedKey);
+				for (auto& a : packet)
+					dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
+				dbus_message_iter_close_container(&iterParameter, &iterArray);
+				DBusMessageIter iterArray2;
+				dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{sv}", &iterArray2);
+				DBusMessageIter iterDict;
+				dbus_message_iter_open_container(&iterArray2, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
+				const char* Key = "type";
+				dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&Key));
+				DBusMessageIter iterVariant;
+				dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
+				const char* Value = "request";
+				dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&Value));
+				dbus_message_iter_close_container(&iterDict, &iterVariant);
+				dbus_message_iter_close_container(&iterArray2, &iterDict);
+				dbus_message_iter_close_container(&iterParameter, &iterArray2);
+
+				DBusError dbus_error;
+				dbus_error_init(&dbus_error);
+				dbus_connection_send(dbus_conn, dbus_msg_write, nullptr);
+				if (ConsoleVerbosity > 2)
+				{
+					ssOutput << "[                   ] " << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
+					ssOutput << ": " << std::hex;
+					for (auto& iterator : packet)
+						ssOutput << std::setfill('0') << std::setw(2) << unsigned(iterator);
+					ssOutput << std::dec << std::endl;
+				}
+				dbus_message_unref(dbus_msg_write);
+				if (ConsoleVerbosity > 0)
+					ssOutput << "[" << getTimeISO8601(true) << "] ";
+				if (ConsoleVerbosity > 2)
+					ssOutput << "[" << ba2string(dbusBTAddress) << "] Write " << (TX1?"TX1":"TX2") << " to Characteristic: " << GoveeDataControl->first.c_str();
+				ssOutput << std::endl;
+				rval = true;
+			}
+		}
+	if (ConsoleVerbosity > 0)
+		std::cout << ssOutput.str();
+	else
+		std::cerr << ssOutput.str();
+	return(rval);
+}
 void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	std::ostringstream ssOutput;
@@ -5125,20 +5234,8 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 
 	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
 	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-	if (bzGoveeDeviceChars->second.size() == 3)
+	if (bzGoveeDeviceChars->second.size() > 0)
 	{
-		for (auto& [UUID, Path] : bzGoveeDeviceChars->second)
-		{
-			DBusMessage* dbus_msg_enable_notification = dbus_message_new_method_call("org.bluez", Path.c_str(), "org.bluez.GattCharacteristic1", "StartNotify");
-			DBusError dbus_error;
-			dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-			//DBusMessage* dbus_reply_enable_notification = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_enable_notification, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
-			dbus_connection_send(dbus_conn, dbus_msg_enable_notification, nullptr); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#gae1cb64f4cf550949b23fd3a756b2f7d0
-			if (ConsoleVerbosity > 3)
-				ssOutput << "[-------------------] " << dbus_message_get_path(dbus_msg_enable_notification) << ": " << dbus_message_get_interface(dbus_msg_enable_notification) << ": " << dbus_message_get_member(dbus_msg_enable_notification) << std::endl;
-			dbus_message_unref(dbus_msg_enable_notification);
-		}
-
 #ifdef REQUEST_BATTERY
 		// https://github.com/Heckie75/govee-h5075-thermo-hygrometer/blob/main/API.md#request-battery-level-command-aa08
 		auto GoveeCommand = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2011");
@@ -5202,9 +5299,7 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 			dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &iterArray);
 
 			// This is copied from the HCI code to have the buffer set up the same way
-			uint8_t buf[20] = { 0 };
-			buf[0] = uint8_t(0x33);
-			buf[1] = uint8_t(0x01);
+			std::array<uint8_t, 20> buf{ 0x33, 0x01 };
 			time_t TimeDownloadStart(0);
 			time(&TimeDownloadStart);
 			TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
@@ -5223,12 +5318,10 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 			buf[3] = uint8_t(DataPointsToRequest);		// low byte of requested start time
 			buf[5] = uint8_t(0x01);						// low byte of requested stop time. buf[4] is high byte of requested stop time, it's already 0.
 			// Create a checksum in the last byte by XOR each of the buffer bytes.
-			for (auto index = std::size_t(0); index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
-				buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
-			//uint8_t CheckSum(0);
-			//for (auto& iterator : buf)
-			//	CheckSum ^= iterator;
-			//buf[(sizeof(buf) / sizeof(buf[0])) - 1] = CheckSum;
+			buf.back() = 0;
+			for (auto index = std::size_t(0); index < buf.size() - 1; index++)
+				buf.back() ^= buf[index];
+			buf = encrypt_packet(buf, SessionKey);
 			for (auto& a : buf)
 				dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
 			dbus_message_iter_close_container(&iterParameter, &iterArray);
@@ -5679,10 +5772,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				std::string UUID(value.str);
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << UUID;
+				// These are the UUIDs that will need to be interactred with to download the data, so we need to keep track of them.  
 				if (!UUID.compare("494e5445-4c4c-495f-524f-434b535f2011") ||
 					!UUID.compare("494e5445-4c4c-495f-524f-434b535f2012") ||
-					!UUID.compare("494e5445-4c4c-495f-524f-434b535f2013"))
-				{
+					!UUID.compare("494e5445-4c4c-495f-524f-434b535f2013") ||
+					!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b10") ||
+					!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b11") ||
+					!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b12") ||
+					!UUID.compare("02f00000-0000-0000-0000-00000000ff02"))
+					{
 					std::map<std::string, std::string> GoveeCharacteristics;
 					auto bzGoveeDevice = bluez_GoveeCharacteristics.insert(std::make_pair(dbusBTAddress, GoveeCharacteristics));
 					bzGoveeDevice.first->second.insert(std::make_pair(UUID, root_object_path));
@@ -5725,8 +5823,10 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
 				bluez_in_use = bool(value.bool_val);
-				if (!bool(value.bool_val))
+				if (!bluez_in_use)
 				{
+					bluez_encrypted = bluez_connect = bluez_start_notify = bluez_send_TX1 = bluez_send_TX2 = bluez_download = bluez_disconnect = false; // reset all the state variables, because we aren't connected to the device anymore.
+					SessionKey = std::array<uint8_t, 16>{ 0 }; // reset the session key, because we aren't connected to the device anymore, so we will need to go through the pairing process again when we do connect again.
 					time_t LastDownloadTime = 0;
 					auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
 					if (RecentDownload != GoveeLastDownload.end())
@@ -5756,7 +5856,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				{
 					auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
 					if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-						if (bzGoveeDeviceChars->second.size() == 3)
+						if (bzGoveeDeviceChars->second.size() >= 3)
 							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
 								if (GoveeThermometers.find(dbusBTAddress) != GoveeThermometers.end())
 								{
@@ -5766,8 +5866,10 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										LastDownloadTime = RecentDownload->second;
 									// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 									if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
-										bluez_download = true;
+										bluez_start_notify = true;
 								}
+					if (ConsoleVerbosity > 3)
+						ssOutput << " bluez_start_notify: " << std::boolalpha << bluez_start_notify;
 				}
 			}
 		}
@@ -5795,6 +5897,9 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				}
 				if (ValueData.size() == 20)
 				{
+					std::array<uint8_t, 20> packet;
+					for (auto index = 0; index < 20; index++)
+						packet[index] = ValueData[index];
 					int BatteryToRecord = 0;
 					auto RecentTemperature = GoveeLastReading.find(dbusBTAddress);
 					if (RecentTemperature != GoveeLastReading.end())
@@ -5803,11 +5908,29 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
 					if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
 					{
+						auto GoveeAuth = bzGoveeDeviceChars->second.find("00010203-0405-0607-0809-0a0b0c0d2b10");
+						if (GoveeAuth != bzGoveeDeviceChars->second.end())
+							if (!GoveeAuth->second.compare(root_object_path))
+							{
+								// decrypt with pre shared key.
+								packet = decrypt_packet(packet, PreSharedKey);
+								if ((packet[0] == 0xe7) && (packet[1] == 0x01)) // TX1 was returned with the sesion key
+								{
+									for (auto index = 0; index < 16; index++)
+										SessionKey[index] = packet[2 + index];
+									bluez_send_TX2 = true;
+								}
+								else if ((packet[0] == 0xe7) && (packet[1] == 0x02)) // TX2 was returned, so we can start downloading the data.
+								{
+									bluez_download = true;
+								}
+							}
 
 						auto GoveeCommand = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2011");
 						if (GoveeCommand != bzGoveeDeviceChars->second.end())
 							if (!GoveeCommand->second.compare(root_object_path))
 							{
+								packet = decrypt_packet(packet, SessionKey);
 								if ((ValueData[0] == 0xaa) && (ValueData[1] == 0x08))
 									BatteryToRecord = ValueData[3];
 							}
@@ -5816,15 +5939,16 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 						if (GoveeDataResult != bzGoveeDeviceChars->second.end())
 							if (!GoveeDataResult->second.compare(root_object_path))
 							{
+								packet = decrypt_packet(packet, SessionKey);
 								// 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20
 								// 00 45 02 82 fd 02 86 e6 02 86 e6 02 86 e7 02 86 e7 02 86 e7
-								auto offset = uint16_t(ValueData[0]) << 8 | uint16_t(ValueData[1]);
+								auto offset = uint16_t(packet[0]) << 8 | uint16_t(packet[1]);
 								if (ConsoleVerbosity > 1)
 									ssOutput << " " << ThermometerType2String(GoveeThermometers.find(dbusBTAddress)->second) << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
 								time_t LastReportedTime(0);
-								for (auto index = std::size_t(2); ((index < (ValueData.size() - 3) && (offset > 0))); index += 3)
+								for (auto index = std::size_t(2); ((index < (packet.size() - 3) && (offset > 0))); index += 3)
 								{
-									int iTemp = int(ValueData[index]) << 16 | int(ValueData[index + 1]) << 8 | int(ValueData[index + 2]);
+									int iTemp = int(packet[index]) << 16 | int(packet[index + 1]) << 8 | int(packet[index + 2]);
 									bool bNegative = iTemp & 0x800000;	// check sign bit
 									iTemp = iTemp & 0x7ffff;			// mask off sign bit
 									double Temperature = float(iTemp) / 10000.0;
@@ -5855,8 +5979,35 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			else if (ConsoleVerbosity > 2)
 				ssOutput << " " << Key;
 		}
+		else if (!Key.compare("Notifying"))
+		{
+			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
+			{
+				dbus_message_iter_get_basic(&variant_iter, &value);
+				auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
+				if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
+				{
+					if (bluez_encrypted)
+					{
+						auto GoveeAuthNotify = bzGoveeDeviceChars->second.find("00010203-0405-0607-0809-0a0b0c0d2b10");
+						if (GoveeAuthNotify != bzGoveeDeviceChars->second.end())
+							if (!GoveeAuthNotify->second.compare(root_object_path))
+								bluez_send_TX1 = bool(value.bool_val);
+					}
+					else
+					{
+						auto GoveeAuthNotify = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2013");
+						if (GoveeAuthNotify != bzGoveeDeviceChars->second.end())
+							if (!GoveeAuthNotify->second.compare(root_object_path))
+								bluez_download = bool(value.bool_val);
+					}
+				}
+				if (ConsoleVerbosity > 3)
+					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val) << " bluez_encrypted:" << bluez_encrypted << " bluez_send_TX1:" << bluez_send_TX1 << " bluez_download:" << bluez_download;
+			}
+		}
 		else if (ConsoleVerbosity > 3)
-			ssOutput << " " << Key;
+		ssOutput << " " << Key;
 		if ((ConsoleVerbosity > 0) && (!ssOutput.str().empty()))
 			ssOutput << std::endl;
 		if (!ssOutput.str().empty())
@@ -6483,19 +6634,40 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, BT_WhiteList, TimeNow);
 										if (bluez_connect == true)
 										{
+											bluez_connect = false;
 											bluez_device_connect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 											bluez_in_use = true;
-											bluez_connect = false;
+										}
+										if (bluez_start_notify == true)
+										{
+											bluez_start_notify = false;
+											bluez_enable_notifications(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+										}
+										if (bluez_send_TX1 == true)
+										{
+											bluez_send_TX1 = false;
+											bluez_Write_TX1(dbus_conn, BlueZAdapter.c_str(), localBTAddress); // this is needed to trigger the authentication process on the Govee device
+											if (ConsoleVerbosity > 0)
+												ssOutput << "[" << getTimeISO8601(true) << "] ";
+											if (ConsoleVerbosity > 3)
+												ssOutput << std::boolalpha << "bluez_send_TX1 = " << bluez_send_TX1 << " bluez_download: " << bluez_download;
+											if (ConsoleVerbosity > 0)
+												ssOutput << std::endl;
+										}
+										if (bluez_send_TX2 == true)
+										{
+											bluez_send_TX2 = false;
+											bluez_Write_TX1(dbus_conn, BlueZAdapter.c_str(), localBTAddress, false);
 										}
 										if (bluez_download == true)
 										{
-											bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 											bluez_download = false;
+											bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 										}
 										if (bluez_disconnect == true)
 										{
-											bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 											bluez_disconnect = false;
+											bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
 										}
 										for (const auto &a : GoveeLastReading)
 										{
@@ -7012,6 +7184,12 @@ int main(int argc, char **argv)
 		SignalHandlerPointer previousHandlerSIGINT = std::signal(SIGINT, SignalHandlerSIGINT);	// Install CTR-C signal handler
 		SignalHandlerPointer previousHandlerSIGHUP = std::signal(SIGHUP, SignalHandlerSIGHUP);	// Install Hangup signal handler
 		///////////////////////////////////////////////////////////////////////////////////////////////
+		// I'm setting up the crypto environment at a wide scope only because I maight want to use the legacy code for the rc5 stuff when I clean up the functions.
+		// I didn't need to use the OSSL_PROVIDER_load(NULL, "default"); and OSSL_PROVIDER_load(NULL, "legacy"); calls at all if I only want to use the AES code from openssl
+		// copying some crypto code from elsewhere https://stackoverflow.com/questions/6908785/openssl-libcrypto-aes-128-encoding-using-the-key
+		OSSL_PROVIDER* defaultp = OSSL_PROVIDER_load(NULL, "default");
+		OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
+		///////////////////////////////////////////////////////////////////////////////////////////////
 		if (!bUse_HCI_Interface)	// BlueZ over DBus is the recommended method of Bluetooth
 			bUse_HCI_Interface = (0 != BlueZ_DBus_Mainloop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory));
 		#ifdef _BLUEZ_HCI_
@@ -7019,6 +7197,9 @@ int main(int argc, char **argv)
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
 		#endif // _BLUEZ_HCI_
 		GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
+		///////////////////////////////////////////////////////////////////////////////////////////////
+		OSSL_PROVIDER_unload(legacy);
+		OSSL_PROVIDER_unload(defaultp);
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		std::signal(SIGHUP, previousHandlerSIGHUP);	// Restore original Hangup signal handler
 		std::signal(SIGINT, previousHandlerSIGINT);	// Restore original Ctrl-C signal handler
