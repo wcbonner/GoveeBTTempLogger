@@ -2346,10 +2346,15 @@ void ReadLoggedData(const std::filesystem::path& filename)
 		struct stat64 FileStat({ 0 });
 		if (0 == stat64(filename.c_str(), &FileStat))	// returns 0 if the file-status information is obtained
 		{
-			auto it = GoveeMRTGLogs.find(TheBlueToothAddress);
-			if (it != GoveeMRTGLogs.end())
-				if (!it->second.empty())
-					if (FileStat.st_mtim.tv_sec < (it->second.begin()->Time))	// only read the file if it more recent than existing data
+			auto it1 = GoveeMRTGLogs.find(TheBlueToothAddress);
+			if (it1 != GoveeMRTGLogs.end())
+				if (!it1->second.empty())
+					if (FileStat.st_mtim.tv_sec < (it1->second.begin()->Time))	// only read the file if it more recent than existing data
+						bReadFile = false;
+			auto it2 = RuuviMRTGLogs.find(TheBlueToothAddress);
+			if (it2 != RuuviMRTGLogs.end())
+				if (!it2->second.empty())
+					if (FileStat.st_mtim.tv_sec < (it2->second.begin()->Time))	// only read the file if it more recent than existing data
 						bReadFile = false;
 		}
 
