@@ -3568,13 +3568,11 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						}
 #endif // BT_GET_INFORMATION
 						std::array<uint8_t, 16> SessionKey{ 0 };
-						uint16_t bt_Handle_DeviceData(0);
-						uint16_t bt_Handle_RequestData(0);
-						uint16_t bt_Handle_ReturnData(0);
-						uint16_t bt_Handle_AuthWrite(0);
-						uint16_t bt_Handle_AuthNotify(0);
-						uint16_t bt_Handle_AuthConfig(0);
-
+						uint16_t bt_Handle_DeviceData(0);	// 494e5445-4c4c-495f-524f-434b535f2011
+						uint16_t bt_Handle_RequestData(0);	// 494e5445-4c4c-495f-524f-434b535f2012
+						uint16_t bt_Handle_ReturnData(0);	// 494e5445-4c4c-495f-524f-434b535f2013
+						uint16_t bt_Handle_AuthWrite(0);	// 00010203-0405-0607-0809-0a0b0c0d1910
+						uint16_t bt_Handle_AuthNotify(0);	// 02f00000-0000-0000-0000-00000000fe01
 						// This loops through and enables notification on each of the Govee service handles
 						buf[0] = 0;
 						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
@@ -3614,8 +3612,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										bt_Handle_AuthNotify = btsc.ending_handle;
 										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
 									}
-									else if (btsc.theUUID == GOVEE_AUTH_CONFIG)
-										bt_Handle_AuthConfig = btsc.ending_handle;
 								}
 							if (bts->theUUID == TELINK_OTA_SERVICE)
 								for (auto& btsc : bts->characteristics)
@@ -3625,7 +3621,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 								}
 						}
 
-						if (bt_Handle_AuthNotify != 0 && bt_Handle_AuthConfig != 0)
+						if (bt_Handle_AuthNotify != 0)
 						{
 							// The following made a read request to the AUTH_CONFIG handle, which resulted in a notification from the AUTH_NOTIFY handle with the 16 byte value of 0201000002010000000000000000000000000000
 							// it was in the Govee App and doesn't apper to be required for the authentication process, so I'm not sure what it's for, but here is the log of the interaction:
@@ -4011,8 +4007,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										if (ConsoleVerbosity > 2)
 										{
 											std::cout << " Value: ";
-											for (auto index = std::size_t(0); index < sizeof(data->buf) / sizeof(data->buf[0]); index++)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(data->buf[index]);
+											for (auto& iterator : data->buf)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
 										}
 										if (data->handle == bt_Handle_ReturnData)
 										{
@@ -4095,6 +4091,9 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 														std::cout << " (Firmware: " << DeviceFirmwareVersion << ")";
 													break;
 												default:
+													std::cout << " Value: ";
+													for (auto& iterator : data->buf)
+														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
 													break;
 												}
 											}
