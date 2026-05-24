@@ -2749,6 +2749,9 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 		case 0x2A50:
 			ss << " (PnP ID)";
 			break;
+		case 0x2AC9:
+			ss << " (Resolvable Private Address Only)";
+			break;
 		case 0x2901:
 			ss << " (Characteristic User Description)";
 			break;

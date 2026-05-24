@@ -18,10 +18,6 @@ Powered by 1 AAA Battery
 ![image](h5101-phone.jpg)
 Powered by 1 CR2450 Battery
 
-## H5110
-![image](h5110-phone.jpg) ![image](h5110-battery.jpg) ![image](h5110-precision.jpg)
-Powered by 2 AAA Batteries
-
 ## H5104
 ![image](h5104-phone.jpg)
 Powered by 2 AAA Batteries
@@ -29,6 +25,10 @@ Powered by 2 AAA Batteries
 ## H5105
 ![image](h5105-phone.jpg)
 Powered by 1 CR2450 Battery
+
+## H5110
+![image](h5110-phone.jpg) ![image](h5110-battery.jpg) ![image](h5110-precision.jpg)
+Powered by 2 AAA Batteries
 
 ## H5111
 ![image](h5111-phone.jpg)

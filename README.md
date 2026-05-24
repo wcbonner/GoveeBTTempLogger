@@ -7,6 +7,33 @@ GoveeBTTempLogger was initially built using Microsoft Visual Studio 2017, target
 
 GoveeBTTempLogger creates a log file, if specified by the -l or --log option, for each of the devices it receives broadcasted data from using a simple tab-separated format that's compatible with loading in Microsoft Excel. Each line in the log file has Date (recorded in UTC), Temperature, relative humidity, and battery percent. The log file naming format includes the unique Govee device name, the current year, and month. A new log file is created monthly.
 
+## Prerequisites
+
+### Linux
+
+ * Kernel version 3.6 or above
+ * `libbluetooth-dev`
+ * `libdbus-1-dev`
+ * `libssl-dev`
+
+#### Ubuntu/Debian/Raspbian
+
+```sh
+sudo apt install build-essential cmake git libbluetooth-dev libdbus-1-dev libssl-dev
+git clone https://github.com/wcbonner/GoveeBTTempLogger.git
+cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
+cmake --build GoveeBTTempLogger/build
+pushd GoveeBTTempLogger/build && cpack . && popd
+```
+
+## Update to Version 5 (2026-05-23)
+Newer Govee devices are using a different protocol for downloading data that uses a combination of AES and RC4 encryption.
+This only matters when connecting to the device to download data, the bluetooth advertisments are still in the same format 
+and can be read without any changes to the code. All of the devices use the service UUID **494e5445-4c4c-495f-524f-434b535f4857**, 
+which is the ascii string "INTELLI_ROCKS_HW". The newer devices can be recognized on connection with the two new service 
+UUIDs **00010203-0405-0607-0809-0a0b0c0d1910** and **02f00000-0000-0000-0000-00000000fe00**. 
+See [Download Details](#download-details) for more information on the connection and download process and changes with the new devices.
+
 ## Update to Version 4 (2026-04-18)
 ### 2026-04-17 Ruuvi Tag support
 I'm reading and logging Ruuvi tag bluetooth advertisments. See [ruuvi](ruuvi/) for more details.
@@ -100,26 +127,6 @@ If the --svg option is not added to the command line, the program should continu
  * -v 2 prints all advertisments recieved and categorized
  * -v levels higher than 2 print way too much debugging information, but can be interesting to look at.
 
-## Prerequisites
-
-### Linux
-
- * Kernel version 3.6 or above
- * ```libbluetooth-dev```
- * ```libdbus-1-dev```
- 
-#### Ubuntu/Debian/Raspbian
-
-##### Build Process changed from using make with a makefile to cmake 2023-09-18
-This seems to better build the debian package with the correct installed size, dependencies, and md5sums details. I'm still learning CMake so there may be regular updates for a while.
-
-```sh
-sudo apt install build-essential cmake git libbluetooth-dev libdbus-1-dev
-git clone https://github.com/wcbonner/GoveeBTTempLogger.git
-cmake -S GoveeBTTempLogger -B GoveeBTTempLogger/build
-cmake --build GoveeBTTempLogger/build
-pushd GoveeBTTempLogger/build && cpack . && popd
-```
 
 The install package will creates a systemd unit `goveebttemplogger.service` which will automatically start GoveeBTTempLogger. The service can be configured via
 the `systemctl edit goveebttemplogger.service` command. By default, it writes logs to `/var/log/goveebttemplogger` and writes SVG files to `/var/www/html/goveebttemplogger`.
@@ -252,6 +259,75 @@ The H5181, 5182 and 5183 units broadcast UUID of 5182 and 5183 respectivly in ea
 ## Download Details
 It has taken me a long time to get around to downloading data from the devices directly instead of purely listening for advertisments. The direct download method is nice because it can retrieve data accumulated while the listener was offline. 
 
+### Nonencrypted Connection Sequence Summary
+1. **Connect** to device via BLE
+2. **Discover services**
+3. **Enable Notifications on GATT Characteristics**
+   - **494e5445-4c4c-495f-524f-434b535f2011**
+   - **494e5445-4c4c-495f-524f-434b535f2012**
+   - **494e5445-4c4c-495f-524f-434b535f2013**
+4. **Request historical data**:
+   - Write `33 01 [start] [end]` 20 byte packet, checksum in last byte, to **494e5445-4c4c-495f-524f-434b535f2012** characteristic
+   - Receive data notifications on **494e5445-4c4c-495f-524f-434b535f2013**
+   - Send `aa 01` keep-alive to **494e5445-4c4c-495f-524f-434b535f2012** every ~75 notifications
+   - Wait for `ee 01` on **494e5445-4c4c-495f-524f-434b535f2012** or offset <= 6 in **494e5445-4c4c-495f-524f-434b535f2013**
+8. **Disconnect**
+
+### Encrypted Connection Sequence Summary
+1. **Connect** to device via BLE
+2. **Discover services**
+3. **Enable Notifications on GATT Characteristics**
+   - **494e5445-4c4c-495f-524f-434b535f2011**
+   - **494e5445-4c4c-495f-524f-434b535f2012**
+   - **494e5445-4c4c-495f-524f-434b535f2013**
+   - **00010203-0405-0607-0809-0a0b0c0d2b10**
+   - **02f00000-0000-0000-0000-00000000ff02**
+4. **Auth handshake**
+   - Encrypt TX1 command (`e701`) with pre-shared key
+   - Write TX1 to **00010203-0405-0607-0809-0a0b0c0d2b11**
+   - Wait for RX1 notification on **00010203-0405-0607-0809-0a0b0c0d2b10** 
+   - Decrypt RX1 with pre-shared key, the result should be `e701` followed by the 16 byte session key, followed by a zero byte and a checksum byte.
+   - Encrypt TX2 command (`e702`) with pre-shared key
+   - Write TX2 to **00010203-0405-0607-0809-0a0b0c0d2b11**
+   - Wait for RX2 notification on **00010203-0405-0607-0809-0a0b0c0d2b10**
+7. **Download historical data**:
+   - Write `33 01 [start] [end]` (encrypted with session key) to to **494e5445-4c4c-495f-524f-434b535f2012** characteristic
+   - Receive encrypted data notifications on on **494e5445-4c4c-495f-524f-434b535f2013**, decrypt each with session key
+   - Send `aa 01` keep-alive to **494e5445-4c4c-495f-524f-434b535f2012** every ~75 notifications (encrypted with session key) 
+   - Wait for `ee 01` on **494e5445-4c4c-495f-524f-434b535f2012** or offset <= 6 in **494e5445-4c4c-495f-524f-434b535f2013**
+8. **Disconnect**
+
+#### simplified encryption routine
+```
+std::array<uint8_t, 20> encrypt_packet(const std::array<uint8_t, 20>& plaintext,  const std::array<uint8_t, 16>& key)
+	// Create a checksum in the last byte by XOR each of the buffer bytes.
+	plaintext.back() = 0;
+	for (auto index = std::size_t(0); index < plaintext.size() - 1; index++)
+		plaintext.back() ^= plaintext[index];
+
+	std::array<uint8_t, 16> aes_part;
+	std::array<uint8_t, 4> rc4_part;
+	EVP_EncryptUpdate(ctx, aes_part.data(), &out_len1, plaintext.data(), 16)
+	EVP_EncryptUpdate(ctx, rc4_part.data(), &out_len1, plaintext.data()+16, 4)
+	for (auto index = 0; index < 16; index++)
+		ciphertext[index] = aes_part[index];
+	for (auto index = 0; index < 4; index++)
+		ciphertext[16 + index] = rc4_part[index];
+```
+
+#### simplified decryption routine
+```
+std::array<uint8_t, 20> decrypt_packet(const std::array<uint8_t, 20>& ciphertext, const std::array<uint8_t, 16>& key)
+	std::array<uint8_t, 16> aes_part;
+	std::array<uint8_t, 4> rc4_part;
+	EVP_DecryptUpdate(ctx, aes_part.data(), &out_len1, ciphertext.data(), 16)
+	EVP_EncryptUpdate(ctx, rc4_part.data(), &out_len1, ciphertext.data() + 16, 4)
+	for (auto index = 0; index < 16; index++)
+		plaintext[index] = aes_part[index];
+	for (auto index = 0; index < 4; index++)
+		plaintext[16 + index] = rc4_part[index];
+```
+
 #### 2024-01-14 H5105 support
 It appears that the H5105 broadcast data is automatically recognized as a Govee thermometer and data stored, but downloading is not working. The H5105 has a pairing button on the top of the device. I've noticed that the H5100 device does not seem to be downloading historical data either. They may use the same protocol, different from the older thermometers.
 
@@ -273,20 +349,26 @@ I included a hack some time ago related to the bluetooth filtering to easily fil
 
 Connections on bluetooth devices are all based on handles and UUIDs. There are some defined UUIDs that every bluetooth device is required to support, and then there are custom UUIDs. This listing came from a GVH5177. 
 ```
-[-------------------] Service Handles: 0x0001..0x0007 UUID: 1800 (Generic Access)
-[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x12 UUID: 2a00 (Device Name)
-[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x02 UUID: 2a01 (Appearance)
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] Characteristic Handles: 0x0004..0x0005 Properties: 0x0a UUID: 2a01 (Appearance)
 [                   ] Characteristic Handles: 0x0006..0x0007 Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
-[-------------------] Service Handles: 0x0008..0x000b UUID: 1801 (Generic Attribute)
-[                   ] Characteristic Handles: 0x0009..0x000a Properties: 0x20 UUID: 2a05 (Service Changed)
-[-------------------] Service Handles: 0x000c..0x000e UUID: 180a (Device Information)
-[                   ] Characteristic Handles: 0x000d..0x000e Properties: 0x02 UUID: 2a50 (PnP ID)
-[-------------------] Service Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
-[                   ] Characteristic Handles: 0x0010..0x0011 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
-[                   ] Characteristic Handles: 0x0014..0x0015 Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
-[                   ] Characteristic Handles: 0x0018..0x0019 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
-[-------------------] Service Handles: 0x001c..0x001f UUID: 00010203-0405-0607-0809-0a0b0c0d1912
-[                   ] Characteristic Handles: 0x001d..0x001e Properties: 0x06 UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[                   ] Characteristic Handles: 0x0008..0x0009 Properties: 0x02 UUID: 2ac9 (Resolvable Private Address Only)
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c Properties: 0x22 UUID: 2a05 (Service Changed)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 Properties: 0x1e UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] Characteristic Handles: 0x0013..0x0014 Properties: 0x1e UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] Characteristic Handles: 0x0017..0x0018 Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[-------------------] Service Handles: 0x001b..0x0027 UUID: 00010203-0405-0607-0809-0a0b0c0d1910
+[                   ] Characteristic Handles: 0x001c..0x001d Properties: 0x12 UUID: 00010203-0405-0607-0809-0a0b0c0d2b10
+[                   ] Characteristic Handles: 0x0020..0x0021 Properties: 0x1e UUID: 00010203-0405-0607-0809-0a0b0c0d2b11
+[                   ] Characteristic Handles: 0x0024..0x0025 Properties: 0x0e UUID: 00010203-0405-0607-0809-0a0b0c0d2b12
+[-------------------] Service Handles: 0x0028..0x0032 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x0029..0x002a Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] Characteristic Handles: 0x002b..0x002c Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] Characteristic Handles: 0x002f..0x0030 Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] Characteristic Handles: 0x0031..0x0032 Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
 ```
 ##### 2025-02-18 128 bit UUID output
 My old code didn't properly display the UUID when it was a 128 bit UUID, I standardized on the proper output and have corrected this readme with updated respresentation. Thanks to [govee-h5075-thermo-hygrometer](https://github.com/Heckie75/govee-h5075-thermo-hygrometer/blob/main/API.md) I understand the three primary UUIDs much better.
