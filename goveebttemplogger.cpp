@@ -3208,21 +3208,25 @@ void GATT_DataPacketEncrypt(const std::array<uint8_t, 16>& session_key, GATT_Dat
 	packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] = 0;
 	for (auto index = std::size_t(0); index < sizeof(packet.buf) / sizeof(packet.buf[0]) - 1; index++)
 		packet.buf[(sizeof(packet.buf) / sizeof(packet.buf[0])) - 1] ^= packet.buf[index];
-	std::array<uint8_t, 20> plaintext;
-	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-		plaintext[index] = packet.buf[index];
-	auto ciphertext = encrypt_packet(plaintext, session_key);
-	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-		packet.buf[index] = ciphertext[index];
+	if (session_key != std::array<uint8_t, 16>{0})
+	{
+		std::array<uint8_t, 20> plaintext{ packet.buf[0], packet.buf[1], packet.buf[2], packet.buf[3], packet.buf[4], packet.buf[5], packet.buf[6], packet.buf[7], packet.buf[8], packet.buf[9], packet.buf[10], packet.buf[11], packet.buf[12], packet.buf[13], packet.buf[14], packet.buf[15], packet.buf[16], packet.buf[17], packet.buf[18], packet.buf[19] };
+		auto ciphertext = encrypt_packet(plaintext, session_key);
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			packet.buf[index] = ciphertext[index];
+	}
 }
 void GATT_DataPacketDecrypt(const std::array<uint8_t, 16>& session_key, GATT_DataPacket& packet)
 {
-	std::array<uint8_t, 20> ciphertext;
-	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-		ciphertext[index] = packet.buf[index];
-	auto plaintext = decrypt_packet(ciphertext, session_key);
-	for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
-		packet.buf[index] = plaintext[index];
+	if (session_key != std::array<uint8_t, 16>{0})
+	{
+		std::array<uint8_t, 20> ciphertext;
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			ciphertext[index] = packet.buf[index];
+		auto plaintext = decrypt_packet(ciphertext, session_key);
+		for (auto index = 0; index < sizeof(packet.buf) / sizeof(packet.buf[0]); index++)
+			packet.buf[index] = plaintext[index];
+	}
 }
 const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
 /////////////////////////////////////////////////////////////////////////////
@@ -3859,14 +3863,17 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						}
 
 						std::queue<GATT_DataPacket> WritePacketQueue;
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0e} });	// Request Firmware Version
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x07} }); // Request temperature offset
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x06} }); // Request humidity offset
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x04} }); // Request temperature alarm config
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x03} }); // Request humidity alarm config
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
-						WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+						if (SessionKey != std::array<uint8_t, 16>{0})
+						{
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0e} });	// Request Firmware Version
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x07} }); // Request temperature offset
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x06} }); // Request humidity offset
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x04} }); // Request temperature alarm config
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x03} }); // Request humidity alarm config
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+						}
 						GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_CMD, bt_Handle_RequestData, {0x33, 0x01} });
 						time(&TimeDownloadStart);
 						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
@@ -4105,6 +4112,19 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 												uint16_t DataPointsReturned = uint16_t(data->buf[2]) << 8 | uint16_t(data->buf[3]);
 												if (ConsoleVerbosity > 1)
 													std::cout << " (DataPointsReturned: " << std::dec << DataPointsReturned << ")";
+											}
+											else if ((data->buf[0] == 0xaa && data->buf[1] == 0x01) && (ConsoleVerbosity > 1))
+											{
+												std::cout << " Value: ";
+												for (auto& iterator : data->buf)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+												std::cout << " (Keep Alive Response)";
+											}
+											else if (ConsoleVerbosity > 1)
+											{
+												std::cout << " Value: ";
+												for (auto& iterator : data->buf)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
 											}
 										}
 										if (ConsoleVerbosity > 1)
