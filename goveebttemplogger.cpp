@@ -880,6 +880,159 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	}
 	return(*this);
 }
+class Govee_Device {
+public:
+	enum class ConnectionState { 
+		Disconnected, 
+		StartConnect, Connecting, 
+		//Connected,
+		StartNotify, Notifying, 
+		//Notified,
+		SendTX1, SendingTX1, 
+		//RecievedRX1,
+		SendTX2, SendingTX2, 
+		//RecievedRX2,
+		StartDownloading, Downloading, 
+		Disconnect
+	};
+	Govee_Device() : 
+		State(ConnectionState::Disconnected), 
+		MACAddress({ 0 }),
+		Name(""), 
+		CurrentData() 
+	{};
+	//Govee_Device(const std::string& data);
+	std::string WriteConsole(void) const;
+	ConnectionState GetState(void) const { return(State); }
+	ConnectionState NextState(void);
+	ConnectionState SetState(ConnectionState value) { ConnectionState oldState = State; State = value; return(oldState); }
+	ConnectionState ResetState(void) { ConnectionState oldState = State; State = ConnectionState::Disconnected; return(oldState); }
+	bool IsEncrypted(void) const { return(SessionKey != std::array<uint8_t, 16>({ 0 })); }
+	std::string GetFirmwareVersion(void) const { return(FirmwareVersion); }
+	std::string SetFirmwareVersion(const std::string& value) { std::string oldValue = FirmwareVersion; FirmwareVersion = value; return(oldValue); }
+	std::string GetHardwareVersion(void) const { return(HardwareVersion); }
+	std::string SetHardwareVersion(const std::string& value) { std::string oldValue = HardwareVersion; HardwareVersion = value; return(oldValue); }
+	std::string GetName(void) const { return(Name); }
+	std::string SetName(const std::string& value) { std::string oldValue = Name; Name = value; return(oldValue); }
+	bdaddr_t GetMACAddress(void) const { return(MACAddress); }
+	bdaddr_t SetMACAddress(const bdaddr_t& value) { bdaddr_t oldValue = MACAddress; MACAddress = value; return(oldValue); }
+	short GetSerialNumber(void) const { return(SerialNumber); }
+	short SetSerialNumber(short value) { short oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
+	std::array<uint8_t, 16> GetSessionKey(void) const { return(SessionKey); }
+	std::array<uint8_t, 16> SetSessionKey(const std::array<uint8_t, 16>& value) { std::array<uint8_t, 16> oldValue = SessionKey; SessionKey = value; return(oldValue); }
+	std::map<std::string, std::string> bluez_Characteristics;
+protected:
+	std::string Name;
+	Govee_Temp CurrentData;
+private:
+	ConnectionState State;
+	std::array<uint8_t, 16> SessionKey;
+	std::string FirmwareVersion;
+	std::string HardwareVersion;
+	bdaddr_t MACAddress;
+	short SerialNumber;
+};
+Govee_Device::ConnectionState Govee_Device::NextState(void)
+{
+	ConnectionState oldState = State;
+	switch (State)
+	{
+	case ConnectionState::Disconnected:
+		State = ConnectionState::StartConnect;
+		break;
+	case ConnectionState::StartConnect:
+		State = ConnectionState::Connecting;
+		break;
+	case ConnectionState::Connecting:
+		State = ConnectionState::StartNotify;
+		break;
+	case ConnectionState::StartNotify:
+		State = ConnectionState::Notifying;
+		break;
+	case ConnectionState::Notifying:
+		if (IsEncrypted())
+			State = ConnectionState::SendTX1;
+		else
+			State = ConnectionState::StartDownloading;
+		break;
+	case ConnectionState::SendTX1:
+		State = ConnectionState::SendingTX1;
+		break;
+	case ConnectionState::SendingTX1:
+		State = ConnectionState::SendTX2;
+		break;
+	case ConnectionState::SendTX2:
+		State = ConnectionState::SendingTX2;
+		break;
+	case ConnectionState::SendingTX2:
+		State = ConnectionState::StartDownloading;
+		break;
+	case ConnectionState::StartDownloading:
+		State = ConnectionState::Downloading;
+		break;
+	case ConnectionState::Downloading:
+		State = ConnectionState::Disconnect;
+		break;
+	default:
+		State = ConnectionState::Disconnected;
+		break;
+	}
+	return(oldState);
+}
+std::string Govee_Device::WriteConsole(void) const
+{
+	std::ostringstream oss;
+	oss << "(State:";
+	switch (State)
+	{
+	case ConnectionState::Disconnected:
+		oss << "Disconnected)";
+		break;
+	case ConnectionState::StartConnect:
+		oss << "StartConnect)";
+		break;
+	case ConnectionState::Connecting:
+		oss << "Connecting)";
+		break;
+	case ConnectionState::StartNotify:
+		oss << "StartNotify)";
+		break;
+	case ConnectionState::Notifying:
+		oss << "Notifying)";
+		break;
+	case ConnectionState::SendTX1:
+		oss << "SendTX1)";
+		break;
+	case ConnectionState::SendingTX1:
+		oss << "SendingTX1)";
+		break;
+	case ConnectionState::SendTX2:
+		oss << "SendTX2)";
+		break;
+	case ConnectionState::SendingTX2:
+		oss << "SendingTX2)";
+		break;
+	case ConnectionState::StartDownloading:
+		oss << "StartDownloading)";
+		break;
+	case ConnectionState::Downloading:
+		oss << "Downloading)";
+		break;
+	case ConnectionState::Disconnect:
+		oss << "Disconnect)";
+		break;
+	default:
+		oss << "Unknown)";
+		break;
+	}
+	if (Name.empty() == false)
+		oss << " (Name:" << Name << ")";
+	if (FirmwareVersion.empty() == false)
+		oss << " (FW:" << FirmwareVersion << ")";
+	if (HardwareVersion.empty() == false)
+		oss << " (HW:" << HardwareVersion << ")";
+	return(oss.str());
+}
 /////////////////////////////////////////////////////////////////////////////
 // The following operator was required so I could use the std::map<> to use BlueTooth Addresses as the key
 bool operator <(const bdaddr_t& a, const bdaddr_t& b)
@@ -1241,6 +1394,7 @@ std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, time_t> GoveeLastDownload;
 std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
 std::map<bdaddr_t, std::queue<Ruuvi_Tag>> RuuviTags;
+std::map<bdaddr_t, Govee_Device> GoveeDevices;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -3770,7 +3924,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 													SessionKey[index] = data->buf[2 + index];
 												if (ConsoleVerbosity > 1)
 												{
-													std::cout << " (SessionKey: ";
+													std::cout << " (RX1) (SessionKey: ";
 													for (auto& iterator : SessionKey)
 														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
 													std::cout << ")";
@@ -3838,6 +3992,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											if (data->handle == bt_Handle_AuthNotify)
 											{
 												bWaitingForSessionKeyResponse = false;
+												if (ConsoleVerbosity > 1)
+													std::cout << " (RX2)";
 											}
 											if (ConsoleVerbosity > 1)
 												std::cout << std::endl;
@@ -4111,7 +4267,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											{
 												uint16_t DataPointsReturned = uint16_t(data->buf[2]) << 8 | uint16_t(data->buf[3]);
 												if (ConsoleVerbosity > 1)
-													std::cout << " (DataPointsReturned: " << std::dec << DataPointsReturned << ")";
+													std::cout << " (Data Returned: " << std::dec << DataPointsReturned << ")";
 											}
 											else if ((data->buf[0] == 0xaa && data->buf[1] == 0x01) && (ConsoleVerbosity > 1))
 											{
@@ -5074,16 +5230,6 @@ bool bluez_discovery(DBusConnection* dbus_conn, const char* adapter_path, const 
 		std::cerr << ssOutput.str();
 	return(bStarted);
 }
-std::map<bdaddr_t, std::map<std::string, std::string>> bluez_GoveeCharacteristics;
-std::map<bdaddr_t, std::array<uint8_t, 16>> bluez_SessionKeys;
-bool bluez_in_use(false);
-bool bluez_encrypted(false);
-bool bluez_connect(false);
-bool bluez_start_notify(false);
-bool bluez_send_TX1(false);
-bool bluez_send_TX2(false);
-bool bluez_download(false);
-bool bluez_disconnect(false);
 void bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	// this routine requests bluez connect to the device.
@@ -5165,11 +5311,11 @@ void bluez_enable_notifications(DBusConnection* dbus_conn, const char* adapter_p
 {
 	std::ostringstream ssOutput;
 	if (ConsoleVerbosity > 2) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
-	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-		if (bzGoveeDeviceChars->second.size() > 0)
+	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+	if (GoveeDevice != GoveeDevices.end())
+		if (GoveeDevice->second.bluez_Characteristics.size() > 0)
 		{
-			for (auto& [UUID, Path] : bzGoveeDeviceChars->second)
+			for (auto& [UUID, Path] : GoveeDevice->second.bluez_Characteristics)
 			{
 				if (!UUID.compare("494e5445-4c4c-495f-524f-434b535f2011") ||
 					!UUID.compare("494e5445-4c4c-495f-524f-434b535f2012") ||
@@ -5186,8 +5332,6 @@ void bluez_enable_notifications(DBusConnection* dbus_conn, const char* adapter_p
 						ssOutput << "[-------------------] " << UUID << " " << dbus_message_get_path(dbus_msg_enable_notification) << " " << dbus_message_get_interface(dbus_msg_enable_notification) << ": " << dbus_message_get_member(dbus_msg_enable_notification) << std::endl;
 					dbus_message_unref(dbus_msg_enable_notification);
 				}
-				if (!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b10"))
-					bluez_encrypted = true;
 			}
 		}
 	if (ConsoleVerbosity > 0)
@@ -5200,12 +5344,12 @@ bool bluez_Write_TX(DBusConnection* dbus_conn, const char* adapter_path, const b
 	bool rval = false;
 	std::ostringstream ssOutput;
 	if (ConsoleVerbosity > 3) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << (TX1 ? " TX1" : " TX2") << std::endl;
-	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-		if (bzGoveeDeviceChars->second.size() > 0)
+	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+	if (GoveeDevice != GoveeDevices.end())
+		if (GoveeDevice->second.bluez_Characteristics.size() > 0)
 		{
-			auto GoveeDataControl = bzGoveeDeviceChars->second.find("00010203-0405-0607-0809-0a0b0c0d2b11");
-			if (GoveeDataControl != bzGoveeDeviceChars->second.end())
+			auto GoveeDataControl = GoveeDevice->second.bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b11");
+			if (GoveeDataControl != GoveeDevice->second.bluez_Characteristics.end())
 			{
 				DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", GoveeDataControl->second.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
 				DBusMessageIter iterParameter;
@@ -5254,7 +5398,7 @@ bool bluez_Write_TX(DBusConnection* dbus_conn, const char* adapter_path, const b
 					ssOutput << std::dec << std::endl;
 				}
 				dbus_message_unref(dbus_msg_write);
-				if (ConsoleVerbosity > 2) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] (" << (TX1?"TX1":"TX2") << ") Written to Characteristic: " << GoveeDataControl->first.c_str() << std::endl;
+				if (ConsoleVerbosity > 1) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] (" << (TX1?"TX1":"TX2") << ") Written to Characteristic: " << GoveeDataControl->first.c_str() << std::endl;
 				rval = true;
 			}
 		}
@@ -5268,17 +5412,14 @@ void bluez_Write_Command(DBusConnection* dbus_conn, const char* adapter_path, co
 {
 	std::ostringstream ssOutput;
 	if (ConsoleVerbosity > 3) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << " " << std::setfill('0') << std::setw(2) << unsigned(Command) << std::endl;
-	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-		if (bzGoveeDeviceChars->second.size() > 0)
+	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+	if (GoveeDevice != GoveeDevices.end())
+		if (GoveeDevice->second.bluez_Characteristics.size() > 0)
 		{
-			auto GoveeCommand = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2011");
-			if (GoveeCommand != bzGoveeDeviceChars->second.end())
+			auto GoveeCommand = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2011");
+			if (GoveeCommand != GoveeDevice->second.bluez_Characteristics.end())
 			{
-				std::array<uint8_t, 16> SessionKey{ 0 };
-				auto SKPair = bluez_SessionKeys.find(dbusBTAddress);
-				if (SKPair != bluez_SessionKeys.end())
-					SessionKey = SKPair->second;
+				std::array<uint8_t, 16> SessionKey{ GoveeDevice->second.GetSessionKey() };
 				DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", GoveeCommand->second.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
 				DBusMessageIter iterParameter;
 				dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
@@ -5382,23 +5523,23 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 	//ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
 	//const std::string ObjectPathGattCharacteristic(ssJunk.str());
 
-	auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-	if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-	if (bzGoveeDeviceChars->second.size() > 0)
+	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+	if (GoveeDevice != GoveeDevices.end())
+	if (GoveeDevice->second.bluez_Characteristics.size() > 0)
 	{
 		// The Commands are on a different characteristic from the historical data.
 		// It appears I can request one response at a time per characteristic
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x0e); // Request Firmware Version
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x0d); // Request Hardware Version
-		bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x08); // Request battery level
+		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x08); // Request battery level
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x0c); // Request Request MAC address and serial
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x07); // Request temperature offset
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x06); // Request humidity offset
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x04); // Request temperature alarm config
 		//bluez_Write_Command(dbus_conn, adapter_path, dbusBTAddress, 0x03); // Request humidity alarm config
 
-		auto GoveeDataControl = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2012");
-		if (GoveeDataControl != bzGoveeDeviceChars->second.end())
+		auto GoveeDataControl = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2012");
+		if (GoveeDataControl != GoveeDevice->second.bluez_Characteristics.end())
 		{
 			// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
 			// parameter should have a signature of aya{sv}
@@ -5429,10 +5570,7 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 			buf.back() = 0;
 			for (auto index = std::size_t(0); index < buf.size() - 1; index++)
 				buf.back() ^= buf[index];
-			std::array<uint8_t, 16> SessionKey{ 0 };
-			auto SKPair = bluez_SessionKeys.find(dbusBTAddress);
-			if (SKPair != bluez_SessionKeys.end())
-				SessionKey = SKPair->second;
+			std::array<uint8_t, 16> SessionKey{ GoveeDevice->second.GetSessionKey() };
 			buf = encrypt_packet(buf, SessionKey);
 			for (auto& a : buf)
 				dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
@@ -5824,18 +5962,30 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
-										if (!bluez_in_use)
+										// initiate connection here if we are set to download data
+										if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
 										{
-											// initiate connection here if we are set to download data
-											if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
+											time_t LastDownloadTime = 0;
+											auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
+											if (RecentDownload != GoveeLastDownload.end())
+												LastDownloadTime = RecentDownload->second;
+											// Don't try to download more often than once a week, because it uses more battery than just the advertisments
+											if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 											{
-												time_t LastDownloadTime = 0;
-												auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
-												if (RecentDownload != GoveeLastDownload.end())
-													LastDownloadTime = RecentDownload->second;
-												// Don't try to download more often than once a week, because it uses more battery than just the advertisments
-												if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
-													bluez_connect = true;
+												auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+												if (GoveeDevice != GoveeDevices.end())
+												{
+													if (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::Disconnected)
+														GoveeDevice->second.NextState();
+												}
+												else
+												{
+													Govee_Device newdevice;
+													newdevice.NextState();
+													GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
+												}
+												if (ConsoleVerbosity > 3)
+													ssOutput << " " << GoveeDevice->second.WriteConsole();
 											}
 										}
 									}
@@ -5863,6 +6013,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				dbus_message_iter_get_basic(&variant_iter, &value);
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << value.str;
+				auto existingdevice = GoveeDevices.find(dbusBTAddress);
+				if (existingdevice != GoveeDevices.end())
+					existingdevice->second.SetMACAddress(string2ba(std::string(value.str)));
+				else
+				{
+					Govee_Device newdevice;
+					newdevice.SetMACAddress(string2ba(std::string(value.str)));
+					GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
+				}
 			}
 		}
 		else if (!Key.compare("Name"))
@@ -5875,6 +6034,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				localTemp.SetModel(std::string(value.str));
 				if (localTemp.GetModel() != ThermometerType::Unknown)
 					GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
+				auto existingdevice = GoveeDevices.find(dbusBTAddress);
+				if (existingdevice != GoveeDevices.end())
+					existingdevice->second.SetName(std::string(value.str));
+				else
+				{
+					Govee_Device newdevice;
+					newdevice.SetName(std::string(value.str));
+					GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
+				}
 			}
 		}
 		else if (!Key.compare("UUID"))
@@ -5893,12 +6061,14 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b11") ||
 					!UUID.compare("00010203-0405-0607-0809-0a0b0c0d2b12") ||
 					!UUID.compare("02f00000-0000-0000-0000-00000000ff02"))
+				{
+					auto bzGoveeDevice = GoveeDevices.find(dbusBTAddress);
+					if (bzGoveeDevice != GoveeDevices.end())
 					{
-					std::map<std::string, std::string> GoveeCharacteristics;
-					auto bzGoveeDevice = bluez_GoveeCharacteristics.insert(std::make_pair(dbusBTAddress, GoveeCharacteristics));
-					bzGoveeDevice.first->second.insert(std::make_pair(UUID, root_object_path));
-					if (ConsoleVerbosity > 3)
-						ssOutput << " (Inserted)";
+						bzGoveeDevice->second.bluez_Characteristics.insert_or_assign(UUID, root_object_path);
+						if (ConsoleVerbosity > 3)
+							ssOutput << " (Inserted)";
+					}
 				}
 			}
 		}
@@ -5935,25 +6105,33 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 				dbus_message_iter_get_basic(&variant_iter, &value);
 				if (ConsoleVerbosity > 3)
 					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
-				bluez_in_use = bool(value.bool_val);
-				if (!bluez_in_use)
+				auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+				if (GoveeDevice != GoveeDevices.end())
 				{
-					bluez_encrypted = bluez_connect = bluez_start_notify = bluez_send_TX1 = bluez_send_TX2 = bluez_download = bluez_disconnect = false; // reset all the state variables, because we aren't connected to the device anymore.
-					//SessionKeys.erase(dbusBTAddress);// reset the session key, because we aren't connected to the device anymore, so we will need to go through the pairing process again when we do connect again.
-					time_t LastDownloadTime = 0;
-					auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
-					if (RecentDownload != GoveeLastDownload.end())
-						LastDownloadTime = RecentDownload->second;
-					if (LastDownloadTime != 0)
+					if (false == bool(value.bool_val))
 					{
-						if (!ssOutput.str().empty())
-							ssOutput << std::endl << ssStartLine.str();
-						ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
-						auto downloadtype = GoveeThermometers.find(dbusBTAddress);
-						if (downloadtype != GoveeThermometers.end())
-							ssOutput << " " << ThermometerType2String(downloadtype->second);
-						if (ConsoleVerbosity < 1)
-							ssOutput << std::endl;
+						GoveeDevice->second.ResetState();
+						time_t LastDownloadTime = 0;
+						auto RecentDownload = GoveeLastDownload.find(dbusBTAddress);
+						if (RecentDownload != GoveeLastDownload.end())
+							LastDownloadTime = RecentDownload->second;
+						if (LastDownloadTime != 0)
+						{
+							if (!ssOutput.str().empty())
+								ssOutput << std::endl << ssStartLine.str();
+							ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
+							auto downloadtype = GoveeThermometers.find(dbusBTAddress);
+							if (downloadtype != GoveeThermometers.end())
+								ssOutput << " " << ThermometerType2String(downloadtype->second);
+							if (!GoveeDevice->second.GetHardwareVersion().empty())
+								ssOutput << " (HW: " << GoveeDevice->second.GetHardwareVersion() << ")";
+							if (!GoveeDevice->second.GetFirmwareVersion().empty())
+								ssOutput << " (FW: " << GoveeDevice->second.GetFirmwareVersion() << ")";
+							if (ConsoleVerbosity > 3)
+								ssOutput << " " << GoveeDevice->second.WriteConsole();
+							if (ConsoleVerbosity < 1)
+								ssOutput << std::endl;
+						}
 					}
 				}
 			}
@@ -5967,9 +6145,9 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
 				if (true == bool(value.bool_val))
 				{
-					auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-					if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
-						if (bzGoveeDeviceChars->second.size() >= 3)
+					auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+					if (GoveeDevice != GoveeDevices.end())
+						if (GoveeDevice->second.bluez_Characteristics.size() >= 3)
 							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
 								if (GoveeThermometers.find(dbusBTAddress) != GoveeThermometers.end())
 								{
@@ -5979,10 +6157,12 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										LastDownloadTime = RecentDownload->second;
 									// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 									if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
-										bluez_start_notify = true;
+										GoveeDevice->second.NextState();
+									else
+										GoveeDevice->second.SetState(Govee_Device::ConnectionState::Disconnect);
 								}
 					if (ConsoleVerbosity > 3)
-						ssOutput << " bluez_start_notify: " << std::boolalpha << bluez_start_notify;
+						ssOutput << " " << GoveeDevice->second.WriteConsole();
 				}
 			}
 		}
@@ -6019,11 +6199,11 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					if (RecentTemperature != GoveeLastReading.end())
 						BatteryToRecord = RecentTemperature->second.GetBattery();
 
-					auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-					if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
+					auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+					if (GoveeDevice != GoveeDevices.end())
 					{
-						auto GoveeAuth = bzGoveeDeviceChars->second.find("00010203-0405-0607-0809-0a0b0c0d2b10");
-						if (GoveeAuth != bzGoveeDeviceChars->second.end())
+						auto GoveeAuth = GoveeDevice->second.bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b10");
+						if (GoveeAuth != GoveeDevice->second.bluez_Characteristics.end())
 							if (!GoveeAuth->second.compare(root_object_path))
 							{
 								// decrypt with pre shared key.
@@ -6040,8 +6220,8 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									std::array<uint8_t, 16> SessionKey{ 0 };
 									for (auto index = 0; index < 16; index++)
 										SessionKey[index] = packet[2 + index];
-									bluez_SessionKeys.insert_or_assign(dbusBTAddress, SessionKey);
-									bluez_send_TX2 = true;
+									GoveeDevice->second.SetSessionKey(SessionKey);
+									GoveeDevice->second.NextState();
 									if (ConsoleVerbosity > 1)
 									{
 										ssOutput << " (TX1 Returned)";
@@ -6053,7 +6233,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								}
 								else if ((packet[0] == 0xe7) && (packet[1] == 0x02)) // TX2 was returned, so we can start downloading the data.
 								{
-									bluez_download = true;
+									GoveeDevice->second.NextState();
 									if (ConsoleVerbosity > 1)
 									{
 										ssOutput << " (TX2 Returned: ";
@@ -6064,14 +6244,11 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								}
 							}
 
-						auto GoveeCommand = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2011");
-						if (GoveeCommand != bzGoveeDeviceChars->second.end())
+						auto GoveeCommand = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2011");
+						if (GoveeCommand != GoveeDevice->second.bluez_Characteristics.end())
 							if (!GoveeCommand->second.compare(root_object_path))
 							{
-								std::array<uint8_t, 16> SessionKey{ 0 };
-								auto SKPair = bluez_SessionKeys.find(dbusBTAddress);
-								if (SKPair != bluez_SessionKeys.end())
-									SessionKey = SKPair->second;
+								std::array<uint8_t, 16> SessionKey{ GoveeDevice->second.GetSessionKey() };
 								packet = decrypt_packet(packet, SessionKey);
 								if (ConsoleVerbosity > 3)
 								{
@@ -6106,19 +6283,23 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 											ssOutput << " (Battery Level: " << std::dec << unsigned(BatteryToRecord) << "%)";
 										break;
 									case 0x0c:
+										GoveeDevice->second.SetMACAddress(*reinterpret_cast<bdaddr_t*>(packet.data() + 2));
+										GoveeDevice->second.SetSerialNumber(uint32_t(uint32_t(packet[10]) << 24 | uint32_t(packet[11]) << 16 | uint32_t(packet[8]) << 8 | uint32_t(packet[9])));
 										if (ConsoleVerbosity > 1)
 										{
-											ssOutput << " (MAC Address: " << ba2string(*reinterpret_cast<bdaddr_t*>(packet.data() + 2));
-											ssOutput << " Serial Number: " << std::dec << uint32_t(uint32_t(packet[10]) << 24 | uint32_t(packet[11]) << 16 | uint32_t(packet[8]) << 8 | uint32_t(packet[9])) << ")";
+											ssOutput << " (MAC Address: " << ba2string(GoveeDevice->second.GetMACAddress());
+											ssOutput << " Serial Number: " << std::dec << GoveeDevice->second.GetSerialNumber() << ")";
 										}
 										break;
 									case 0x0d:
+										GoveeDevice->second.SetHardwareVersion(std::string((char*)packet.data() + 2));
 										if (ConsoleVerbosity > 1)
-											ssOutput << " (Hardware: " << std::string((char*)packet.data() + 2) << ")";
+											ssOutput << " (Hardware: " << GoveeDevice->second.GetHardwareVersion() << ")";
 										break;
 									case 0x0e:
+										GoveeDevice->second.SetFirmwareVersion(std::string((char*)packet.data() + 2));
 										if (ConsoleVerbosity > 1)
-											ssOutput << " (Firmware: " << std::string((char*)packet.data() + 2) << ")";
+											ssOutput << " (Firmware: " << GoveeDevice->second.GetFirmwareVersion() << ")";
 										break;
 									default:
 										break;
@@ -6126,14 +6307,11 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								}
 							}
 
-						auto GoveeDataResult = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2013");
-						if (GoveeDataResult != bzGoveeDeviceChars->second.end())
+						auto GoveeDataResult = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2013");
+						if (GoveeDataResult != GoveeDevice->second.bluez_Characteristics.end())
 							if (!GoveeDataResult->second.compare(root_object_path))
 							{
-								std::array<uint8_t, 16> SessionKey{ 0 };
-								auto SKPair = bluez_SessionKeys.find(dbusBTAddress);
-								if (SKPair != bluez_SessionKeys.end())
-									SessionKey = SKPair->second;
+								std::array<uint8_t, 16> SessionKey{ GoveeDevice->second.GetSessionKey() };
 								packet = decrypt_packet(packet, SessionKey);
 								if (ConsoleVerbosity > 3)
 								{
@@ -6173,8 +6351,11 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								if (LastReportedTime != 0)
 									GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
 								if (offset < 1)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
-									bluez_disconnect = true;
+									GoveeDevice->second.NextState();
 							}
+
+						if (ConsoleVerbosity > 3)
+							ssOutput << " " << GoveeDevice->second.WriteConsole();
 					}
 				}
 			}
@@ -6186,26 +6367,28 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				auto bzGoveeDeviceChars = bluez_GoveeCharacteristics.find(dbusBTAddress);
-				if (bzGoveeDeviceChars != bluez_GoveeCharacteristics.end())
+				auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+				if (GoveeDevice != GoveeDevices.end())
 				{
-					if (bluez_encrypted)
+					if (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::Notifying)
 					{
-						auto GoveeAuthNotify = bzGoveeDeviceChars->second.find("00010203-0405-0607-0809-0a0b0c0d2b10");
-						if (GoveeAuthNotify != bzGoveeDeviceChars->second.end())
-							if (!GoveeAuthNotify->second.compare(root_object_path))
-								bluez_send_TX1 = bool(value.bool_val);
+						if (GoveeDevice->second.IsEncrypted())
+						{
+							auto GoveeAuthNotify = GoveeDevice->second.bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b10");
+							if (GoveeAuthNotify != GoveeDevice->second.bluez_Characteristics.end())
+								GoveeDevice->second.NextState();
+						}
+						else
+						{
+							auto GoveeAuthNotify = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2013");
+							if (GoveeAuthNotify != GoveeDevice->second.bluez_Characteristics.end())
+								if (!GoveeAuthNotify->second.compare(root_object_path))
+									GoveeDevice->second.NextState();
+						}
 					}
-					else
-					{
-						auto GoveeAuthNotify = bzGoveeDeviceChars->second.find("494e5445-4c4c-495f-524f-434b535f2013");
-						if (GoveeAuthNotify != bzGoveeDeviceChars->second.end())
-							if (!GoveeAuthNotify->second.compare(root_object_path))
-								bluez_download = bool(value.bool_val);
-					}
+					if (ConsoleVerbosity > 3)
+						ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val) << " " << GoveeDevice->second.WriteConsole();
 				}
-				if (ConsoleVerbosity > 3)
-					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val) << " bluez_encrypted:" << bluez_encrypted << " bluez_send_TX1:" << bluez_send_TX1 << " bluez_download:" << bluez_download;
 			}
 		}
 		else if (ConsoleVerbosity > 3)
@@ -6402,8 +6585,7 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 		}
 		ObjectsToDelete.pop();
 	}
-	bluez_GoveeCharacteristics.clear();
-	bluez_SessionKeys.clear();
+	GoveeDevices.clear();
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
 	else
@@ -6836,42 +7018,42 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											bluez_dbus_msg_InterfacesAdded(dbus_msg, localBTAddress, BT_WhiteList, TimeNow);
 										else if (!dbus_msg_Member.compare("PropertiesChanged"))
 											bluez_dbus_msg_PropertiesChanged(dbus_msg, localBTAddress, BT_WhiteList, TimeNow);
-										if (bluez_connect == true)
+										auto GoveeDevice = GoveeDevices.find(localBTAddress);
+										if (GoveeDevice != GoveeDevices.end())
 										{
-											bluez_connect = false;
-											bluez_device_connect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
-											bluez_in_use = true;
-										}
-										if (bluez_start_notify == true)
-										{
-											bluez_start_notify = false;
-											bluez_enable_notifications(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
-										}
-										if (bluez_send_TX1 == true)
-										{
-											bluez_send_TX1 = false;
-											bluez_Write_TX(dbus_conn, BlueZAdapter.c_str(), localBTAddress); // this is needed to trigger the authentication process on the Govee device
-											if (ConsoleVerbosity > 0)
-												ssOutput << "[" << getTimeISO8601(true) << "] ";
-											if (ConsoleVerbosity > 3)
-												ssOutput << std::boolalpha << "bluez_send_TX1 = " << bluez_send_TX1 << " bluez_download: " << bluez_download;
-											if (ConsoleVerbosity > 0)
-												ssOutput << std::endl;
-										}
-										if (bluez_send_TX2 == true)
-										{
-											bluez_send_TX2 = false;
-											bluez_Write_TX(dbus_conn, BlueZAdapter.c_str(), localBTAddress, false);
-										}
-										if (bluez_download == true)
-										{
-											bluez_download = false;
-											bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
-										}
-										if (bluez_disconnect == true)
-										{
-											bluez_disconnect = false;
-											bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+											switch (GoveeDevice->second.GetState())
+											{
+											case Govee_Device::ConnectionState::StartConnect:
+												GoveeDevice->second.NextState();
+												bluez_device_connect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+												break;
+											case Govee_Device::ConnectionState::StartNotify:
+												GoveeDevice->second.NextState();
+												bluez_enable_notifications(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+												break;
+											case Govee_Device::ConnectionState::SendTX1:
+												GoveeDevice->second.NextState();
+												bluez_Write_TX(dbus_conn, BlueZAdapter.c_str(), localBTAddress); // this is needed to trigger the authentication process on the Govee device
+												break;
+											case Govee_Device::ConnectionState::SendTX2:
+												GoveeDevice->second.NextState();
+												bluez_Write_TX(dbus_conn, BlueZAdapter.c_str(), localBTAddress, false);
+												//if (ConsoleVerbosity > 0)
+												//	ssOutput << "[" << getTimeISO8601(true) << "] ";
+												//if (ConsoleVerbosity > 3)
+												//	ssOutput << std::boolalpha << "bluez_send_TX1 = " << (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::SendTX1) << " bluez_download: " << (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::StartDownloading);
+												//if (ConsoleVerbosity > 0)
+												//	ssOutput << std::endl;
+												break;
+											case Govee_Device::ConnectionState::StartDownloading:
+												GoveeDevice->second.NextState();
+												bluez_device_download(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+												break;
+											case Govee_Device::ConnectionState::Disconnect:
+												GoveeDevice->second.NextState();
+												bluez_device_disconnect(dbus_conn, BlueZAdapter.c_str(), localBTAddress);
+												break;
+											}
 										}
 										for (const auto &a : GoveeLastReading)
 										{
@@ -6931,8 +7113,8 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
 								if (ConsoleVerbosity > 2)
-									for (auto& [btAddress, PathUUID] : bluez_GoveeCharacteristics)
-										for (auto& [UUID, Path] : PathUUID)
+									for (auto& [btAddress, device] : GoveeDevices)
+										for (auto& [UUID, Path] : device.bluez_Characteristics)
 											std::cout << "[-------------------] [" << ba2string(btAddress) << "] " << UUID << " " << Path << std::endl;
 							}
 							if ((MaxMinutesBetweenBluetoothAdvertisments > 0) && (TimeAdvertisment > 0))
