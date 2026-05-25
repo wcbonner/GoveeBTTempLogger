@@ -26,7 +26,7 @@ cmake --build GoveeBTTempLogger/build
 pushd GoveeBTTempLogger/build && cpack . && popd
 ```
 
-## Update to Version 5 (2026-05-23)
+## Update to Version 5 (2026-05-25)
 Newer Govee devices are using a different protocol for downloading data that uses a combination of AES and RC4 encryption.
 This only matters when connecting to the device to download data, the bluetooth advertisments are still in the same format 
 and can be read without any changes to the code. All of the devices use the service UUID **494e5445-4c4c-495f-524f-434b535f4857**, 
