@@ -899,6 +899,7 @@ public:
 		State(ConnectionState::Disconnected), 
 		MACAddress({ 0 }),
 		Name(""), 
+		SerialNumber(0),
 		CurrentData() 
 	{};
 	//Govee_Device(const std::string& data);
@@ -930,7 +931,7 @@ private:
 	std::string FirmwareVersion;
 	std::string HardwareVersion;
 	bdaddr_t MACAddress;
-	short SerialNumber;
+	unsigned short SerialNumber;
 };
 Govee_Device::ConnectionState Govee_Device::NextState(void)
 {
@@ -3385,7 +3386,7 @@ void GATT_DataPacketDecrypt(const std::array<uint8_t, 16>& session_key, GATT_Dat
 const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
-time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, int BatteryToRecord = 0)
+time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, int BatteryToRecord = 0)
 {
 	if (ConsoleVerbosity > 2)
 		std::cout << "[                   ] " << __func__ << " " << ba2string(GoveeBTAddress) << std::endl;
@@ -3395,6 +3396,7 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 	const auto ConnectedThermometerType = GoveeThermometers.find(GoveeBTAddress)->second;
 	std::string DeviceFirmwareVersion;
 	std::string DeviceHardwareVersion;
+	unsigned short DeviceSerialNumber(0);
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
 	socklen_t olen = sizeof(original_filter);
@@ -4019,6 +4021,14 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						}
 
 						std::queue<GATT_DataPacket> WritePacketQueue;
+#define TEST_COMMANDS
+#ifdef TEST_COMMANDS
+						for (auto command = 0; command <= 0x0e; command++)
+						{
+							GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
+							WritePacketQueue.push(MyRequest);
+						}
+#else
 						if (SessionKey != std::array<uint8_t, 16>{0})
 						{
 							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0e} });	// Request Firmware Version
@@ -4028,8 +4038,16 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x04} }); // Request temperature alarm config
 							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x03} }); // Request humidity alarm config
 							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request MAC address and serial
 						}
+						else
+						{
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
+							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0e} });	// Request Firmware Version
+						}
+#endif
 						GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_CMD, bt_Handle_RequestData, {0x33, 0x01} });
 						time(&TimeDownloadStart);
 						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
@@ -4077,7 +4095,6 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 						// Value: ee010a53000000000000000000000000000000b6
 						// There were 2644 Notification packets on Handle 31,
 						int RetryCount(4);
-						int NotificationCount(0);
 						bool bDownloadInProgress(true);
 						while (bDownloadInProgress)
 						{
@@ -4099,41 +4116,53 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 									std::cout << "      Handle: " << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 									for (auto & iterator : pkt.buf)
 										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-									if (pkt.buf[0] == 0x33 && pkt.buf[1] == 0x01)
-										std::cout << " (Data Request: " << std::dec << ((uint16_t(pkt.buf[2]) << 8) | uint16_t(pkt.buf[3])) << " points)";
-									else if (pkt.buf[0] == 0xaa)
+									if (pkt.handle == bt_Handle_RequestData)
 									{
-										switch (pkt.buf[1])
-										{
-										case 0x01:
+										if (pkt.buf[0] == 0x33 && pkt.buf[1] == 0x01)
+											std::cout << " (Data Request: " << std::dec << ((uint16_t(pkt.buf[2]) << 8) | uint16_t(pkt.buf[3])) << " points)";
+										if (pkt.buf[0] == 0xaa && pkt.buf[1] == 0x01)
 											std::cout << " (Keep Alive)";
-											break;
-										case 0x03:
-											std::cout << " (Humidity Alarm Config Request)";
-											break;
-										case 0x04:
-											std::cout << " (Temperature Alarm Config Request)";
-											break;
-										case 0x06:
-											std::cout << " (Humidity Offset Request)";
-											break;
-										case 0x07:
-											std::cout << " (Temperature Offset Request)";
-											break;											
-										case 0x08:
-											std::cout << " (Battery Level Request)";
-											break;
-										case 0x0c:
-											std::cout << " (MAC Address and Serial Request)";
-											break;
-										case 0x0d:
-											std::cout << " (Hardware Version Request)";
-											break;
-										case 0x0e:
-											std::cout << " (Firmware Version Request)";
-											break;
-										default:
-											std::cout << " (Unknown Command)";
+									}
+									else if (pkt.handle == bt_Handle_DeviceData)
+									{
+										if (pkt.buf[0] == 0xaa)
+										{
+											switch (pkt.buf[1])
+											{
+											case 0x01:
+											case 0x0a:
+												std::cout << " (Current Measurement Request)";
+												break;
+											case 0x03:
+												std::cout << " (Humidity Alarm Request)";
+												break;
+											case 0x04:
+												std::cout << " (Temperature Alarm Request)";
+												break;
+											case 0x06:
+												std::cout << " (Humidity Offset Request)";
+												break;
+											case 0x07:
+												std::cout << " (Temperature Offset Request)";
+												break;
+											case 0x08:
+												std::cout << " (Battery Level Request)";
+												break;
+											case 0x0c:
+												std::cout << " (MAC Address and Serial Request)";
+												break;
+											case 0x0d:
+												std::cout << " (Hardware Version Request)";
+												break;
+											case 0x0e:
+												std::cout << " (Firmware Version Request)";
+												break;
+											case 0x0f:
+												std::cout << " (MAC Address Request)";
+												break;
+											default:
+												std::cout << " (Unknown Command " << std::hex << std::setw(2) << std::setfill('0') << unsigned(pkt.buf[1]) << ") ";
+											}
 										}
 									}
 									std::cout << std::endl;
@@ -4175,15 +4204,13 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 										}
 										if (data->handle == bt_Handle_ReturnData)
 										{
-											NotificationCount++;
 											offset = uint16_t(data->buf[0]) << 8 | uint16_t(data->buf[1]);
 											if (offset < 7)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
 												bDownloadInProgress = false;
-											else if (NotificationCount > 75)
+											else if ((offset % 450) < 6) // trick to send a keep-alive every 450 data points, which seems to be about how often the device needs it based on my testing. If I don't send this command at least every 450 data points, the device seems to stop sending data until I send it.
 											{
 												// Keep-Alive command
 												WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0xaa, 0x01} });
-												NotificationCount = 0;
 											}
 											if (ConsoleVerbosity > 1)
 												std::cout << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
@@ -4215,13 +4242,25 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 											{
 												switch (data->buf[1])
 												{
+												case 0x01:
+												case 0x0a:
+													if (ConsoleVerbosity > 1)
+														std::cout << " (Current Measurement: " << std::dec << (float(uint16_t(data->buf[3]) << 8 | uint16_t(data->buf[2])) / 100.0) << " " << (float(uint16_t(data->buf[5]) << 8 | uint16_t(data->buf[4])) / 100.0) << ")";
+													break;
 												case 0x03:
 													if (ConsoleVerbosity > 1)
-														std::cout << " (Humidity Alarm Config: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(data->buf[2]) << ")";
+														std::cout << " (Humidity Alarm: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(data->buf[2]) << ")";
 													break;
 												case 0x04:
 													if (ConsoleVerbosity > 1)
-														std::cout << " (Temperature Alarm Config: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(data->buf[2]) << ")";
+													{
+														std::cout << " (Temperature Alarm:";
+														std::cout << " Active: " << std::boolalpha << bool(data->buf[2] & 0x01);
+														std::cout << " Low Threshold: " << std::dec << int16_t(uint16_t(data->buf[4]) << 8 | uint16_t(data->buf[3])) / 100.0;
+														std::cout << " High Threshold: " << std::dec << int16_t(uint16_t(data->buf[6]) << 8 | uint16_t(data->buf[5])) / 100.0;
+														std::cout << " Duration: " << std::dec << uint16_t(data->buf[7]) << " minutes";
+														std::cout << ")";
+													}
 													break;
 												case 0x06:
 													if (ConsoleVerbosity > 1)
@@ -4237,10 +4276,11 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 														std::cout << " (Battery Level: " << std::dec << unsigned(BatteryToRecord) << "%)";
 													break;
 												case 0x0c:
+													DeviceSerialNumber = uint32_t(data->buf[10]) << 24 | uint32_t(data->buf[11]) << 16 | uint32_t(data->buf[8]) << 8 | uint32_t(data->buf[9]);
 													if (ConsoleVerbosity > 1)
 													{
 														std::cout << " (MAC Address: " << ba2string(*reinterpret_cast<bdaddr_t*>(data->buf + 2));
-														std::cout << " Serial Number: " << std::dec << uint32_t(uint32_t(data->buf[10]) << 24 | uint32_t(data->buf[11]) << 16 | uint32_t(data->buf[8]) << 8 | uint32_t(data->buf[9])) << ")";
+														std::cout << " Serial Number: " << std::dec << DeviceSerialNumber << ")";
 													}
 													break;
 												case 0x0d:
@@ -4254,27 +4294,29 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 														std::cout << " (Firmware: " << DeviceFirmwareVersion << ")";
 													break;
 												default:
-													std::cout << " Value: ";
-													for (auto& iterator : data->buf)
-														std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+													if (ConsoleVerbosity > 1)
+													{
+														std::cout << " (Unknown Command " << std::hex << std::setw(2) << std::setfill('0') << unsigned(data->buf[1]) << ") ";
+														for (auto& iterator : data->buf)
+															std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+													}
 													break;
 												}
 											}
 										}
 										else if (data->handle == bt_Handle_RequestData)
 										{
-											if (data->buf[0] == 0x33 && data->buf[1] == 0x01)
+											if ((data->buf[0] == 0x33 && data->buf[1] == 0x01) && (ConsoleVerbosity > 1))
 											{
 												uint16_t DataPointsReturned = uint16_t(data->buf[2]) << 8 | uint16_t(data->buf[3]);
-												if (ConsoleVerbosity > 1)
-													std::cout << " (Data Returned: " << std::dec << DataPointsReturned << ")";
+												std::cout << " (Data Returned: " << std::dec << DataPointsReturned << ")";
 											}
 											else if ((data->buf[0] == 0xaa && data->buf[1] == 0x01) && (ConsoleVerbosity > 1))
 											{
+												std::cout << " (Keep Alive Response)";
 												std::cout << " Value: ";
 												for (auto& iterator : data->buf)
 													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-												std::cout << " (Keep Alive Response)";
 											}
 											else if (ConsoleVerbosity > 1)
 											{
@@ -4343,6 +4385,8 @@ time_t ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddr
 			ssOutput << " FW:" << DeviceFirmwareVersion;
 		if (!DeviceHardwareVersion.empty())
 			ssOutput << " HW:" << DeviceHardwareVersion;
+		if (DeviceSerialNumber != 0)
+			ssOutput << " SN:" << std::dec << DeviceSerialNumber;
 		if (ConsoleVerbosity > 0)
 			std::cout << ssOutput.str() << std::endl;
 		else
@@ -4739,7 +4783,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 													{
 														bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList, HCI_Passive_Scanning);
-														time_t DownloadTime = ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
+														time_t DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, info->bdaddr, LastDownloadTime, BatteryToRecord);
 														if (DownloadTime > 0)
 														{
 															if (RecentDownload != GoveeLastDownload.end())
@@ -6127,6 +6171,8 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								ssOutput << " (HW: " << GoveeDevice->second.GetHardwareVersion() << ")";
 							if (!GoveeDevice->second.GetFirmwareVersion().empty())
 								ssOutput << " (FW: " << GoveeDevice->second.GetFirmwareVersion() << ")";
+							if (GoveeDevice->second.GetSerialNumber() != 0)
+								ssOutput << " (SN: " << GoveeDevice->second.GetSerialNumber() << ")";
 							if (ConsoleVerbosity > 3)
 								ssOutput << " " << GoveeDevice->second.WriteConsole();
 							if (ConsoleVerbosity < 1)
@@ -6261,13 +6307,25 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								{
 									switch (packet[1])
 									{
+									case 0x01:
+									case 0x0a:
+										if (ConsoleVerbosity > 1)
+											std::cout << " (Current Measurement: " << std::dec << (float(uint16_t(packet[3]) << 8 | uint16_t(packet[2])) / 100.0) << " " << (float(uint16_t(packet[5]) << 8 | uint16_t(packet[4])) / 100.0) << ")";
+										break;
 									case 0x03:
 										if (ConsoleVerbosity > 1)
-											ssOutput << " (Humidity Alarm Config: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(packet[2]) << ")";
+											ssOutput << " (Humidity Alarm: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(packet[2]) << ")";
 										break;
 									case 0x04:
 										if (ConsoleVerbosity > 1)
-											ssOutput << " (Temperature Alarm Config: " << std::hex << std::setw(2) << std::setfill('0') << unsigned(packet[2]) << ")";
+										{
+											std::cout << " (Temperature Alarm:";
+											std::cout << " Active: " << std::boolalpha << bool(packet[2] & 0x01);
+											std::cout << " Low Threshold: " << std::dec << int16_t(uint16_t(packet[4]) << 8 | uint16_t(packet[3])) / 100.0;
+											std::cout << " High Threshold: " << std::dec << int16_t(uint16_t(packet[6]) << 8 | uint16_t(packet[5])) / 100.0;
+											std::cout << " Duration: " << std::dec << uint16_t(packet[7]) << " minutes";
+											std::cout << ")";
+										}										if (ConsoleVerbosity > 1)
 										break;
 									case 0x06:
 										if (ConsoleVerbosity > 1)
@@ -6302,6 +6360,12 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 											ssOutput << " (Firmware: " << GoveeDevice->second.GetFirmwareVersion() << ")";
 										break;
 									default:
+										if (ConsoleVerbosity > 1)
+										{
+											std::cout << " (Unknown Command " << std::hex << std::setw(2) << std::setfill('0') << unsigned(packet[1]) << ") ";
+											for (auto& iterator : packet)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+										}
 										break;
 									}
 								}
