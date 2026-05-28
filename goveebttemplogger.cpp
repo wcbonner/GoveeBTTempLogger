@@ -3617,19 +3617,6 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 												}
 												else if (buf[1] == 21) // length of Handle/Value Pair
 												{
-													// UUID: 34cc54b9-f956-c691-2140-a641a8ca8280
-													// UUID: 5186f05a-3442-0488-5f4b-c35ef0494272
-													// UUID: d44f33fb-927c-22a0-fe45-a14725db536c
-													// UUID: 31da3f67-5b85-8391-d849-0c00a3b9849d
-													// UUID: b29c7bb1-d057-1691-a14c-16d5e8717845
-													// UUID: 885c066a-ebb3-0a99-f546-8c7994df785f
-													// UUID: 3a913bdb-c8ac-1da2-1b40-e50db5e8b464
-													// UUID: 3bfb6752-878f-5484-9c4d-be77dddfc342
-													// UUID: 3ce2fc3d-90c4-afa3-bb43-3d82ea1edeb7
-													// UUID: 12205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
-													// UUID: 13205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
-													// UUID: 11205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
-													// UUID: 14205f53-4b43-4f52-5f49-4c4c45544e49  _SKCOR_ILLETNI
 													struct __attribute__((__packed__)) bt_attribute_data { uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; uint128_t UUID; } *attribute_data = (bt_attribute_data*)&(buf[AttributeOffset]);
 													// reverse bitorder of 128 bit UUID
 													uint128_t UUID_data({ attribute_data->UUID.data[15], attribute_data->UUID.data[14], attribute_data->UUID.data[13], attribute_data->UUID.data[12], attribute_data->UUID.data[11], attribute_data->UUID.data[10], attribute_data->UUID.data[9], attribute_data->UUID.data[8], attribute_data->UUID.data[7], attribute_data->UUID.data[6], attribute_data->UUID.data[5], attribute_data->UUID.data[4], attribute_data->UUID.data[3], attribute_data->UUID.data[2], attribute_data->UUID.data[1], attribute_data->UUID.data[0] });
@@ -3671,10 +3658,25 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 								{
 									std::cout << "[                   ] Characteristic Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << btsc.starting_handle;
 									std::cout << "..0x" << std::setw(4) << std::setfill('0') << btsc.ending_handle;
-									// Characteristic Properties: 0x1a, Notify, Write, Read
-									// Characteristic Properties: 0x12, Notify, Read
+									std::cout << " UUID: " << bt_UUID_2_String(&btsc.theUUID);
 									std::cout << " Properties: 0x" << std::setw(2) << std::setfill('0') << unsigned(btsc.properties);
-									std::cout << " UUID: " << bt_UUID_2_String(&btsc.theUUID) << std::endl;
+									if ((btsc.properties & 0x01) == 0x01)
+										std::cout << " (Broadcast)";
+									if ((btsc.properties & 0x02) == 0x02)
+										std::cout << " (Read)";
+									if ((btsc.properties & 0x04) == 0x04)
+										std::cout << " (Write Without Response)";
+									if ((btsc.properties & 0x08) == 0x08)
+										std::cout << " (Write)";
+									if ((btsc.properties & 0x10) == 0x10)
+										std::cout << " (Notify)";
+									if ((btsc.properties & 0x20) == 0x20)
+										std::cout << " (Indicate)";
+									if ((btsc.properties & 0x40) == 0x40)
+										std::cout << " (Authenticated Signed Writes)";
+									if ((btsc.properties & 0x80) == 0x80)
+										std::cout << " (Extended Properties)";
+									std::cout << std::endl;
 								}
 							}
 						}
@@ -3733,6 +3735,7 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 						uint16_t bt_Handle_ReturnData(0);	// 494e5445-4c4c-495f-524f-434b535f2013
 						uint16_t bt_Handle_AuthWrite(0);	// 00010203-0405-0607-0809-0a0b0c0d1910
 						uint16_t bt_Handle_AuthNotify(0);	// 02f00000-0000-0000-0000-00000000fe01
+						bool bDeviceData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2011
 						// This loops through and enables notification on each of the Govee service handles
 						buf[0] = 0;
 						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
@@ -3755,12 +3758,16 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 								for (auto & btsc : bts->characteristics)
 								{
 									if (btsc.theUUID == INTELLI_ROCKS_DEVICE)
+									{
 										bt_Handle_DeviceData = btsc.ending_handle;
-									if (btsc.theUUID == INTELLI_ROCKS_COMMAND)
+										bDeviceData_WriteWithoutResponse = (btsc.properties & 0x04) == 0x04; // Write Without Response
+									}
+									else if (btsc.theUUID == INTELLI_ROCKS_COMMAND)
 										bt_Handle_RequestData = btsc.ending_handle;
-									if (btsc.theUUID == INTELLI_ROCKS_DATA)
+									else if (btsc.theUUID == INTELLI_ROCKS_DATA)
 										bt_Handle_ReturnData = btsc.ending_handle;
-									buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
+									if (btsc.properties & 0x10) // Notify
+										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
 								}
 							if (bts->theUUID == GOVEE_AUTH_SERVICE)
 								for (auto& btsc : bts->characteristics)
@@ -3768,17 +3775,14 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 									if (btsc.theUUID == GOVEE_AUTH_WRITE)
 										bt_Handle_AuthWrite = btsc.ending_handle;
 									else if (btsc.theUUID == GOVEE_AUTH_NOTIFY)
-									{
 										bt_Handle_AuthNotify = btsc.ending_handle;
+									if (btsc.properties & 0x10) // Notify
 										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
-									}
 								}
 							if (bts->theUUID == TELINK_OTA_SERVICE)
 								for (auto& btsc : bts->characteristics)
-								{
-									if (btsc.theUUID == TELINK_OTA_C2)
+									if (btsc.properties & 0x10) // Notify
 										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
-								}
 						}
 
 						if (bt_Handle_AuthNotify != 0)
@@ -3950,7 +3954,6 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
 											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
 										}
-										usleep(100000); // 1,000,000 = 1 second.
 									}
 								}
 							}
@@ -4014,39 +4017,23 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
 											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
 										}
-										usleep(100000); // 1,000,000 = 1 second.
 									}
 								}
 							}
 						}
 
 						std::queue<GATT_DataPacket> WritePacketQueue;
-#define TEST_COMMANDS
 #ifdef TEST_COMMANDS
-						for (auto command = 0; command <= 0x0e; command++)
+						for (auto command = 0; command < 0x10; command++)
 						{
-							GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
+							GATT_DataPacket MyRequest({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
 							WritePacketQueue.push(MyRequest);
 						}
 #else
-						if (SessionKey != std::array<uint8_t, 16>{0})
-						{
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0e} });	// Request Firmware Version
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x07} }); // Request temperature offset
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x06} }); // Request humidity offset
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x04} }); // Request temperature alarm config
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x03} }); // Request humidity alarm config
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_CMD, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request MAC address and serial
-						}
-						else
-						{
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
-							WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_DeviceData, {0xaa, 0x0e} });	// Request Firmware Version
-						}
+						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
+						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
+						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
 #endif
 						GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_CMD, bt_Handle_RequestData, {0x33, 0x01} });
 						time(&TimeDownloadStart);
@@ -4167,7 +4154,7 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 									}
 									std::cout << std::endl;
 								}
-								GATT_DataPacketEncrypt(SessionKey, pkt); // This always creates a checksum in the last byte of the data, it only encrypts the data if the session key is set
+								GATT_DataPacketEncrypt(SessionKey, pkt); // This always creates a checksum in the last byte of the data, it only encrypts the data if the SessionKey is nonzero
 								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
 								{
 									buf[0] = BT_ATT_OP_ERROR_RSP;
@@ -4293,6 +4280,10 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 													if (ConsoleVerbosity > 1)
 														std::cout << " (Firmware: " << DeviceFirmwareVersion << ")";
 													break;
+												case 0x0f:
+													if (ConsoleVerbosity > 1)
+														std::cout << " (MAC Address: " << ba2string(*reinterpret_cast<bdaddr_t*>(data->buf + 2)) << ")";
+													break;
 												default:
 													if (ConsoleVerbosity > 1)
 													{
@@ -4334,14 +4325,13 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 									if (ConsoleVerbosity > 1)
 									{
 										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]";
-										std::cout << " bufDataLen(" << bufDataLen << ")";
+										std::cout << " bufDataLen(" << std::dec << bufDataLen << ")";
 										if (bufDataLen == 1)
 											std::cout << " No Response (0x" << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[0]) << ")";
 										else
 											std::cout << " No Response";
 										std::cout << " Reading from device.RetryCount = " << std::dec << RetryCount << std::endl;
 									}
-									usleep(100000); // 1,000,000 = 1 second.
 									if (--RetryCount < 0)
 										bDownloadInProgress = false;
 								}
@@ -4815,7 +4805,6 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										{
 											// EAGAIN : Resource temporarily unavailable (may be the same value as EWOULDBLOCK) (POSIX.1-2001).
 											std::cerr << "Error: " << strerror(errno) << " (" << errno << ")" << std::endl;
-											usleep(100);
 										}
 										else if (errno == EINTR)
 										{
@@ -6745,219 +6734,6 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 		std::cout << ssOutput.str();
 	else
 		std::cerr << ssOutput.str();
-}
-/////////////////////////////////////////////////////////////////////////////
-time_t ConnectAndDownload(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const time_t GoveeLastReadTime = 0, const int BatteryToRecord = 0)
-{
-	if (ConsoleVerbosity > 2)
-		std::cout << "[                   ] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
-	bool bContinueProcessing(true);
-	time_t TimeDownloadStart(0);
-	std::ostringstream ssOutput;
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0011 UUID: 494e5445-4c4c-495f-524f-434b535f2011
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0015 UUID: 494e5445-4c4c-495f-524f-434b535f2012
-	//[                   ] [A4:C1:38:DC:CC:3D] <== Service: 0x1b Characteristic: 0x0019 UUID: 494e5445-4c4c-495f-524f-434b535f2013
-	std::ostringstream ssJunk;
-	ssJunk << bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress) << "/service" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << 0x1b << "/char" << std::setw(4) << 0x15;
-	const std::string ObjectPathGattCharacteristic(ssJunk.str());
-	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
-	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Connect");
-	if (!dbus_msg)
-	{
-		if (ConsoleVerbosity > 0)
-			ssOutput << "[                   ] ";
-		ssOutput << "Can't allocate dbus_message_new_method_call: " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
-	}
-	else
-	{
-		DBusError dbus_error;
-		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
-		DBusMessage* dbus_reply = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
-		if (ConsoleVerbosity > 0)
-			ssOutput << "[                   ] ";
-		ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
-		if (!dbus_reply)
-		{
-			if (dbus_error_is_set(&dbus_error))
-			{
-				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-				dbus_error_free(&dbus_error);
-				bContinueProcessing = false;
-			}
-		}
-		else
-		{
-			ssOutput << std::endl;
-			//bContinueProcessing = false;
-			// TODO: Examine reply
-			dbus_message_unref(dbus_reply);
-			if (bContinueProcessing)
-			{
-				// Connected to Device
-				// Do what needs to be done then disconnect
-				DBusMessage* dbus_msg_getall_services = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.freedesktop.DBus.Properties", "Get");
-				DBusMessageIter iterParameter;
-				dbus_message_iter_init_append(dbus_msg_getall_services, &iterParameter);
-				const char* cpDevice = "org.bluez.Device1";
-				dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &cpDevice);
-				const char* cpServiceData = "ServiceData";
-				dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_STRING, &cpServiceData);
-				DBusMessage* dbus_reply_getall_services = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_getall_services, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusConnection.html#ga8d6431f17a9e53c9446d87c2ba8409f0
-				if (ConsoleVerbosity > 0)
-					ssOutput << "[                   ] ";
-				ssOutput << dbus_message_get_path(dbus_msg) << ": " << dbus_message_get_interface(dbus_msg) << ": " << dbus_message_get_member(dbus_msg);
-				if (!dbus_reply_getall_services)
-				{
-					if (dbus_error_is_set(&dbus_error))
-					{
-						ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-						dbus_error_free(&dbus_error);
-						bContinueProcessing = false;
-					}
-				}
-				else
-				{
-					//TODO: decode what was returned dbus_reply_getall_services
-					const std::string dbus_reply_Signature(dbus_message_get_signature(dbus_reply_getall_services));
-
-					dbus_message_unref(dbus_reply_getall_services);
-				}
-				ssOutput << std::endl;
-				dbus_message_unref(dbus_msg_getall_services);
-				if (bContinueProcessing)
-				{
-					// I'm pretty sure I need to enable notification on 
-					// https://www.mankier.com/5/org.bluez.GattCharacteristic#Interface-void_StartNotify()
-
-					// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
-					// parameter should have a signature of aya{sv}
-					DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
-					dbus_message_iter_init_append(dbus_msg_write, &iterParameter);
-					DBusMessageIter iterArray;
-					// build parameter that matches the signature "ay"
-					dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE_AS_STRING, &iterArray);
-
-					// This is copied from the HCI code to have the buffer set up the same way
-					uint8_t buf[20] = { 0 };
-					buf[0] = uint8_t(0x33);
-					buf[1] = uint8_t(0x01);
-					time(&TimeDownloadStart);
-					TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
-					uint16_t DataPointsToRequest = 0xffff;
-					if (((TimeDownloadStart - GoveeLastReadTime) / 60) < 0xffff)
-						DataPointsToRequest = (TimeDownloadStart - GoveeLastReadTime) / 60;
-#ifdef DEBUG
-					DataPointsToRequest = 123; // this saves a huge amount of time
-#endif // DEBUG
-					buf[2] = uint8_t(DataPointsToRequest >> 8);
-					buf[3] = uint8_t(DataPointsToRequest);
-					buf[5] = uint8_t(0x01);
-					// Create a checksum in the last byte by XOR each of the buffer bytes.
-					for (auto index = std::size_t(0); index < sizeof(buf) / sizeof(buf[0]) - 1; index++)
-						buf[(sizeof(buf) / sizeof(buf[0])) - 1] ^= buf[index];
-					for (auto& a : buf)
-						dbus_message_iter_append_basic(&iterArray, DBUS_TYPE_BYTE, &a);
-					dbus_message_iter_close_container(&iterParameter, &iterArray);
-					// https://github.com/szeged/blurz/issues/7
-					// https://www.bluez.org/bluez-5-api-introduction-and-porting-guide/
-					// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
-					// https://stackoverflow.com/questions/70934170/bluez-5-migration-discoverservices-does-not-exist
-#ifdef SIGNATURE_ayasv
-				// build parameter that matches the signature "a{sv}"
-				// https://stackoverflow.com/questions/29973486/d-bus-how-to-create-and-send-a-dict
-					dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_ARRAY, "{sv}", &iterArray);
-					DBusMessageIter iterDict;
-					dbus_message_iter_open_container(&iterArray, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
-					const char* EmptyString = "";
-					dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-					DBusMessageIter iterVariant;
-					dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
-					dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-					dbus_message_iter_close_container(&iterDict, &iterVariant);
-					dbus_message_iter_close_container(&iterArray, &iterDict);
-					dbus_message_iter_close_container(&iterParameter, &iterArray);
-#endif
-					// build parameter that matches the signature "{sv}"
-					DBusMessageIter iterDict;
-					dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
-					const char* EmptyString = "";
-					dbus_message_iter_append_basic(&iterDict, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-					DBusMessageIter iterVariant;
-					dbus_message_iter_open_container(&iterDict, DBUS_TYPE_VARIANT, DBUS_TYPE_STRING_AS_STRING, &iterVariant);
-					dbus_message_iter_append_basic(&iterVariant, DBUS_TYPE_STRING, static_cast<void*>(&EmptyString));
-					dbus_message_iter_close_container(&iterDict, &iterVariant);
-					dbus_message_iter_close_container(&iterParameter, &iterDict);
-
-					dbus_error_init(&dbus_error);
-					DBusMessage* dbus_reply_write = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_write, DBUS_TIMEOUT_INFINITE, &dbus_error);
-					if (ConsoleVerbosity > 0)
-						ssOutput << "[                   ] ";
-					ssOutput << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
-					if (!dbus_reply_write)
-					{
-						if (dbus_error_is_set(&dbus_error))
-						{
-							ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-							dbus_error_free(&dbus_error);
-							bContinueProcessing = false;
-						}
-					}
-					dbus_message_unref(dbus_msg_write);
-					ssOutput << std::endl;
-				}
-				if (bContinueProcessing)
-				{
-					DBusMessage* dbus_msg_read = dbus_message_new_method_call("org.bluez", ObjectPathGattCharacteristic.c_str(), "org.bluez.GattCharacteristic1", "ReadValue");
-					DBusMessageIter iterParameter;
-					dbus_message_iter_init_append(dbus_msg_read, &iterParameter);
-					dbus_message_iter_append_basic(&iterParameter, DBUS_TYPE_UINT16, 0);
-					//DBusMessageIter iterDict;
-					//dbus_message_iter_open_container(&iterParameter, DBUS_TYPE_DICT_ENTRY, NULL, &iterDict);
-					dbus_error_init(&dbus_error);
-					DBusMessage* dbus_reply_read = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_read, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
-					if (ConsoleVerbosity > 0)
-						ssOutput << "[                   ] ";
-					ssOutput << dbus_message_get_path(dbus_msg_read) << ": " << dbus_message_get_interface(dbus_msg_read) << ": " << dbus_message_get_member(dbus_msg_read);
-					if (!dbus_reply_read)
-					{
-						if (dbus_error_is_set(&dbus_error))
-						{
-							ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-							dbus_error_free(&dbus_error);
-							bContinueProcessing = false;
-						}
-					}
-					dbus_message_unref(dbus_msg_read);
-					ssOutput << std::endl;
-				}
-			}
-			// Disconnect from Device
-			DBusMessage* dbus_msg_disconnect = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Disconnect");
-			dbus_error_init(&dbus_error);
-			DBusMessage* dbus_reply_disconnect = dbus_connection_send_with_reply_and_block(dbus_conn, dbus_msg_disconnect, DBUS_TIMEOUT_USE_DEFAULT, &dbus_error);
-			if (ConsoleVerbosity > 0)
-				ssOutput << "[                   ] ";
-			ssOutput << dbus_message_get_path(dbus_msg_disconnect) << ": " << dbus_message_get_interface(dbus_msg_disconnect) << ": " << dbus_message_get_member(dbus_msg_disconnect);
-			if (!dbus_reply)
-			{
-				if (dbus_error_is_set(&dbus_error))
-				{
-					ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")";
-					dbus_error_free(&dbus_error);
-					bContinueProcessing = false;
-				}
-			}
-			dbus_message_unref(dbus_reply_disconnect);
-			dbus_message_unref(dbus_msg_disconnect);
-		}
-		dbus_message_unref(dbus_msg);
-		ssOutput << std::endl;
-	}
-	if (ConsoleVerbosity > 0)
-		std::cout << ssOutput.str();
-	else
-		std::cerr << ssOutput.str();
-	return(TimeDownloadStart);
 }
 /////////////////////////////////////////////////////////////////////////////
 int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, bool bMonitorLoggingDirectory)

@@ -1,0 +1,138 @@
+[2026-05-28T10:15:47] 45 [D3:21:C4:06:25:0D] (bdaddr_type) 01 (evt_type) 00 (Flags) 06 (Name) GV5179_250D (UUID) ec88 (Manu) 0001:010103D24F20 (Temp) 25.0°C (Humidity)  44.7% (Battery)  32% (GVH5179)
+[2026-05-28T10:15:47] Scanning Stopped.
+[                   ] BlueZ_HCI_ConnectAndDownload D3:21:C4:06:25:0D
+[2026-05-28T10:15:49] [D3:21:C4:06:25:0D] hci_le_create_conn Return(0) handle (0040)
+[2026-05-28T10:15:53] [D3:21:C4:06:25:0D] Connected L2CAP LE connection on ATT channel: 4 BDADDR_LE_RANDOM
+[2026-05-28T10:15:53] [D3:21:C4:06:25:0D] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x000e..0xffff
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x001b..0xffff
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0026..0xffff
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0009
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0009
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x0002..0x0003 Characteristic Properties: 0x0a UUID: 2a00 (Device Name)
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x09 Characteristic: 0x0003 UUID: 2a00 (Device Name)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x0004..0x0005 Characteristic Properties: 0x0a UUID: 2a01 (Appearance)
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x09 Characteristic: 0x0005 UUID: 2a01 (Appearance)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x0006..0x0007 Characteristic Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x09 Characteristic: 0x0007 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0007..0x0009
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x0008..0x0009 Characteristic Properties: 0x02 UUID: 2ac9 (Resolvable Private Address Only)
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x09 Characteristic: 0x0009 UUID: 2ac9 (Resolvable Private Address Only)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0009..0x0009
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000a..0x000d
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000a..0x000d
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x000b..0x000c Characteristic Properties: 0x22 UUID: 2a05 (Service Changed)
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x0d Characteristic: 0x000c UUID: 2a05 (Service Changed)
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000c..0x000d
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000e..0x001a
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000e..0x001a
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x000f..0x0010 Characteristic Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x1a Characteristic: 0x0010 UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0010..0x001a
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] <== Handles: 0x0013..0x0014 Characteristic Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x1a Characteristic: 0x0014 UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[2026-05-28T10:15:54] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0014..0x001a
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== Handles: 0x0017..0x0018 Characteristic Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x1a Characteristic: 0x0018 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0018..0x001a
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Include Declaration, Handles: 0x001b..0x0025
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001b..0x0025
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== Handles: 0x001c..0x001d Characteristic Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff03
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x25 Characteristic: 0x001d UUID: 02f00000-0000-0000-0000-00000000ff03
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001d..0x0025
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== Handles: 0x001e..0x001f Characteristic Properties: 0x12 UUID: 02f00000-0000-0000-0000-00000000ff02
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x25 Characteristic: 0x001f UUID: 02f00000-0000-0000-0000-00000000ff02
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001f..0x0025
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== Handles: 0x0022..0x0023 Characteristic Properties: 0x02 UUID: 02f00000-0000-0000-0000-00000000ff00
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x25 Characteristic: 0x0023 UUID: 02f00000-0000-0000-0000-00000000ff00
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0023..0x0025
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== Handles: 0x0024..0x0025 Characteristic Properties: 0x0c UUID: 02f00000-0000-0000-0000-00000000ff01
+[                   ] [D3:21:C4:06:25:0D] <== Service: 0x25 Characteristic: 0x0025 UUID: 02f00000-0000-0000-0000-00000000ff01
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0025..0x0025
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 UUID: 2a00 (Device Name) Properties: 0x0a (Read) (Write)
+[                   ] Characteristic Handles: 0x0004..0x0005 UUID: 2a01 (Appearance) Properties: 0x0a (Read) (Write)
+[                   ] Characteristic Handles: 0x0006..0x0007 UUID: 2a04 (Peripheral Preferred Connection Parameters) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0008..0x0009 UUID: 2ac9 (Resolvable Private Address Only) Properties: 0x02 (Read)
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c UUID: 2a05 (Service Changed) Properties: 0x22 (Read) (Indicate)
+[-------------------] Service Handles: 0x000e..0x001a UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x000f..0x0010 UUID: 494e5445-4c4c-495f-524f-434b535f2011 Properties: 0x1a (Read) (Write) (Notify)
+[                   ] Characteristic Handles: 0x0013..0x0014 UUID: 494e5445-4c4c-495f-524f-434b535f2012 Properties: 0x1a (Read) (Write) (Notify)
+[                   ] Characteristic Handles: 0x0017..0x0018 UUID: 494e5445-4c4c-495f-524f-434b535f2013 Properties: 0x12 (Read) (Notify)
+[-------------------] Service Handles: 0x001b..0x0025 UUID: 02f00000-0000-0000-0000-00000000fe00
+[                   ] Characteristic Handles: 0x001c..0x001d UUID: 02f00000-0000-0000-0000-00000000ff03 Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x001e..0x001f UUID: 02f00000-0000-0000-0000-00000000ff02 Properties: 0x12 (Read) (Notify)
+[                   ] Characteristic Handles: 0x0022..0x0023 UUID: 02f00000-0000-0000-0000-00000000ff00 Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0024..0x0025 UUID: 02f00000-0000-0000-0000-00000000ff01 Properties: 0x0c (Write Without Response) (Write)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ Handle: 0011 Value: 0100 (EnableNotification)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ Handle: 0015 Value: 0100 (EnableNotification)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ Handle: 0019 Value: 0100 (EnableNotification)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ Handle: 0020 Value: 0100 (EnableNotification)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa00000000000000000000000000000000000000 (Unknown Command 00)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa000000000000000000000000000000000000aa (Unknown Command 00) aa000000000000000000000000000000000000aa
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa01000000000000000000000000000000000000 (Current Measurement Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa02000000000000000000000000000000000000 (Unknown Command 02)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa010000000000000000000000000000000000ab (Current Measurement: 0 0)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa03000000000000000000000000000000000000 (Humidity Alarm Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa04000000000000000000000000000000000000 (Temperature Alarm Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa020100000000000000000000000000000000a9 (Unknown Command 02) aa020100000000000000000000000000000000a9
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa05000000000000000000000000000000000000 (Unknown Command 05)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa06000000000000000000000000000000000000 (Humidity Offset Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0300000010270000000000000000000000009e (Humidity Alarm: 00)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa07000000000000000000000000000000000000 (Temperature Offset Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa08000000000000000000000000000000000000 (Battery Level Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa040030f8701700000000000000000000000001 (Temperature Alarm: Active: false Low Threshold: -20 High Threshold: 60 Duration: 0 minutes)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa09000000000000000000000000000000000000 (Unknown Command 09)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa0a000000000000000000000000000000000000 (Current Measurement Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa05000a000000000000000000000000000000a5 (Unknown Command 05) aa05000a000000000000000000000000000000a5
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa0b000000000000000000000000000000000000 (Unknown Command 0b)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa0c000000000000000000000000000000000000 (MAC Address and Serial Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa060000000000000000000000000000000000ac (Humidity Offset: 00)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa0d000000000000000000000000000000000000 (Hardware Version Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa0e000000000000000000000000000000000000 (Firmware Version Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa070000000000000000000000000000000000ad (Temperature Offset: 00)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_REQ      Handle: 0010 Value: aa0f000000000000000000000000000000000000 (MAC Address Request)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] ==> BT_ATT_OP_WRITE_CMD      Handle: 0014 Value: 3301007b00010000000000000000000000000000 (Data Request: 123 points)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa08200000000000000000000000000000000082 (Battery Level: 32%)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa090000000000000000000000000000000000a3 (Unknown Command 09) aa090000000000000000000000000000000000a3
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0ace0962110000000000000000000000000014 (Current Measurement: 25.1 44.5)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0b0000000000000000000000000000000000a1 (Unknown Command 0b) aa0b0000000000000000000000000000000000a1
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0c0d2506c421d34feb0000000000000000001a (MAC Address: D3:21:C4:06:25:0D Serial Number: 20459)
+[2026-05-28T10:15:55] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:56] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0d332e30312e30320000000000000000000097 (Hardware: 3.01.02)
+[2026-05-28T10:15:56] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:56] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0e312e30302e31310000000000000000000095 (Firmware: 1.00.11)
+[2026-05-28T10:15:56] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+[2026-05-28T10:15:56] [D3:21:C4:06:25:0D] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0010 Value: aa0f0d2506c421d30000000000000000000000bd (MAC Address: D3:21:C4:06:25:0D)
+[2026-05-28T10:15:56] [D3:21:C4:06:25:0D] <== BT_ATT_OP_WRITE_RSP
+
