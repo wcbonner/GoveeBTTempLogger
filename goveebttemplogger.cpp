@@ -271,6 +271,8 @@ std::string ThermometerType2String(const ThermometerType GoveeModel)
 {
 	switch (GoveeModel)
 	{
+	case ThermometerType::Unknown:
+		return(std::string("(Unknown)"));
 	case ThermometerType::H5072:
 		return(std::string("(GVH5072)"));
 	case ThermometerType::H5074:
@@ -4026,16 +4028,16 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 #ifdef TEST_COMMANDS
 						for (auto command = 0; command < 0x10; command++)
 						{
-							GATT_DataPacket MyRequest({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
+							GATT_DataPacket MyRequest({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
 							WritePacketQueue.push(MyRequest);
 						}
 #else
-						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
-						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
-						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
-						WritePacketQueue.push({ (bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
+						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
+						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
+						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
 #endif
-						GATT_DataPacket MyRequest({ BT_ATT_OP_WRITE_CMD, bt_Handle_RequestData, {0x33, 0x01} });
+						GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_CMD), bt_Handle_RequestData, {0x33, 0x01} });
 						time(&TimeDownloadStart);
 						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
 						uint16_t DataPointsToRequest = 0xffff;
