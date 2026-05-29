@@ -910,7 +910,7 @@ public:
 	ConnectionState NextState(void);
 	ConnectionState SetState(ConnectionState value) { ConnectionState oldState = State; State = value; return(oldState); }
 	ConnectionState ResetState(void) { ConnectionState oldState = State; State = ConnectionState::Disconnected; return(oldState); }
-	bool IsEncrypted(void) const { return(SessionKey != std::array<uint8_t, 16>({ 0 })); }
+	bool IsEncrypted(void) const { return(bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b10") != bluez_Characteristics.end()); }
 	std::string GetFirmwareVersion(void) const { return(FirmwareVersion); }
 	std::string SetFirmwareVersion(const std::string& value) { std::string oldValue = FirmwareVersion; FirmwareVersion = value; return(oldValue); }
 	std::string GetHardwareVersion(void) const { return(HardwareVersion); }
@@ -5905,8 +5905,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			if (DBUS_TYPE_INT16 == dbus_message_Type)
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				if (ConsoleVerbosity > 3)
-					ssOutput << " " << Key << ": " << value.i16;
+				if (ConsoleVerbosity > 3) ssOutput << " " << Key << ": " << value.i16;
 			}
 		}
 		else if (!Key.compare("ManufacturerData"))
@@ -6140,12 +6139,11 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				if (ConsoleVerbosity > 3)
-					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
-				auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
-				if (GoveeDevice != GoveeDevices.end())
+				if (ConsoleVerbosity > 3) ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
+				if (false == bool(value.bool_val))
 				{
-					if (false == bool(value.bool_val))
+					auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+					if (GoveeDevice != GoveeDevices.end())
 					{
 						GoveeDevice->second.ResetState();
 						time_t LastDownloadTime = 0;
@@ -6180,8 +6178,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				if (ConsoleVerbosity > 3)
-					ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
+				if (ConsoleVerbosity > 3) ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
 				if (true == bool(value.bool_val))
 				{
 					auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
@@ -6424,27 +6421,31 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 			if (DBUS_TYPE_BOOLEAN == dbus_message_Type)
 			{
 				dbus_message_iter_get_basic(&variant_iter, &value);
-				auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
-				if (GoveeDevice != GoveeDevices.end())
+				if (ConsoleVerbosity > 3) ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val);
+				if (true == bool(value.bool_val))
 				{
-					if (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::Notifying)
+					auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+					if (GoveeDevice != GoveeDevices.end())
 					{
-						if (GoveeDevice->second.IsEncrypted())
+						if (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::Notifying)
 						{
-							auto GoveeAuthNotify = GoveeDevice->second.bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b10");
-							if (GoveeAuthNotify != GoveeDevice->second.bluez_Characteristics.end())
-								GoveeDevice->second.NextState();
+							if (GoveeDevice->second.IsEncrypted())
+							{
+								auto NotifyPath = GoveeDevice->second.bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b10");
+								if (NotifyPath != GoveeDevice->second.bluez_Characteristics.end())
+									if (!NotifyPath->second.compare(root_object_path))
+										GoveeDevice->second.NextState();
+							}
+							else
+							{
+								auto NotifyPath = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2013");
+								if (NotifyPath != GoveeDevice->second.bluez_Characteristics.end())
+									if (!NotifyPath->second.compare(root_object_path))
+										GoveeDevice->second.NextState();
+							}
 						}
-						else
-						{
-							auto GoveeAuthNotify = GoveeDevice->second.bluez_Characteristics.find("494e5445-4c4c-495f-524f-434b535f2013");
-							if (GoveeAuthNotify != GoveeDevice->second.bluez_Characteristics.end())
-								if (!GoveeAuthNotify->second.compare(root_object_path))
-									GoveeDevice->second.NextState();
-						}
+						if (ConsoleVerbosity > 3) ssOutput << " " << GoveeDevice->second.WriteConsole();
 					}
-					if (ConsoleVerbosity > 3)
-						ssOutput << " " << Key << ": " << std::boolalpha << bool(value.bool_val) << " " << GoveeDevice->second.WriteConsole();
 				}
 			}
 		}
