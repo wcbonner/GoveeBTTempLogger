@@ -5272,7 +5272,7 @@ void bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, c
 	// this routine requests bluez connect to the device.
 	// I should then watch for a properties changed event ServicesResolved and find the services I want to connect to to download the data in a seperate routine.
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 2) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	if (ConsoleVerbosity > 2) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << adapter_path << " " << __func__ << std::endl;
 	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Connect");
 	if (!dbus_msg)
@@ -5306,7 +5306,7 @@ void bluez_device_connect(DBusConnection* dbus_conn, const char* adapter_path, c
 void bluez_device_disconnect(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 2) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	if (ConsoleVerbosity > 2) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << adapter_path << " " << __func__ << std::endl;
 
 	const std::string ObjectPathDevice(bluez_bdaddr2DevicePath(adapter_path, dbusBTAddress));
 	DBusMessage* dbus_msg = dbus_message_new_method_call("org.bluez", ObjectPathDevice.c_str(), "org.bluez.Device1", "Disconnect");
@@ -5347,7 +5347,7 @@ wim@WimPi5:~ $  dbus-send --system --dest=org.bluez --print-reply / org.freedesk
 void bluez_enable_notifications(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 2) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	if (ConsoleVerbosity > 2) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << adapter_path << " " << __func__ << std::endl;
 	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
 	if (GoveeDevice != GoveeDevices.end())
 		if (GoveeDevice->second.bluez_Characteristics.size() > 0)
@@ -5380,7 +5380,7 @@ bool bluez_Write_TX(DBusConnection* dbus_conn, const char* adapter_path, const b
 {
 	bool rval = false;
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 3) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << (TX1 ? " TX1" : " TX2") << std::endl;
+	if (ConsoleVerbosity > 2) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << adapter_path << (TX1 ? " TX1 " : " TX2 ") << __func__ << std::endl;
 	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
 	if (GoveeDevice != GoveeDevices.end())
 		if (GoveeDevice->second.bluez_Characteristics.size() > 0)
@@ -5448,7 +5448,7 @@ bool bluez_Write_TX(DBusConnection* dbus_conn, const char* adapter_path, const b
 void bluez_Write_Command(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress, const uint8_t Command)
 {
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 3) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << " " << std::setfill('0') << std::setw(2) << unsigned(Command) << std::endl;
+	if (ConsoleVerbosity > 2) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << " " << std::setfill('0') << std::setw(2) << unsigned(Command) << std::endl;
 	auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
 	if (GoveeDevice != GoveeDevices.end())
 		if (GoveeDevice->second.bluez_Characteristics.size() > 0)
@@ -5548,7 +5548,7 @@ void bluez_Write_Command(DBusConnection* dbus_conn, const char* adapter_path, co
 void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, const bdaddr_t& dbusBTAddress)
 {
 	std::ostringstream ssOutput;
-	if (ConsoleVerbosity > 3) ssOutput << "[" << getTimeISO8601(true) << "] " << __func__ << " " << adapter_path << " " << ba2string(dbusBTAddress) << std::endl;
+	if (ConsoleVerbosity > 2) ssOutput << "[                   ] [" << ba2string(dbusBTAddress) << "] " << adapter_path << " " << __func__ << std::endl;
 	//                                          ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x000f..0xffff
 	//                                          <== Handles: 0x000f..0x001b UUID: 494e5445-4c4c-495f-524f-434b535f4857
 	//                                          ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000f..0x001b
@@ -5579,6 +5579,7 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 		if (GoveeDataControl != GoveeDevice->second.bluez_Characteristics.end())
 		{
 			// https://stackoverflow.com/questions/44135462/org-bluez-gattcharacteristic1-writevalue-method
+			// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/org.bluez.GattCharacteristic.rst
 			// parameter should have a signature of aya{sv}
 			DBusMessage* dbus_msg_write = dbus_message_new_method_call("org.bluez", GoveeDataControl->second.c_str(), "org.bluez.GattCharacteristic1", "WriteValue");
 			DBusMessageIter iterParameter;
@@ -5648,6 +5649,11 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 			DBusError dbus_error;
 			dbus_error_init(&dbus_error);
 			dbus_connection_send(dbus_conn, dbus_msg_write, nullptr);
+			if (dbus_error_is_set(&dbus_error))
+			{
+				ssOutput << ": Error: " << dbus_error.message << " " << __FILE__ << "(" << __LINE__ << ")" << std::endl;
+				dbus_error_free(&dbus_error);
+			}
 			if (ConsoleVerbosity > 3)
 			{
 				ssOutput << "[                   ] " << dbus_message_get_path(dbus_msg_write) << ": " << dbus_message_get_interface(dbus_msg_write) << ": " << dbus_message_get_member(dbus_msg_write);
@@ -6404,7 +6410,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								}
 								if (LastReportedTime != 0)
 									GoveeLastDownload.insert_or_assign(dbusBTAddress, LastReportedTime);
-								if (offset < 1)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
+								if (offset <= 6)	// If offset is 6 or less we are in the last bit of data, and as soon as we decode it we can close the connection.
 									GoveeDevice->second.NextState();
 							}
 
