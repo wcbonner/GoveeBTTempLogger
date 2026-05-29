@@ -4025,19 +4025,24 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 						}
 
 						std::queue<GATT_DataPacket> WritePacketQueue;
+#ifdef DEBUG
+#define TEST_COMMANDS
+#endif
 #ifdef TEST_COMMANDS
 						for (auto command = 0; command < 0x10; command++)
 						{
 							GATT_DataPacket MyRequest({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
 							WritePacketQueue.push(MyRequest);
 						}
+						WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x02} });
 #else
 						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
 						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
 						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
 						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
 #endif
-						GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_CMD), bt_Handle_RequestData, {0x33, 0x01} });
+
+						GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x01} });
 						time(&TimeDownloadStart);
 						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
 						uint16_t DataPointsToRequest = 0xffff;
@@ -4083,7 +4088,6 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 						// Then there was a notification on handle 0x002d
 						// Value: ee010a53000000000000000000000000000000b6
 						// There were 2644 Notification packets on Handle 31,
-						int RetryCount(4);
 						bool bDownloadInProgress(true);
 						while (bDownloadInProgress)
 						{
@@ -4170,7 +4174,6 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 								auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
 								if (bufDataLen > 0)
 								{
-									RetryCount = 4; // if we got a response, reset the retry count
 									if (buf[0] == BT_ATT_OP_WRITE_RSP)
 									{
 										if (ConsoleVerbosity > 1)
@@ -4332,10 +4335,9 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 											std::cout << " No Response (0x" << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[0]) << ")";
 										else
 											std::cout << " No Response";
-										std::cout << " Reading from device.RetryCount = " << std::dec << RetryCount << std::endl;
+										std::cout << " Reading from device." << std::endl;
 									}
-									if (--RetryCount < 0)
-										bDownloadInProgress = false;
+									bDownloadInProgress = false;
 								}
 							}
 						}
