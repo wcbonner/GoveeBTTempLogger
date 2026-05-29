@@ -2157,7 +2157,8 @@ template <typename T> void WriteSVG(const std::vector<T>& TheValues, const std::
 				SVGFile << "\t\ttext { font-family: sans-serif; font-size: " << FontSize << "px; fill: dimgrey; }" << std::endl;
 				SVGFile << "\t\tline { stroke: dimgrey; }" << std::endl;
 				SVGFile << "\t\tpolygon { fill-opacity: 0.5; }" << std::endl;
-				SVGFile << "\t\t.barometer-label { font-family: Georgia, serif; font-style: italic; font-size: " << int(PressureVerticalFactor * 10) << "px; opacity: 0.5; clip-path: url(#GraphRegion); text-anchor: middle; dominant-baseline: middle; }" << std::endl;
+				if (DrawPressure)
+					SVGFile << "\t\t.barometer-label { font-family: Georgia, serif; font-style: italic; font-size: " << int(PressureVerticalFactor * 10) << "px; opacity: 0.5; clip-path: url(#GraphRegion); text-anchor: middle; dominant-baseline: middle; }" << std::endl;
 #ifdef _DARK_STYLE_
 				SVGFile << "\t@media only screen and (prefers-color-scheme: dark) {" << std::endl;
 				SVGFile << "\t\ttext { fill: grey; }" << std::endl;
