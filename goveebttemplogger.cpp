@@ -4030,11 +4030,8 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 #define TEST_COMMANDS
 #endif
 #ifdef TEST_COMMANDS
-						for (auto command = 0; command < 0x10; command++)
-						{
-							GATT_DataPacket MyRequest({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, uint8_t(command)} });
-							WritePacketQueue.push(MyRequest);
-						}
+						for (auto command = uint8_t(0); command < uint8_t(0x10); command++)
+							WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, command} });
 						WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x02} });
 #else
 						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level

@@ -5260,35 +5260,3 @@ The 1.00.07 firmware stoped responding when I sent the series of test commands s
 [2026-05-29T21:24:06] [A4:C1:38:DC:CC:3D] Closing l2cap_socket
 [2026-05-29T21:24:06] [A4:C1:38:DC:CC:3D] hci_disconnect
 [2026-05-29T21:24:06] Download from device: [A4:C1:38:DC:CC:3D] 2026-05-09 21:20:00 2026-05-29 21:22:00 (28802) (GVH5174) FW:1.00.07 HW:1.00.01 SN:36961
-[2026-05-29T21:24:06] Scanning Stopped.
-[2026-05-29T21:24:06] BlueTooth Address Filter: [A4:C1:38:DC:CC:3D]
-[2026-05-29T21:24:06] Scanning Started. ScanInterval(5000 msec) ScanWindow(500 msec) ScanType(1)
-[2026-05-29T21:24:06] 300 seconds or more have passed. Writing SVG Files
-[2026-05-29T21:24:06] Writing: /home/visualstudio/gvh/svg/gvh-A4C138DCCC3D-day.svg With Title: A4C138DCCC3D (GVH5174)
-[2026-05-29T21:24:06] 60 seconds or more have passed. Writing LOG Files
-[2026-05-29T21:24:06] GenerateLogFile: /home/visualstudio/gvh/log
-[2026-05-29T21:24:06] Writing: /home/visualstudio/gvh/log/gvh-A4C138DCCC3D-2026-05.txt
-[-------------------] [A4:C1:38:05:C7:A1] (GVH5074) 2025-05-10T19:13:00
-[-------------------] [A4:C1:38:0D:3B:10] (GVH5177) 2025-05-28T16:57:00
-[-------------------] [A4:C1:38:0D:42:7B] (GVH5075) 2025-05-28T16:56:00
-[-------------------] [A4:C1:38:37:BC:AE] (GVH5075) 2025-05-22T19:31:00
-[-------------------] [A4:C1:38:D5:A3:3B] (GVH5074) 2025-05-22T19:05:00
-[-------------------] [A4:C1:38:DC:CC:3D] (GVH5174) 2026-05-30T04:22:00
-[-------------------] [C2:35:33:30:25:50] (GVH5100) 2025-05-06T20:28:00
-[-------------------] [C3:36:35:30:61:77] (GVH5104) 2025-05-15T19:28:00
-[-------------------] [D0:35:33:33:44:03] (GVH5105) 2026-05-29T18:12:00
-[-------------------] [D3:21:C4:06:25:0D] (GVH5179) 2025-05-22T19:04:00
-[-------------------] [DD:42:03:06:4D:36] (GVH5111) 2026-05-29T18:33:00
-[-------------------] [DD:4C:E8:7A:11:6E] (Ruuvi)
-[-------------------] [E3:5E:CC:21:5C:0F] (GVH5074) 2025-05-21T07:44:00
-[-------------------] [E3:60:59:21:80:65] (GVH5074) 2025-05-05T14:58:00
-[-------------------] [E3:60:59:23:14:7D] (GVH5074) 2025-05-10T07:52:00
-[-------------------] [E3:8E:C8:C1:98:9A] (GVH5074) 2025-05-06T07:04:00
-[2026-05-29T21:24:06] Writing: /home/visualstudio/gvh/log/gvh-thermometer-types.txt
-[2026-05-29T21:24:06] GenerateCacheFile: /home/visualstudio/gvh/cache
-[2026-05-29T21:24:06] GenerateLogFile: /home/visualstudio/gvh/log
-[2026-05-29T21:24:06] GenerateCacheFile: /home/visualstudio/gvh/cache
-^C
-Session terminated, killing shell... ...killed.
-
-wim@WimPi5:~ $
