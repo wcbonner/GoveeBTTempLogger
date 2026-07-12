@@ -278,7 +278,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
-      <LibraryDependencies>bluetooth;dbus-1</LibraryDependencies>
+      <LibraryDependencies>bluetooth;dbus-1;crypto</LibraryDependencies>
     </Link>
     <ClCompile />
     <ClCompile>
