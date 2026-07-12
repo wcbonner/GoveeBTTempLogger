@@ -3041,12 +3041,12 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	static std::vector<std::pair<uint16_t, uint16_t>> ScanParameterList;	// Pair corresponding to ScanInterval and ScanWindow
 	if (ScanParameterList.empty())
 	{
-		ScanParameterList.push_back(std::make_pair(18, 18));
-		ScanParameterList.push_back(std::make_pair(8000, 800));
-		ScanParameterList.push_back(std::make_pair(8000, 8000));
-		ScanParameterList.push_back(std::make_pair(8000, 3200));
-		ScanParameterList.push_back(std::make_pair(64, 48));
-		ScanParameterList.push_back(std::make_pair(96, 48));
+		ScanParameterList.push_back(std::make_pair(18, 18));	// ScanInterval = Scanwindow = 18 (11.25 msec) (how long to scan)
+		ScanParameterList.push_back(std::make_pair(8000, 800)); // ScanInterval = 8000 (5000 msec) ScanWindow = 800 (500 msec) (how long to scan)
+		//ScanParameterList.push_back(std::make_pair(8000, 8000));// ScanInterval = 8000 (5000 msec) ScanWindow = 8000 (5000 msec) (how long to scan)
+		//ScanParameterList.push_back(std::make_pair(8000, 3200));// ScanInterval = 8000 (5000 msec) ScanWindow = 3200 (2000 msec) (how long to scan)
+		ScanParameterList.push_back(std::make_pair(64, 48));	// ScanInterval = 64 (40 msec) ScanWindow = 48 (30 msec) (how long to scan)
+		ScanParameterList.push_back(std::make_pair(96, 48));	// ScanInterval = 96 (60 msec) ScanWindow = 48 (30 msec) (how long to scan)
 	}
 	const uint8_t bt_ScanFilterDuplicates(0x00);	// Set this once, to make sure I'm consistent through the file.
 	// https://development.libelium.com/ble-networking-guide/scanning-ble-devices
@@ -4515,8 +4515,9 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 						else
 						{
 							bRun = true;
-							time_t TimeStart(0), TimeSVG(0), TimeAdvertisment(0);
+							time_t TimeStart(0), TimeSVG(0);
 							time(&TimeStart);
+							time_t TimeAdvertisment(TimeStart); // Initialize this to the current time so that we don't get a false positive on the first loop through if we don't see any advertisments for a while.
 							while (bRun)
 							{
 								unsigned char buf[HCI_MAX_EVENT_SIZE];
@@ -6748,13 +6749,14 @@ void bluez_dbus_msg_PropertiesChanged(DBusMessage* dbus_msg, bdaddr_t& dbusBTAdd
 int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_WhiteList, int& ExitValue, bool bMonitorLoggingDirectory)
 {
 	int rVal(0);
-	time_t TimeStart(0), TimeLog(0), TimeSVG(0), TimeAdvertisment(0);
+	time_t TimeStart(0), TimeLog(0), TimeSVG(0);
 	std::ostringstream ssOutput;
 	// Main loop
 	bRun = true;
 	while (bRun)
 	{
 		time(&TimeStart);
+		time_t TimeAdvertisment(TimeStart); // Initialize this to the current time so that we don't get a false positive on the first loop through if we don't see any advertisments for a while.
 		DBusError dbus_error;
 		dbus_error_init(&dbus_error); // https://dbus.freedesktop.org/doc/api/html/group__DBusErrors.html#ga8937f0b7cdf8554fa6305158ce453fbe
 		// Connect to the system bus
