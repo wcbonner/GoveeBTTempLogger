@@ -7403,9 +7403,6 @@ int main(int argc, char **argv)
 	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers, "gvh-thermometer-types.txt");
 	if (UseBluetooth)
 	{
-		if (rfkillisBluetoothSoftBlocked()) // Check rfkill status before trying to use Bluetooth. This will print a message and exit if Bluetooth is blocked by rfkill
-			rfkillUnblockBluetooth(); // Try to unblock Bluetooth if it is blocked by rfkill. This will print a message and exit if it fails to unblock Bluetooth
-		rfkillisBluetoothSoftBlocked(); // Check rfkill status again after trying to unblock, to show the new status
 		if (!SVGDirectory.empty())
 		{
 			ReadCacheDirectory(); // if cache directory is configured, read it before reading all the normal logs
@@ -7415,6 +7412,9 @@ int main(int argc, char **argv)
 			WriteAllSVG(GoveeMRTGLogs);
 			WriteAllSVG(RuuviMRTGLogs);
 		}
+		if (rfkillisBluetoothSoftBlocked()) // Check rfkill status before trying to use Bluetooth. This will print a message and exit if Bluetooth is blocked by rfkill
+			rfkillUnblockBluetooth(); // Try to unblock Bluetooth if it is blocked by rfkill. This will print a message and exit if it fails to unblock Bluetooth
+		rfkillisBluetoothSoftBlocked(); // Check rfkill status again after trying to unblock, to show the new status
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		// Set up CTR-C signal handler
 		typedef void(*SignalHandlerPointer)(int);
