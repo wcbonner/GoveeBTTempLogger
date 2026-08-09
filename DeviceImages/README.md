@@ -45,7 +45,7 @@ Powered by 3 AAA Batteries
 Powered by 3 AA Batteries
 
 ## H5179
-![image](h5179-phone.jpg) ![image](h5179.jpg)
+![image](h5179-phone.jpg) ![image](h5179.jpg) ![image](h5179-board.jpg)
 Powered by 3 AA Batteries
 | | |
 | ---: | --- |
