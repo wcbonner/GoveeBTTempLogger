@@ -908,21 +908,21 @@ public:
 	std::string WriteConsole(void) const;
 	ConnectionState GetState(void) const { return(State); }
 	ConnectionState NextState(void);
-	ConnectionState SetState(ConnectionState value) { ConnectionState oldState = State; State = value; return(oldState); }
-	ConnectionState ResetState(void) { ConnectionState oldState = State; State = ConnectionState::Disconnected; return(oldState); }
+	ConnectionState SetState(ConnectionState value) { auto oldState = State; State = value; return(oldState); }
+	ConnectionState ResetState(void) { auto oldState = State; State = ConnectionState::Disconnected; return(oldState); }
 	bool IsEncrypted(void) const { return(bluez_Characteristics.find("00010203-0405-0607-0809-0a0b0c0d2b10") != bluez_Characteristics.end()); }
 	std::string GetFirmwareVersion(void) const { return(FirmwareVersion); }
-	std::string SetFirmwareVersion(const std::string& value) { std::string oldValue = FirmwareVersion; FirmwareVersion = value; return(oldValue); }
+	std::string SetFirmwareVersion(const std::string& value) { auto oldValue = FirmwareVersion; FirmwareVersion = value; return(oldValue); }
 	std::string GetHardwareVersion(void) const { return(HardwareVersion); }
-	std::string SetHardwareVersion(const std::string& value) { std::string oldValue = HardwareVersion; HardwareVersion = value; return(oldValue); }
+	std::string SetHardwareVersion(const std::string& value) { auto oldValue = HardwareVersion; HardwareVersion = value; return(oldValue); }
 	std::string GetName(void) const { return(Name); }
-	std::string SetName(const std::string& value) { std::string oldValue = Name; Name = value; return(oldValue); }
+	std::string SetName(const std::string& value) { auto oldValue = Name; Name = value; return(oldValue); }
 	bdaddr_t GetMACAddress(void) const { return(MACAddress); }
-	bdaddr_t SetMACAddress(const bdaddr_t& value) { bdaddr_t oldValue = MACAddress; MACAddress = value; return(oldValue); }
-	short GetSerialNumber(void) const { return(SerialNumber); }
-	short SetSerialNumber(short value) { short oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
+	bdaddr_t SetMACAddress(const bdaddr_t& value) { auto oldValue = MACAddress; MACAddress = value; return(oldValue); }
+	unsigned short GetSerialNumber(void) const { return(SerialNumber); }
+	unsigned short SetSerialNumber(unsigned short value) { auto oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
 	std::array<uint8_t, 16> GetSessionKey(void) const { return(SessionKey); }
-	std::array<uint8_t, 16> SetSessionKey(const std::array<uint8_t, 16>& value) { std::array<uint8_t, 16> oldValue = SessionKey; SessionKey = value; return(oldValue); }
+	std::array<uint8_t, 16> SetSessionKey(const std::array<uint8_t, 16>& value) { auto oldValue = SessionKey; SessionKey = value; return(oldValue); }
 	std::map<std::string, std::string> bluez_Characteristics;
 protected:
 	std::string Name;
@@ -1504,7 +1504,11 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t &a, const ThermometerTy
 	std::filesystem::path NewFormatFileName(LogDirectory / OutputFilename.str());
 	return(NewFormatFileName);
 }
-void GeneratePersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<bdaddr_t, ThermometerType> & ThermometerTypes, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
+void GeneratePersistenceFile(
+	std::map<bdaddr_t, time_t>& PersistenceData, 
+	std::map<bdaddr_t, ThermometerType> & ThermometerTypes, 
+	std::map<bdaddr_t, Govee_Device> & GoveeDevices,
+	const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
 {
 	if (!PersistenceData.empty())
 	{
@@ -1543,6 +1547,15 @@ void GeneratePersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::m
 					PersistenceFile << ba2string(TheAddress) << "\t" << ThermometerType2String(TheType);
 					if (auto search = PersistenceData.find(TheAddress); search != PersistenceData.end())
 						PersistenceFile << "\t" << timeToISO8601(search->second);
+					if (auto search = GoveeDevices.find(TheAddress); search != GoveeDevices.end())
+					{
+						if (!search->second.GetHardwareVersion().empty())
+							PersistenceFile << "\tHW:" << search->second.GetHardwareVersion();
+						if (!search->second.GetFirmwareVersion().empty())
+							PersistenceFile << "\tFW:" << search->second.GetFirmwareVersion();
+						if (search->second.GetSerialNumber() != 0)
+							PersistenceFile << "\tSN:" << search->second.GetSerialNumber();
+					}
 					PersistenceFile << std::endl;
 				}
 				PersistenceFile.close();
@@ -1556,7 +1569,11 @@ void GeneratePersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::m
 		}
 	}
 }
-void ReadPersistenceFile(std::map<bdaddr_t, time_t>& PersistenceData, std::map<bdaddr_t, ThermometerType>& ThermometerTypes, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
+void ReadPersistenceFile(
+	std::map<bdaddr_t, time_t>& PersistenceData,
+	std::map<bdaddr_t, ThermometerType>& ThermometerTypes,
+	std::map<bdaddr_t, Govee_Device>& GoveeDevices,
+	const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
 {
 	if (!CacheDirectory.empty()) // 2025-04-22 This is deprecated, but kept around to import an old file first if upgrading. 
 	{
@@ -3397,9 +3414,16 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
 	const auto ConnectedThermometerType = GoveeThermometers.find(GoveeBTAddress)->second;
-	std::string DeviceFirmwareVersion;
-	std::string DeviceHardwareVersion;
-	unsigned short DeviceSerialNumber(0);
+
+	auto CurrentDeviceInfo = GoveeDevices.find(GoveeBTAddress);
+	if (CurrentDeviceInfo == GoveeDevices.end())
+	{
+		Govee_Device newdevice;
+		newdevice.SetMACAddress(GoveeBTAddress);
+		GoveeDevices.insert(std::make_pair(GoveeBTAddress, newdevice));
+		CurrentDeviceInfo = GoveeDevices.find(GoveeBTAddress);
+	}
+
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
 	socklen_t olen = sizeof(original_filter);
@@ -4266,26 +4290,28 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 														std::cout << " (Battery Level: " << std::dec << unsigned(BatteryToRecord) << "%)";
 													break;
 												case 0x0c:
-													DeviceSerialNumber = uint32_t(data->buf[10]) << 24 | uint32_t(data->buf[11]) << 16 | uint32_t(data->buf[8]) << 8 | uint32_t(data->buf[9]);
+													CurrentDeviceInfo->second.SetMACAddress(*reinterpret_cast<bdaddr_t*>(data->buf + 2));
+													CurrentDeviceInfo->second.SetSerialNumber(uint32_t(data->buf[10]) << 24 | uint32_t(data->buf[11]) << 16 | uint32_t(data->buf[8]) << 8 | uint32_t(data->buf[9]));
 													if (ConsoleVerbosity > 1)
 													{
-														std::cout << " (MAC Address: " << ba2string(*reinterpret_cast<bdaddr_t*>(data->buf + 2));
-														std::cout << " Serial Number: " << std::dec << DeviceSerialNumber << ")";
+														std::cout << " (MAC Address: " << ba2string(CurrentDeviceInfo->second.GetMACAddress()) << ")";
+														std::cout << " Serial Number: " << std::dec << CurrentDeviceInfo->second.GetSerialNumber() << ")";
 													}
 													break;
 												case 0x0d:
-													DeviceHardwareVersion = std::string((char*)data->buf + 2);
+													CurrentDeviceInfo->second.SetHardwareVersion(std::string((char*)data->buf + 2));
 													if (ConsoleVerbosity > 1)
-														std::cout << " (Hardware: " << DeviceHardwareVersion << ")";
+														std::cout << " (Hardware: " << CurrentDeviceInfo->second.GetHardwareVersion() << ")";
 													break;
 												case 0x0e:
-													DeviceFirmwareVersion = std::string((char*)data->buf + 2);
+													CurrentDeviceInfo->second.SetFirmwareVersion(std::string((char*)data->buf + 2));
 													if (ConsoleVerbosity > 1)
-														std::cout << " (Firmware: " << DeviceFirmwareVersion << ")";
+														std::cout << " (Firmware: " << CurrentDeviceInfo->second.GetFirmwareVersion() << ")";
 													break;
 												case 0x0f:
+													CurrentDeviceInfo->second.SetMACAddress(*reinterpret_cast<bdaddr_t*>(data->buf + 2));
 													if (ConsoleVerbosity > 1)
-														std::cout << " (MAC Address: " << ba2string(*reinterpret_cast<bdaddr_t*>(data->buf + 2)) << ")";
+														std::cout << " (MAC Address: " << ba2string(CurrentDeviceInfo->second.GetMACAddress()) << ")";
 													break;
 												default:
 													if (ConsoleVerbosity > 1)
@@ -4373,12 +4399,12 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t G
 		auto downloadtype = GoveeThermometers.find(GoveeBTAddress);
 		if (downloadtype != GoveeThermometers.end())
 			ssOutput << " " << ThermometerType2String(downloadtype->second);
-		if (!DeviceFirmwareVersion.empty())
-			ssOutput << " FW:" << DeviceFirmwareVersion;
-		if (!DeviceHardwareVersion.empty())
-			ssOutput << " HW:" << DeviceHardwareVersion;
-		if (DeviceSerialNumber != 0)
-			ssOutput << " SN:" << std::dec << DeviceSerialNumber;
+		if (!CurrentDeviceInfo->second.GetHardwareVersion().empty())
+			ssOutput << " HW:" << CurrentDeviceInfo->second.GetHardwareVersion();
+		if (!CurrentDeviceInfo->second.GetFirmwareVersion().empty())
+			ssOutput << " FW:" << CurrentDeviceInfo->second.GetFirmwareVersion();
+		if (CurrentDeviceInfo->second.GetSerialNumber() != 0)
+			ssOutput << " SN:" << std::dec << CurrentDeviceInfo->second.GetSerialNumber();
 		if (ConsoleVerbosity > 0)
 			std::cout << ssOutput.str() << std::endl;
 		else
@@ -4833,7 +4859,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
 									GenerateLogFile(GoveeTemperatures);
-									GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+									GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, GoveeDevices);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 									GenerateLogFile(RuuviTags);
 									GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
@@ -4864,7 +4890,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			}
 			hci_close_dev(BlueToothDevice_Handle);
 			GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
-			GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+			GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, GoveeDevices);
 			GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 		}
 
@@ -6957,7 +6983,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeLog = TimeNow;
 								GenerateLogFile(GoveeTemperatures);
-								GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+								GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, GoveeDevices);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								GenerateLogFile(RuuviTags);
 								GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
@@ -7029,7 +7055,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 		}
 	}
 	GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
-	GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+	GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, GoveeDevices);
 	GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
@@ -7400,7 +7426,7 @@ int main(int argc, char **argv)
 			SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 		ReadTitleMap(SVGTitleMapFilename);
 	}
-	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers);
+	ReadPersistenceFile(GoveeLastDownload, GoveeThermometers, GoveeDevices);
 	if (UseBluetooth)
 	{
 		if (!SVGDirectory.empty())
@@ -7433,7 +7459,7 @@ int main(int argc, char **argv)
 		if (bUse_HCI_Interface)	// The HCI interface for bluetooth is deprecated, with BlueZ over DBus being preferred
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
 		#endif // _BLUEZ_HCI_
-		GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers);
+		GeneratePersistenceFile(GoveeLastDownload, GoveeThermometers, GoveeDevices);
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		OSSL_PROVIDER_unload(legacy);
 		OSSL_PROVIDER_unload(defaultp);
