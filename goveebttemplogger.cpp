@@ -5650,14 +5650,8 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 			uint16_t DataPointsToRequest = 0xffff;
 			time_t LastDownloadTime = 0;
 			auto CurrentDeviceMap = GoveeDevices.find(dbusBTAddress);
-			if (CurrentDeviceMap == GoveeDevices.end())
-			{
-				Govee_Device newdevice;
-				newdevice.SetMACAddress(dbusBTAddress);
-				GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
-				CurrentDeviceMap = GoveeDevices.find(dbusBTAddress);
-			}
-			LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
+			if (CurrentDeviceMap != GoveeDevices.end())
+				LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
 			if (((TimeDownloadStart - LastDownloadTime) / 60) < 0xffff)
 				DataPointsToRequest = (TimeDownloadStart - LastDownloadTime) / 60;
 #ifdef DEBUG
@@ -6070,19 +6064,12 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
 										{
 											time_t LastDownloadTime = 0;
-											auto CurrentDeviceMap = GoveeDevices.find(dbusBTAddress);
-											if (CurrentDeviceMap == GoveeDevices.end())
-											{
-												Govee_Device newdevice;
-												newdevice.SetMACAddress(dbusBTAddress);
-												GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
-												CurrentDeviceMap = GoveeDevices.find(dbusBTAddress);
-											}
-											LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
+											auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
+											if (GoveeDevice != GoveeDevices.end())
+												LastDownloadTime = GoveeDevice->second.GetLastDownload();
 											// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 											if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 											{
-												auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
 												if (GoveeDevice != GoveeDevices.end())
 												{
 													if (GoveeDevice->second.GetState() == Govee_Device::ConnectionState::Disconnected)
@@ -6091,6 +6078,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 												else
 												{
 													Govee_Device newdevice;
+													newdevice.SetMACAddress(dbusBTAddress);
 													newdevice.NextState();
 													GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
 												}
