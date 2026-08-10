@@ -1523,7 +1523,7 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 					if (!search->second.GetFirmwareVersion().empty())
 						std::cout << " FW:" << search->second.GetFirmwareVersion();
 					if (search->second.GetSerialNumber() != 0)
-						std::cout << " SN:" << search->second.GetSerialNumber();
+						std::cout << " SN:" << std::dec << search->second.GetSerialNumber();
 				}
 				std::cout << std::endl;
 			}
@@ -1561,7 +1561,7 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 						if (!search->second.GetFirmwareVersion().empty())
 							PersistenceFile << "\tFW:" << search->second.GetFirmwareVersion();
 						if (search->second.GetSerialNumber() != 0)
-							PersistenceFile << "\tSN:" << search->second.GetSerialNumber();
+							PersistenceFile << "\tSN:" << std::dec << search->second.GetSerialNumber();
 					}
 					PersistenceFile << std::endl;
 				}
