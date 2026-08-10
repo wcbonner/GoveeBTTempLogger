@@ -1398,7 +1398,6 @@ Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
-//std::map<bdaddr_t, time_t> GoveeLastDownload;
 std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
 std::map<bdaddr_t, std::queue<Ruuvi_Tag>> RuuviTags;
 std::map<bdaddr_t, Govee_Device> GoveeDevices;
@@ -1520,7 +1519,15 @@ void GeneratePersistenceFile(
 			{
 				std::cout << "[-------------------] [" << ba2string(TheAddress) << "] " << ThermometerType2String(TheType);
 				if (auto search = GoveeDevices.find(TheAddress); search != GoveeDevices.end())
+				{
 					std::cout << " " << timeToISO8601(search->second.GetLastDownload());
+					if (!search->second.GetHardwareVersion().empty())
+						std::cout << " HW:" << search->second.GetHardwareVersion();
+					if (!search->second.GetFirmwareVersion().empty())
+						std::cout << " FW:" << search->second.GetFirmwareVersion();
+					if (search->second.GetSerialNumber() != 0)
+						std::cout << " SN:" << search->second.GetSerialNumber();
+				}
 				std::cout << std::endl;
 			}
 		// If PersistenceData has updated information, write new data to file
@@ -1654,6 +1661,7 @@ void ReadPersistenceFile(
 				std::cout << "[" << getTimeISO8601(true) << "] Reading: " << CacheTypesFileName.string() << std::endl;
 			else
 				std::cerr << "Reading: " << CacheTypesFileName.string() << std::endl;
+			const std::regex PersistenceRegex("(^(((([[:xdigit:]]{2}:){5}))[[:xdigit:]]{2})\t([^\t]+)\t([^\t]+)\tHW:([^\t]+)\tFW:([^\t]+)\tSN:([^\t]+)$)");
 			std::string TheLine;
 			while (std::getline(TheFile, TheLine))
 			{
@@ -1661,34 +1669,46 @@ void ReadPersistenceFile(
 				if (std::regex_search(TheLine, BluetoothAddress, BluetoothAddressRegex))
 				{
 					bdaddr_t TheBlueToothAddress(string2ba(BluetoothAddress.str()));
-					const std::string delimiters(" \t");
-					auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
-					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
-					std::string theType = (i == std::string::npos) ? "" : TheLine.substr(i);
-					i = theType.find_first_of(delimiters);
-					if (i != std::string::npos)
-						theType.erase(i);
-					ThermometerTypes.insert_or_assign(TheBlueToothAddress, String2ThermometerType(theType));
-					// Now get the stored date
-					// This is a hack, starting from the beginning of the line again.
-					i = TheLine.find_first_of(delimiters);		// Find first delimiter
-					i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
-					i = TheLine.find_first_of(delimiters, i);		// Find next delimiter
-					if (i != std::string::npos)
+
+					std::stringstream ssLine(TheLine);
+					std::string Element;
+					std::vector<std::string> TheLineElements;
+					while (std::getline(ssLine, Element, '\t'))
+						TheLineElements.push_back(Element);
+					
+					if (TheLineElements.size() > 1)
 					{
-						auto CurrentDeviceInfo = GoveeDevices.find(TheBlueToothAddress);
-						if (CurrentDeviceInfo == GoveeDevices.end())
+						ThermometerTypes.insert_or_assign(TheBlueToothAddress, String2ThermometerType(TheLineElements[1]));
+						if (TheLineElements.size() > 2)
 						{
-							Govee_Device newdevice;
-							newdevice.SetMACAddress(TheBlueToothAddress);
-							GoveeDevices.insert(std::make_pair(TheBlueToothAddress, newdevice));
-							CurrentDeviceInfo = GoveeDevices.find(TheBlueToothAddress);
+							auto CurrentDeviceMap = GoveeDevices.find(TheBlueToothAddress);
+							if (CurrentDeviceMap == GoveeDevices.end())
+							{
+								Govee_Device newdevice;
+								newdevice.SetMACAddress(TheBlueToothAddress);
+								GoveeDevices.insert(std::make_pair(TheBlueToothAddress, newdevice));
+								CurrentDeviceMap = GoveeDevices.find(TheBlueToothAddress);
+							}
+							CurrentDeviceMap->second.SetLastDownload(ISO8601totime(TheLineElements[2]));
+							if (TheLineElements.size() > 3)
+								if (TheLineElements[3].substr(0, 3) == "HW:")
+								{
+									TheLineElements[3].erase(0, 3);
+									CurrentDeviceMap->second.SetHardwareVersion(TheLineElements[3]);
+								}
+							if (TheLineElements.size() > 4)
+								if (TheLineElements[4].substr(0, 3) == "FW:")
+								{
+									TheLineElements[4].erase(0, 3);
+									CurrentDeviceMap->second.SetFirmwareVersion(TheLineElements[4]);
+								}
+							if (TheLineElements.size() > 5)
+								if (TheLineElements[5].substr(0, 3) == "SN:")
+								{
+									TheLineElements[5].erase(0, 3);
+									CurrentDeviceMap->second.SetSerialNumber(std::stoi(TheLineElements[5]));
+								}
 						}
-						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
-						if (i != std::string::npos)
-							CurrentDeviceInfo->second.SetLastDownload(ISO8601totime(TheLine.substr(i)));
-						//TODO: Parse the rest of the line for device information, such as hardware version, firmware version, and serial number.
-						// tab HW:1.0.0 tab FW:1.0.0 tab SN:12345678
 					}
 				}
 			}
@@ -3082,7 +3102,7 @@ int bt_LEScan(int BlueToothDevice_Handle, const bool enable, const std::set<bdad
 	if (ScanParameterList.empty())
 	{
 		ScanParameterList.push_back(std::make_pair(18, 18));	// ScanInterval = Scanwindow = 18 (11.25 msec) (how long to scan)
-		ScanParameterList.push_back(std::make_pair(8000, 800)); // ScanInterval = 8000 (5000 msec) ScanWindow = 800 (500 msec) (how long to scan)
+		//ScanParameterList.push_back(std::make_pair(8000, 800)); // ScanInterval = 8000 (5000 msec) ScanWindow = 800 (500 msec) (how long to scan)
 		//ScanParameterList.push_back(std::make_pair(8000, 8000));// ScanInterval = 8000 (5000 msec) ScanWindow = 8000 (5000 msec) (how long to scan)
 		//ScanParameterList.push_back(std::make_pair(8000, 3200));// ScanInterval = 8000 (5000 msec) ScanWindow = 3200 (2000 msec) (how long to scan)
 		ScanParameterList.push_back(std::make_pair(64, 48));	// ScanInterval = 64 (40 msec) ScanWindow = 48 (30 msec) (how long to scan)
