@@ -3793,6 +3793,7 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, Govee_Device & T
 						uint16_t bt_Handle_AuthWrite(0);	// 00010203-0405-0607-0809-0a0b0c0d1910
 						uint16_t bt_Handle_AuthNotify(0);	// 02f00000-0000-0000-0000-00000000fe01
 						bool bDeviceData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2011
+						bool bRequestData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2012
 						// This loops through and enables notification on each of the Govee service handles
 						buf[0] = 0;
 						for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
@@ -3820,7 +3821,10 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, Govee_Device & T
 										bDeviceData_WriteWithoutResponse = (btsc.properties & 0x04) == 0x04; // Write Without Response
 									}
 									else if (btsc.theUUID == INTELLI_ROCKS_COMMAND)
+									{
 										bt_Handle_RequestData = btsc.ending_handle;
+										bRequestData_WriteWithoutResponse = (btsc.properties & 0x04) == 0x04; // Write Without Response
+									}
 									else if (btsc.theUUID == INTELLI_ROCKS_DATA)
 										bt_Handle_ReturnData = btsc.ending_handle;
 									if (btsc.properties & 0x10) // Notify
@@ -4094,7 +4098,7 @@ time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, Govee_Device & T
 						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
 #endif
 
-						GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x01} });
+						GATT_DataPacket MyRequest({ static_cast<uint8_t>(bRequestData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x01} });
 						time(&TimeDownloadStart);
 						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
 						uint16_t DataPointsToRequest = 0xffff;
