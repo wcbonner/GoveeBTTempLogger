@@ -1129,11 +1129,11 @@ public:
 	double GetPressure(void) const { return((Pressure + 50000.0) / 100.0); };
 	double GetPressureMin(void) const { return(std::min((Pressure + 50000.0) / 100.0, (PressureMin + 50000.0) / 100.0)); };
 	double GetPressureMax(void) const { return(std::max((Pressure + 50000.0) / 100.0, (PressureMax + 50000.0) / 100.0)); };
-	double GetBattery(void) const { return((Battery * 0.001) + 1.6); };
-	double GetTXPower(void) const { return((TXPower * 2) - 40); };
-	double GetAccelerationX(void) const { return(AccelerationX/1000.0); };
-	double GetAccelerationY(void) const { return(AccelerationY/1000.0); };
-	double GetAccelerationZ(void) const { return(AccelerationZ/1000.0); };
+	double GetBattery(void) const { return(double(Battery) / 20.0); };
+	double GetTXPower(void) const { return(double((TXPower * 2) - 40)); };
+	double GetAccelerationX(void) const { return(double(AccelerationX/1000.0)); };
+	double GetAccelerationY(void) const { return(double(AccelerationY/1000.0)); };
+	double GetAccelerationZ(void) const { return(double(AccelerationZ/1000.0)); };
 	ThermometerType GetModel(void) const { return(Model); };
 	ThermometerType SetModel(const ThermometerType newModel) { ThermometerType oldModel = Model; Model = newModel; return(oldModel); };
 	enum granularity { minute, day, week, month, year };
@@ -1217,7 +1217,7 @@ std::string Ruuvi_Tag::WriteConsole(void) const
 	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
 	ssValue << " (Humidity) " << std::setw(4) << std::right << std::setprecision(2) << GetHumidity() << std::left << "%";
 	ssValue << " (Pressure) " << std::setw(7) << std::right << std::setprecision(2) << GetPressure() << std::left << " hPa";
-	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(3) << GetBattery() << std::left << " V";
+	ssValue << " (Battery) " << std::setw(3) << std::right << std::setprecision(0) << GetBattery() << std::left << "%";
 	ssValue << " (TXPower) " << std::setw(3) << std::right << std::setprecision(0) << GetTXPower() << std::left << " dBm";
 	ssValue << " (AccelerationX) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationX() << std::left << " g";
 	ssValue << " (AccelerationY) " << std::setw(6) << std::right << std::setprecision(3) << GetAccelerationY() << std::left << " g";
