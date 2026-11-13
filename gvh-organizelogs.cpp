@@ -326,11 +326,12 @@ int main(int argc, char** argv)
 	std::cout.imbue(mylocale);  // imbue global locale
 	///////////////////////////////////////////////////////////////////////////////////////////////
 
+	const std::regex LogFileRegex("(gvh507x_|gvh-|ruuvi-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
+	const std::regex LogFileRegexRuuvi("ruuvi-[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt");
 	if (!LogDirectory.empty() && !MergeDirectory.empty())
 	{
 		std::cout << "[" << getTimeISO8601() << "] Merging contents of: " << MergeDirectory << " into " << LogDirectory << std::endl;
 		// Merging contents of MergeDirectory into LogDirectory.
-		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ MergeDirectory })
 			if (dir_entry.is_regular_file())
@@ -346,6 +347,9 @@ int main(int argc, char** argv)
 				std::ifstream TheFile(FQFileName);
 				if (TheFile.is_open())
 				{
+					ThermometerType TheThermometerType = ThermometerType::Unknown;
+					if (std::regex_match(FQFileName.filename().string(), LogFileRegexRuuvi))
+						TheThermometerType = ThermometerType::RUUVI;
 					std::deque<std::string> DataLines;
 					std::cout << "[" << getTimeISO8601() << "] Reading: " << FQFileName;
 					const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
@@ -395,7 +399,7 @@ int main(int argc, char** argv)
 												std::cout << " (" << count << " lines)" << std::endl;
 												LogFile.close();
 											}
-											LastFileName = GenerateLogFileName(TheBlueToothAddress, ThermometerType::Unknown, TheTime);
+											LastFileName = GenerateLogFileName(TheBlueToothAddress, TheThermometerType, TheTime);
 											LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
 											std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
 											count = 0;
@@ -423,7 +427,6 @@ int main(int argc, char** argv)
 		std::cout << "[" << getTimeISO8601() << "] Organizing contents of: " << LogDirectory << std::endl;
 		std::cout << "[" << getTimeISO8601() << "]  Using BackupDirectory: " << BackupDirectory << std::endl;
 
-		const std::regex LogFileRegex("(gvh507x_|gvh-)[[:xdigit:]]{12}-[[:digit:]]{4}-[[:digit:]]{2}.txt"); // 2024-10-01 Both old and new format recognized
 		std::deque<std::filesystem::path> files;
 		for (auto const& dir_entry : std::filesystem::directory_iterator{ LogDirectory })
 			if (dir_entry.is_regular_file())
@@ -442,6 +445,9 @@ int main(int argc, char** argv)
 				std::ifstream TheFile(FQFileName);
 				if (TheFile.is_open())
 				{
+					ThermometerType TheThermometerType = ThermometerType::Unknown;
+					if (std::regex_match(FQFileName.filename().string(), LogFileRegexRuuvi))
+						TheThermometerType = ThermometerType::RUUVI;
 					std::deque<std::string> DataLines;
 					std::cout << "[" << getTimeISO8601() << "] Reading: " << FQFileName;
 					const std::regex ModifiedBluetoothAddressRegex("[[:xdigit:]]{12}");
@@ -513,7 +519,7 @@ int main(int argc, char** argv)
 														utime(LastFileName.c_str(), &ut);
 													}
 												}
-												LastFileName = GenerateLogFileName(TheBlueToothAddress, ThermometerType::Unknown, TheTime);
+												LastFileName = GenerateLogFileName(TheBlueToothAddress, TheThermometerType, TheTime);
 												LogFile.open(LastFileName, std::ios_base::out | std::ios_base::app);
 												std::cout << "[" << getTimeISO8601() << "] Writing: " << LastFileName;
 												count = 0;
