@@ -924,6 +924,8 @@ public:
 	unsigned short SetSerialNumber(unsigned short value) { auto oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
 	time_t GetLastDownload(void) const { return(LastDownload); }
 	time_t SetLastDownload(time_t value) { auto oldValue = LastDownload; LastDownload = value; return(oldValue); }
+	const Govee_Temp GetLastReading(void) const { return(CurrentData); }
+	void SetLastReading(const Govee_Temp& value) { CurrentData = value; }
 	std::array<uint8_t, 16> GetSessionKey(void) const { return(SessionKey); }
 	std::array<uint8_t, 16> SetSessionKey(const std::array<uint8_t, 16>& value) { auto oldValue = SessionKey; SessionKey = value; return(oldValue); }
 	std::map<std::string, std::string> bluez_Characteristics;
@@ -1398,7 +1400,6 @@ Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
-std::map<bdaddr_t, Govee_Temp> GoveeLastReading;
 std::map<bdaddr_t, std::queue<Ruuvi_Tag>> RuuviTags;
 std::map<bdaddr_t, Govee_Device> GoveeDevices;
 /////////////////////////////////////////////////////////////////////////////
@@ -4790,7 +4791,15 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 																			AddressInGoveeSet = true;
 																			UpdateMRTGData(info->bdaddr, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
-																			GoveeLastReading.insert_or_assign(info->bdaddr, localTemp);
+																			auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
+																			if (CurrentDeviceMap == GoveeDevices.end())
+																			{
+																				Govee_Device newdevice;
+																				newdevice.SetMACAddress(info->bdaddr);
+																				GoveeDevices.insert(std::make_pair(info->bdaddr, newdevice));
+																				CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
+																			}
+																			CurrentDeviceMap->second.SetLastReading(localTemp);
 																		}
 																	}
 																	else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
@@ -4823,9 +4832,10 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
 												{
 													int BatteryToRecord(0);
-													auto RecentTemperature = GoveeLastReading.find(info->bdaddr);
-													if (RecentTemperature != GoveeLastReading.end())
-														BatteryToRecord = RecentTemperature->second.GetBattery();
+													auto RecentTemperature = GoveeDevices.find(info->bdaddr);
+													if (RecentTemperature != GoveeDevices.end())
+														if (RecentTemperature->second.GetLastReading().IsValid())
+															BatteryToRecord = RecentTemperature->second.GetLastReading().GetBattery();
 													time_t LastDownloadTime(0);
 													auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
 													if (CurrentDeviceMap == GoveeDevices.end())
@@ -6061,7 +6071,15 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(dbusBTAddress, foo));
 										ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
-										GoveeLastReading.insert_or_assign(dbusBTAddress, localTemp);
+										auto CurrentDeviceMap = GoveeDevices.find(dbusBTAddress);
+										if (CurrentDeviceMap == GoveeDevices.end())
+										{
+											Govee_Device newdevice;
+											newdevice.SetMACAddress(dbusBTAddress);
+											GoveeDevices.insert(std::make_pair(dbusBTAddress, newdevice));
+											CurrentDeviceMap = GoveeDevices.find(dbusBTAddress);
+										}
+										CurrentDeviceMap->second.SetLastReading(localTemp);
 										if (ConsoleVerbosity > 1)
 											ssOutput << " " << localTemp.WriteConsole();
 										// initiate connection here if we are set to download data
@@ -6291,9 +6309,9 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 						packet[index] = ValueData[index];
 
 					int BatteryToRecord = 0;
-					auto RecentTemperature = GoveeLastReading.find(dbusBTAddress);
-					if (RecentTemperature != GoveeLastReading.end())
-						BatteryToRecord = RecentTemperature->second.GetBattery();
+					auto RecentTemperature = GoveeDevices.find(dbusBTAddress);
+					if (RecentTemperature != GoveeDevices.end())
+						BatteryToRecord = RecentTemperature->second.GetLastReading().GetBattery();
 
 					auto GoveeDevice = GoveeDevices.find(dbusBTAddress);
 					if (GoveeDevice != GoveeDevices.end())
@@ -6703,7 +6721,6 @@ void bluez_dbus_RemoveKnownDevices(DBusConnection* dbus_conn, const char* adapte
 		}
 		ObjectsToDelete.pop();
 	}
-	GoveeDevices.clear();
 	if (ConsoleVerbosity > 0)
 		std::cout << ssOutput.str();
 	else
@@ -6961,10 +6978,10 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												break;
 											}
 										}
-										for (const auto &a : GoveeLastReading)
+										for (const auto &a : GoveeDevices)
 										{
-											if (a.second.Time > TimeAdvertisment)
-												TimeAdvertisment = a.second.Time;
+											if (a.second.GetLastReading().IsValid() && a.second.GetLastReading().Time > TimeAdvertisment)
+												TimeAdvertisment = a.second.GetLastReading().Time;
 										}
 									}
 									dbus_message_unref(dbus_msg); // Free the message
