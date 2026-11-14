@@ -1397,11 +1397,17 @@ Ruuvi_Temp& Ruuvi_Temp::operator +=(const Ruuvi_Temp& b)
 	}
 	return(*this);
 }
+class Ruuvi_Device : Ruuvi_Temp {
+public:
+	time_t GetLastDownload(void) const { return(Time); }
+	time_t SetLastDownload(time_t value) { auto oldValue = Time; Time = value; return(oldValue); }
+};
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
 std::map<bdaddr_t, std::queue<Ruuvi_Temp>> RuuviTags;
 std::map<bdaddr_t, Govee_Device> GoveeDevices;
+std::map<bdaddr_t, Ruuvi_Device> RuuviDevices; // This may be replaced by a different data structure in the future, but for now it is a map of the last reading after a download from each Ruuvi device.
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -1508,9 +1514,9 @@ std::filesystem::path GenerateLogFileName(const bdaddr_t &a, const ThermometerTy
 	std::filesystem::path NewFormatFileName(LogDirectory / OutputFilename.str());
 	return(NewFormatFileName);
 }
-void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTypes, std::map<bdaddr_t, Govee_Device> & GoveeDevices, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
+void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTypes, std::map<bdaddr_t, Govee_Device> & GoveeDevices, std::map<bdaddr_t, Ruuvi_Device> & RuuviDevices, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
 {
-	if (!GoveeDevices.empty())
+	if (!ThermometerTypes.empty())
 	{
 		if (ConsoleVerbosity > 1)
 			for (auto const& [TheAddress, TheType] : ThermometerTypes)
@@ -1532,6 +1538,9 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 		std::filesystem::path filename(LogDirectory / PersistenceFileName);
 		time_t MostRecentDownload(0);
 		for (auto const& [TheAddress, TheDevice] : GoveeDevices)
+			if (MostRecentDownload < TheDevice.GetLastDownload())
+				MostRecentDownload = TheDevice.GetLastDownload();
+		for (auto const& [TheAddress, TheDevice] : RuuviDevices)
 			if (MostRecentDownload < TheDevice.GetLastDownload())
 				MostRecentDownload = TheDevice.GetLastDownload();
 #ifdef LIMIT_WRITES_TO_PERSISTENCE_DATA_FILE
@@ -1563,6 +1572,11 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 							PersistenceFile << "\tFW:" << search->second.GetFirmwareVersion();
 						if (search->second.GetSerialNumber() != 0)
 							PersistenceFile << "\tSN:" << std::dec << search->second.GetSerialNumber();
+					}
+					else if (auto search = RuuviDevices.find(TheAddress); search != RuuviDevices.end())
+					{
+						if (0 != search->second.GetLastDownload())
+							PersistenceFile << "\t" << timeToISO8601(search->second.GetLastDownload());
 					}
 					PersistenceFile << std::endl;
 				}
@@ -4904,7 +4918,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
 									GenerateLogFile(GoveeTemperatures);
-									GeneratePersistenceFile(GoveeThermometers, GoveeDevices);
+									GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 									GenerateLogFile(RuuviTags);
 									GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
@@ -4935,7 +4949,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			}
 			hci_close_dev(BlueToothDevice_Handle);
 			GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
-			GeneratePersistenceFile(GoveeThermometers, GoveeDevices);
+			GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
 			GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 		}
 
@@ -7029,7 +7043,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeLog = TimeNow;
 								GenerateLogFile(GoveeTemperatures);
-								GeneratePersistenceFile(GoveeThermometers, GoveeDevices);
+								GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								GenerateLogFile(RuuviTags);
 								GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
@@ -7101,7 +7115,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 		}
 	}
 	GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
-	GeneratePersistenceFile(GoveeThermometers, GoveeDevices);
+	GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
 	GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
@@ -7505,7 +7519,7 @@ int main(int argc, char **argv)
 		if (bUse_HCI_Interface)	// The HCI interface for bluetooth is deprecated, with BlueZ over DBus being preferred
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
 		#endif // _BLUEZ_HCI_
-		GeneratePersistenceFile(GoveeThermometers, GoveeDevices);
+		GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		OSSL_PROVIDER_unload(legacy);
 		OSSL_PROVIDER_unload(defaultp);
