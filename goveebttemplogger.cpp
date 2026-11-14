@@ -1401,6 +1401,8 @@ class Ruuvi_Device : Ruuvi_Temp {
 public:
 	time_t GetLastDownload(void) const { return(Time); }
 	time_t SetLastDownload(time_t value) { auto oldValue = Time; Time = value; return(oldValue); }
+	bdaddr_t GetMACAddress(void) const { return(BluetoothAddress); }
+	bdaddr_t SetMACAddress(const bdaddr_t& value) { auto oldValue = BluetoothAddress; BluetoothAddress = value; return(oldValue); }
 };
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
@@ -1591,7 +1593,7 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 		}
 	}
 }
-void ReadPersistenceFile(std::map<bdaddr_t, ThermometerType>& ThermometerTypes, std::map<bdaddr_t, Govee_Device>& GoveeDevices, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
+void ReadPersistenceFile(std::map<bdaddr_t, ThermometerType>& ThermometerTypes, std::map<bdaddr_t, Govee_Device>& GoveeDevices, std::map<bdaddr_t, Ruuvi_Device>& RuuviDevices, const std::filesystem::path& PersistenceFileName = "gvh-thermometer-types.txt")
 {
 	if (!CacheDirectory.empty()) // 2025-04-22 This is deprecated, but kept around to import an old file first if upgrading. 
 	{
@@ -1690,33 +1692,48 @@ void ReadPersistenceFile(std::map<bdaddr_t, ThermometerType>& ThermometerTypes, 
 						ThermometerTypes.insert_or_assign(TheBlueToothAddress, String2ThermometerType(TheLineElements[1]));
 						if (TheLineElements.size() > 2)
 						{
-							auto CurrentDeviceMap = GoveeDevices.find(TheBlueToothAddress);
-							if (CurrentDeviceMap == GoveeDevices.end())
+							if (String2ThermometerType(TheLineElements[1]) == ThermometerType::RUUVI)
 							{
-								Govee_Device newdevice;
-								newdevice.SetMACAddress(TheBlueToothAddress);
-								GoveeDevices.insert(std::make_pair(TheBlueToothAddress, newdevice));
-								CurrentDeviceMap = GoveeDevices.find(TheBlueToothAddress);
+								auto CurrentDeviceMap = RuuviDevices.find(TheBlueToothAddress);
+								if (CurrentDeviceMap == RuuviDevices.end())
+								{
+									Ruuvi_Device newdevice;
+									newdevice.SetMACAddress(TheBlueToothAddress);
+									RuuviDevices.insert(std::make_pair(TheBlueToothAddress, newdevice));
+									CurrentDeviceMap = RuuviDevices.find(TheBlueToothAddress);
+								}
+								CurrentDeviceMap->second.SetLastDownload(ISO8601totime(TheLineElements[2]));
 							}
-							CurrentDeviceMap->second.SetLastDownload(ISO8601totime(TheLineElements[2]));
-							if (TheLineElements.size() > 3)
-								if (TheLineElements[3].substr(0, 3) == "HW:")
+							else
+							{
+								auto CurrentDeviceMap = GoveeDevices.find(TheBlueToothAddress);
+								if (CurrentDeviceMap == GoveeDevices.end())
 								{
-									TheLineElements[3].erase(0, 3);
-									CurrentDeviceMap->second.SetHardwareVersion(TheLineElements[3]);
+									Govee_Device newdevice;
+									newdevice.SetMACAddress(TheBlueToothAddress);
+									GoveeDevices.insert(std::make_pair(TheBlueToothAddress, newdevice));
+									CurrentDeviceMap = GoveeDevices.find(TheBlueToothAddress);
 								}
-							if (TheLineElements.size() > 4)
-								if (TheLineElements[4].substr(0, 3) == "FW:")
-								{
-									TheLineElements[4].erase(0, 3);
-									CurrentDeviceMap->second.SetFirmwareVersion(TheLineElements[4]);
-								}
-							if (TheLineElements.size() > 5)
-								if (TheLineElements[5].substr(0, 3) == "SN:")
-								{
-									TheLineElements[5].erase(0, 3);
-									CurrentDeviceMap->second.SetSerialNumber(std::stoi(TheLineElements[5]));
-								}
+								CurrentDeviceMap->second.SetLastDownload(ISO8601totime(TheLineElements[2]));
+								if (TheLineElements.size() > 3)
+									if (TheLineElements[3].substr(0, 3) == "HW:")
+									{
+										TheLineElements[3].erase(0, 3);
+										CurrentDeviceMap->second.SetHardwareVersion(TheLineElements[3]);
+									}
+								if (TheLineElements.size() > 4)
+									if (TheLineElements[4].substr(0, 3) == "FW:")
+									{
+										TheLineElements[4].erase(0, 3);
+										CurrentDeviceMap->second.SetFirmwareVersion(TheLineElements[4]);
+									}
+								if (TheLineElements.size() > 5)
+									if (TheLineElements[5].substr(0, 3) == "SN:")
+									{
+										TheLineElements[5].erase(0, 3);
+										CurrentDeviceMap->second.SetSerialNumber(std::stoi(TheLineElements[5]));
+									}
+							}
 						}
 					}
 				}
@@ -7486,7 +7503,7 @@ int main(int argc, char **argv)
 			SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 		ReadTitleMap(SVGTitleMapFilename);
 	}
-	ReadPersistenceFile(GoveeThermometers, GoveeDevices);
+	ReadPersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
 	if (UseBluetooth)
 	{
 		if (!SVGDirectory.empty())
