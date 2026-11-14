@@ -1111,17 +1111,17 @@ bdaddr_t string2ba(const std::string& TheBlueToothAddressString)
 	return(TheBlueToothAddress);
 }
 /////////////////////////////////////////////////////////////////////////////
-class Ruuvi_Tag {
+class Ruuvi_Temp {
 public:
 	time_t Time;
-	Ruuvi_Tag() : Time(0), Temperature(0x8000), Humidity(0xFFFF), Pressure(0xFFFF), AccelerationX(0x8000), AccelerationY(0x8000), AccelerationZ(0x8000), Battery(0x7FF), TXPower(0x1F), MovementCounter(0xFF), MeasurementSequenceNumber(0xFFFF), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0), Model(ThermometerType::RUUVI) {};
-	Ruuvi_Tag(const std::string& data);
+	Ruuvi_Temp() : Time(0), Temperature(0x8000), Humidity(0xFFFF), Pressure(0xFFFF), AccelerationX(0x8000), AccelerationY(0x8000), AccelerationZ(0x8000), Battery(0x7FF), TXPower(0x1F), MovementCounter(0xFF), MeasurementSequenceNumber(0xFFFF), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0), Model(ThermometerType::RUUVI) {};
+	Ruuvi_Temp(const std::string& data);
 	std::string WriteTXT(const char seperator = '\t') const;
 	std::string WriteConsole(void) const;
 	std::string WriteCache(void) const;
 	bool ReadCache(const std::string& data);
 	bool ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data);
-	void SetMinMax(const Ruuvi_Tag& a);
+	void SetMinMax(const Ruuvi_Temp& a);
 	double GetTemperature(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return((Temperature * 0.005 * 9.0 / 5.0) + 32.0); return(Temperature * 0.005); };
 	double GetTemperatureMin(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::min(((Temperature * 0.005 * 9.0 / 5.0) + 32.0), ((TemperatureMin * 0.005 * 9.0 / 5.0) + 32.0))); return(std::min(Temperature * 0.005, TemperatureMin * 0.005)); };
 	double GetTemperatureMax(const bool Fahrenheit = false, const int index = 0) const { if (Fahrenheit) return(std::max(((Temperature * 0.005 * 9.0 / 5.0) + 32.0), ((TemperatureMax * 0.005 * 9.0 / 5.0) + 32.0))); return(std::max(Temperature * 0.005, TemperatureMax * 0.005)); };
@@ -1142,7 +1142,7 @@ public:
 	void NormalizeTime(granularity type);
 	granularity GetTimeGranularity(void) const;
 	bool IsValid(void) const { return((Averages > 0)); };
-	Ruuvi_Tag& operator +=(const Ruuvi_Tag& b);
+	Ruuvi_Temp& operator +=(const Ruuvi_Temp& b);
 protected:
 	short Temperature; // Temperature in 0.005 degrees
 	unsigned short Humidity; // Humidity (16bit unsigned) in 0.0025% (0-163.83% range, though realistically 0-100%)
@@ -1165,9 +1165,9 @@ protected:
 	ThermometerType Model;
 	int Averages;
 };
-Ruuvi_Tag::Ruuvi_Tag(const std::string& data)
+Ruuvi_Temp::Ruuvi_Temp(const std::string& data)
 {
-	*this = Ruuvi_Tag();	// Make sure all values are initialized, even if the data is invalid. This allows the IsValid() function to work correctly.
+	*this = Ruuvi_Temp();	// Make sure all values are initialized, even if the data is invalid. This allows the IsValid() function to work correctly.
 	std::istringstream ssValue(data);
 	// erase anything not a digit from the start of the line. nulls are occasionally in the log file when the platform crashed during a write to the logfile.
 	while (!std::isdigit(ssValue.peek()))
@@ -1196,7 +1196,7 @@ Ruuvi_Tag::Ruuvi_Tag(const std::string& data)
 		Averages = 1;
 	}
 }
-std::string Ruuvi_Tag::WriteTXT(const char seperator) const
+std::string Ruuvi_Temp::WriteTXT(const char seperator) const
 {
 	std::ostringstream ssValue;
 	ssValue << timeToExcelDate(Time);
@@ -1213,7 +1213,7 @@ std::string Ruuvi_Tag::WriteTXT(const char seperator) const
 	ssValue << seperator << ba2string(BluetoothAddress);
 	return(ssValue.str());
 }
-std::string Ruuvi_Tag::WriteConsole(void) const
+std::string Ruuvi_Temp::WriteConsole(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << "(Temp) " << std::setw(4) << std::dec << std::fixed << std::setprecision(1) << GetTemperature() << "\u00B0" << "C";
@@ -1230,7 +1230,7 @@ std::string Ruuvi_Tag::WriteConsole(void) const
 	ssValue << " (Ruuvi)";
 	return(ssValue.str());
 }
-std::string Ruuvi_Tag::WriteCache(void) const
+std::string Ruuvi_Temp::WriteCache(void) const
 {
 	std::ostringstream ssValue;
 	ssValue << Time;
@@ -1255,7 +1255,7 @@ std::string Ruuvi_Tag::WriteCache(void) const
 	ssValue << "\t" << ThermometerType2String(Model);
 	return(ssValue.str());
 }
-bool Ruuvi_Tag::ReadCache(const std::string& data)
+bool Ruuvi_Temp::ReadCache(const std::string& data)
 {
 	bool rval = false;
 	std::istringstream ssValue(data);
@@ -1284,7 +1284,7 @@ bool Ruuvi_Tag::ReadCache(const std::string& data)
 	Model = String2ThermometerType(TempString);
 	return(rval);
 }
-bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
+bool Ruuvi_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>& Data)  // Decode data from the BlueZ DBus interface
 {
 	bool rval = false;
 	if ((Manufacturer == 0x0499) && (Data[0] == 5)) // Ruuvi Data format 5 (RAWv2)
@@ -1307,7 +1307,7 @@ bool Ruuvi_Tag::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>&
 	}
 	return(rval);
 }
-void Ruuvi_Tag::SetMinMax(const Ruuvi_Tag& a)
+void Ruuvi_Temp::SetMinMax(const Ruuvi_Temp& a)
 {
 	TemperatureMin = TemperatureMin < Temperature ? TemperatureMin : Temperature;
 	TemperatureMax = TemperatureMax > Temperature ? TemperatureMax : Temperature;
@@ -1322,7 +1322,7 @@ void Ruuvi_Tag::SetMinMax(const Ruuvi_Tag& a)
 	PressureMin = PressureMin < a.PressureMin ? PressureMin : a.PressureMin;
 	PressureMax = PressureMax > a.PressureMax ? PressureMax : a.PressureMax;
 }
-void Ruuvi_Tag::NormalizeTime(granularity type)
+void Ruuvi_Temp::NormalizeTime(granularity type)
 {
 	if (type == day)
 		Time = (Time / DAY_SAMPLE) * DAY_SAMPLE;
@@ -1351,7 +1351,7 @@ void Ruuvi_Tag::NormalizeTime(granularity type)
 		}
 	}
 }
-Ruuvi_Tag::granularity Ruuvi_Tag::GetTimeGranularity(void) const
+Ruuvi_Temp::granularity Ruuvi_Temp::GetTimeGranularity(void) const
 {
 	granularity rval = granularity::day;
 	struct tm UTC;
@@ -1367,7 +1367,7 @@ Ruuvi_Tag::granularity Ruuvi_Tag::GetTimeGranularity(void) const
 	}
 	return(rval);
 }
-Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
+Ruuvi_Temp& Ruuvi_Temp::operator +=(const Ruuvi_Temp& b)
 {
 	if (!IsValid() && b.IsValid())	// If "this" is not valid but "b" is valid, then copy "b" to "this". This allows the use of the += operator to initialize an object with the first value, and then average in subsequent values.
 	{
@@ -1400,7 +1400,7 @@ Ruuvi_Tag& Ruuvi_Tag::operator +=(const Ruuvi_Tag& b)
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> GoveeThermometers;
-std::map<bdaddr_t, std::queue<Ruuvi_Tag>> RuuviTags;
+std::map<bdaddr_t, std::queue<Ruuvi_Temp>> RuuviTags;
 std::map<bdaddr_t, Govee_Device> GoveeDevices;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
@@ -1828,7 +1828,7 @@ void GetMRTGOutput(const std::string& TheBlueToothAddressString, const int Minut
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
-std::map<bdaddr_t, std::vector<Ruuvi_Tag>> RuuviMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
+std::map<bdaddr_t, std::vector<Ruuvi_Temp>> RuuviMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 /////////////////////////////////////////////////////////////////////////////
 std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress, const ThermometerType TheThermometerType = ThermometerType::Unknown)
 {
@@ -1945,16 +1945,16 @@ void ReadCacheDirectory(void)
 								}
 								else if (std::regex_match(files.begin()->filename().string(), RuuviCacheFileRegex))
 								{
-									std::vector<Ruuvi_Tag> FakeMRTGFile;
+									std::vector<Ruuvi_Temp> FakeMRTGFile;
 									FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
 									while (std::getline(TheFile, TheLine))
 									{
-										Ruuvi_Tag TheValue;
+										Ruuvi_Temp TheValue;
 										TheValue.ReadCache(TheLine);
 										FakeMRTGFile.push_back(TheValue);
 									}
 									if (FakeMRTGFile.size() == (2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT)) // simple check to see if we are the right size
-										RuuviMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Ruuvi_Tag>>(TheBlueToothAddress, FakeMRTGFile));
+										RuuviMRTGLogs.insert(std::pair<bdaddr_t, std::vector<Ruuvi_Temp>>(TheBlueToothAddress, FakeMRTGFile));
 								}
 							}
 						}
@@ -2605,7 +2605,7 @@ void ReadLoggedData(const std::filesystem::path& filename)
 				else if (std::regex_match(filename.filename().string(), RuuviFileRegex))
 					for (auto const& SortedLine : SortableFile)
 					{
-						Ruuvi_Tag TheValue(SortedLine);
+						Ruuvi_Temp TheValue(SortedLine);
 						if (TheValue.IsValid())
 							UpdateMRTGData(TheBlueToothAddress, TheValue, RuuviMRTGLogs);
 					}
@@ -4648,7 +4648,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													int current_offset = 0;
 													bool data_error = false;
 													Govee_Temp localTemp;
-													Ruuvi_Tag localRuuvi;
+													Ruuvi_Temp localRuuvi;
 													while (!data_error && current_offset < info->length)
 													{
 														size_t data_len = info->data[current_offset];
@@ -4805,8 +4805,8 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
 																	{
 																		TemperatureInAdvertisment = localRuuvi.IsValid();
-																		std::queue<Ruuvi_Tag> foo;
-																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(info->bdaddr, foo));
+																		std::queue<Ruuvi_Temp> foo;
+																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(info->bdaddr, foo));
 																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
 																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
 																		UpdateMRTGData(info->bdaddr, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
@@ -5958,7 +5958,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 	// this should be handling the "a{sv}" portion of the message
 	std::ostringstream ssCompleteLine;
 	Govee_Temp localTemp;
-	Ruuvi_Tag localRuuvi;
+	Ruuvi_Temp localRuuvi;
 	do
 	{
 		std::ostringstream ssStartLine;
@@ -6111,8 +6111,8 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									}
 									else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
 									{
-										std::queue<Ruuvi_Tag> foo;
-										auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Tag>>(dbusBTAddress, foo));
+										std::queue<Ruuvi_Temp> foo;
+										auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(dbusBTAddress, foo));
 										ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
 										if (ConsoleVerbosity > 1)
