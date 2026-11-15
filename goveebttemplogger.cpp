@@ -1414,6 +1414,11 @@ public:
 	bdaddr_t SetMACAddress(const bdaddr_t& value) { auto oldValue = BluetoothAddress; BluetoothAddress = value; return(oldValue); }
 	unsigned short GetSerialNumber(void) const { return(SerialNumber); }
 	unsigned short SetSerialNumber(unsigned short value) { auto oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
+	const Ruuvi_Temp GetLastReading(void) const { return(*this); }
+	Ruuvi_Device& SetLastReading(const Ruuvi_Temp& b) {
+		Ruuvi_Temp::operator=(b); // Copy base part
+		return *this;
+	}
 private:
 	std::string FirmwareVersion;
 	std::string HardwareVersion;
@@ -4859,6 +4864,15 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																		AddressInDeviceSet = true;
 																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
 																		UpdateMRTGData(info->bdaddr, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
+																		auto CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
+																		if (CurrentDeviceMap == RuuviDevices.end())
+																		{
+																			Ruuvi_Device newdevice;
+																			newdevice.SetMACAddress(info->bdaddr);
+																			RuuviDevices.insert(std::make_pair(info->bdaddr, newdevice));
+																			CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
+																		}
+																		CurrentDeviceMap->second.SetLastReading(localRuuvi);
 																	}
 																	else if (ConsoleVerbosity > 1)
 																		ConsoleOutLine << iBeacon(ManufacturerID, ManufacturerData);
