@@ -4895,10 +4895,6 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInDeviceSet && !LogDirectory.empty())
 												{
 													int BatteryToRecord(0);
-													auto RecentTemperature = GoveeDevices.find(info->bdaddr);
-													if (RecentTemperature != GoveeDevices.end())
-														if (RecentTemperature->second.GetLastReading().IsValid())
-															BatteryToRecord = RecentTemperature->second.GetLastReading().GetBattery();
 													time_t LastDownloadTime(0);
 													auto CurrentDeviceTypeMap = AllThermometers.find(info->bdaddr);
 													if (CurrentDeviceTypeMap != AllThermometers.end())
@@ -4913,6 +4909,8 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																RuuviDevices.insert(std::make_pair(info->bdaddr, newdevice));
 																CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
 															}
+															if (CurrentDeviceMap->second.GetLastReading().IsValid())
+																BatteryToRecord = CurrentDeviceMap->second.GetLastReading().GetBattery();
 															LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
 														}
 														else
@@ -4925,6 +4923,8 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																GoveeDevices.insert(std::make_pair(info->bdaddr, newdevice));
 																CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
 															}
+															if (CurrentDeviceMap->second.GetLastReading().IsValid())
+																BatteryToRecord = CurrentDeviceMap->second.GetLastReading().GetBattery();
 															LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
 														}
 													}
@@ -4938,7 +4938,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 														if (CurrentDeviceTypeMap->second == ThermometerType::RUUVI)
 														{
 															auto CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
-															if (CurrentDeviceMap == RuuviDevices.end())
+															if (CurrentDeviceMap != RuuviDevices.end())
 															{
 																DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
 																if (DownloadTime > 0)
@@ -4948,7 +4948,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 														else
 														{ 
 															auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
-															if (CurrentDeviceMap == GoveeDevices.end())
+															if (CurrentDeviceMap != GoveeDevices.end())
 															{
 																DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
 																if (DownloadTime > 0)
