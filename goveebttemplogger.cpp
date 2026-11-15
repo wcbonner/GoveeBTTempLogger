@@ -1399,10 +1399,27 @@ Ruuvi_Temp& Ruuvi_Temp::operator +=(const Ruuvi_Temp& b)
 }
 class Ruuvi_Device : Ruuvi_Temp {
 public:
-	time_t GetLastDownload(void) const { return(Time); }
-	time_t SetLastDownload(time_t value) { auto oldValue = Time; Time = value; return(oldValue); }
+	Ruuvi_Device() :
+		MACAddress({ 0 }),
+		SerialNumber(0),
+		LastDownload(0)
+	{};
+	time_t GetLastDownload(void) const { return(LastDownload); }
+	time_t SetLastDownload(time_t value) { auto oldValue = LastDownload; LastDownload = value; return(oldValue); }
+	std::string GetFirmwareVersion(void) const { return(FirmwareVersion); }
+	std::string SetFirmwareVersion(const std::string& value) { auto oldValue = FirmwareVersion; FirmwareVersion = value; return(oldValue); }
+	std::string GetHardwareVersion(void) const { return(HardwareVersion); }
+	std::string SetHardwareVersion(const std::string& value) { auto oldValue = HardwareVersion; HardwareVersion = value; return(oldValue); }
 	bdaddr_t GetMACAddress(void) const { return(BluetoothAddress); }
 	bdaddr_t SetMACAddress(const bdaddr_t& value) { auto oldValue = BluetoothAddress; BluetoothAddress = value; return(oldValue); }
+	unsigned short GetSerialNumber(void) const { return(SerialNumber); }
+	unsigned short SetSerialNumber(unsigned short value) { auto oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
+private:
+	std::string FirmwareVersion;
+	std::string HardwareVersion;
+	bdaddr_t MACAddress;
+	unsigned short SerialNumber;
+	time_t LastDownload;
 };
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
@@ -3476,7 +3493,7 @@ const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 
 /////////////////////////////////////////////////////////////////////////////
 // Connect to a Govee Thermometer device over Bluetooth and download its historical data.
 //time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, int BatteryToRecord = 0)
-time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, Govee_Device & TheDevice, int BatteryToRecord = 0)
+template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, T & TheDevice, int BatteryToRecord = 0)
 {
 	const bdaddr_t GoveeBTAddress(TheDevice.GetMACAddress());
 	if (ConsoleVerbosity > 2)
@@ -4869,24 +4886,61 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 														if (RecentTemperature->second.GetLastReading().IsValid())
 															BatteryToRecord = RecentTemperature->second.GetLastReading().GetBattery();
 													time_t LastDownloadTime(0);
-													auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
-													if (CurrentDeviceMap == GoveeDevices.end())
+													auto CurrentDeviceTypeMap = GoveeThermometers.find(info->bdaddr);
+													if (CurrentDeviceTypeMap != GoveeThermometers.end())
 													{
-														Govee_Device newdevice;
-														newdevice.SetMACAddress(info->bdaddr);
-														GoveeDevices.insert(std::make_pair(info->bdaddr, newdevice));
-														CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
+														if (CurrentDeviceTypeMap->second == ThermometerType::RUUVI)
+														{
+															auto CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
+															if (CurrentDeviceMap == RuuviDevices.end())
+															{
+																Ruuvi_Device newdevice;
+																newdevice.SetMACAddress(info->bdaddr);
+																RuuviDevices.insert(std::make_pair(info->bdaddr, newdevice));
+																CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
+															}
+															LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
+														}
+														else
+														{
+															auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
+															if (CurrentDeviceMap == GoveeDevices.end())
+															{
+																Govee_Device newdevice;
+																newdevice.SetMACAddress(info->bdaddr);
+																GoveeDevices.insert(std::make_pair(info->bdaddr, newdevice));
+																CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
+															}
+															LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
+														}
 													}
-													LastDownloadTime = CurrentDeviceMap->second.GetLastDownload();
 													time_t TimeNow(0);
 													time(&TimeNow);
 													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 													{
 														bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList, HCI_Passive_Scanning);
-														time_t DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
-														if (DownloadTime > 0)
-															CurrentDeviceMap->second.SetLastDownload(DownloadTime);
+														time_t DownloadTime(0);
+														if (CurrentDeviceTypeMap->second == ThermometerType::RUUVI)
+														{
+															auto CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
+															if (CurrentDeviceMap == RuuviDevices.end())
+															{
+																DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
+																if (DownloadTime > 0)
+																	CurrentDeviceMap->second.SetLastDownload(DownloadTime);
+															}
+														}
+														else
+														{ 
+															auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
+															if (CurrentDeviceMap == GoveeDevices.end())
+															{
+																DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
+																if (DownloadTime > 0)
+																	CurrentDeviceMap->second.SetLastDownload(DownloadTime);
+															}
+														}
 														btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
 														if (btRVal < 0)
 														{
