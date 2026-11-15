@@ -4647,7 +4647,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 											{
 												time(&TimeAdvertisment);
 												const le_advertising_info* const info = (le_advertising_info*)(meta->data + 1);
-												bool AddressInGoveeSet(GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
+												bool AddressInDeviceSet(GoveeTemperatures.end() != GoveeTemperatures.find(info->bdaddr));
 												bool TemperatureInAdvertisment(false);
 												char addr[19] = { 0 };
 												ba2str(&info->bdaddr, addr);
@@ -4759,7 +4759,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																if (localTemp.GetModel() != ThermometerType::Unknown)
 																{
 																	GoveeThermometers.insert_or_assign(info->bdaddr, localTemp.GetModel());
-																	AddressInGoveeSet = true;
+																	AddressInDeviceSet = true;
 																}
 																if (ConsoleVerbosity > 2)
 																	ConsoleOutLine << " (Name) " << localName;
@@ -4820,7 +4820,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																			std::queue<Govee_Temp> foo;
 																			auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(info->bdaddr, foo));
 																			ret.first->second.push(localTemp);	// puts the measurement in the queue to be written to the log file
-																			AddressInGoveeSet = true;
+																			AddressInDeviceSet = true;
 																			UpdateMRTGData(info->bdaddr, localTemp, GoveeMRTGLogs);	// puts the measurement in the fake MRTG data structure
 																			auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
 																			if (CurrentDeviceMap == GoveeDevices.end())
@@ -4839,6 +4839,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																		std::queue<Ruuvi_Temp> foo;
 																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(info->bdaddr, foo));
 																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
+																		AddressInDeviceSet = true;
 																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
 																		UpdateMRTGData(info->bdaddr, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
 																	}
@@ -4847,7 +4848,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																}
 																break;
 															default:
-																if ((AddressInGoveeSet && (ConsoleVerbosity > 1)) || (ConsoleVerbosity > 2))
+																if ((AddressInDeviceSet && (ConsoleVerbosity > 1)) || (ConsoleVerbosity > 2))
 																{
 																	ConsoleOutLine << " (Other: " << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << int(*(info->data + current_offset + 1)) << ") ";
 																	for (auto index = 1; index < *(info->data + current_offset); index++)
@@ -4860,7 +4861,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												}
 												if ((TemperatureInAdvertisment && (ConsoleVerbosity > 0)) || (ConsoleVerbosity > 2))
 													std::cout << ConsoleOutLine.str() << std::endl;
-												if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInGoveeSet && !LogDirectory.empty())
+												if (TemperatureInAdvertisment && (DaysBetweenDataDownload > 0) && AddressInDeviceSet && !LogDirectory.empty())
 												{
 													int BatteryToRecord(0);
 													auto RecentTemperature = GoveeDevices.find(info->bdaddr);
