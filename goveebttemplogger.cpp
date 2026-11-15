@@ -1874,7 +1874,7 @@ void GetMRTGOutput(const std::string& TheBlueToothAddressString, const int Minut
 }
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::vector<Govee_Temp>> GoveeMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
-std::map<bdaddr_t, std::string> GoveeBluetoothTitles;
+std::map<bdaddr_t, std::string> AllBluetoothTitles;
 std::map<bdaddr_t, std::vector<Ruuvi_Temp>> RuuviMRTGLogs; // memory map of BT addresses and vector structure similar to MRTG Log Files
 /////////////////////////////////////////////////////////////////////////////
 std::filesystem::path GenerateCacheFileName(const bdaddr_t& TheBlueToothAddress, const ThermometerType TheThermometerType = ThermometerType::Unknown)
@@ -2729,7 +2729,7 @@ bool ReadTitleMap(const std::filesystem::path& TitleMapFilename)
 						auto i = TheLine.find_first_of(delimiters);		// Find first delimiter
 						i = TheLine.find_first_not_of(delimiters, i);	// Move past consecutive delimiters
 						std::string theTitle = (i == std::string::npos) ? "" : TheLine.substr(i);
-						GoveeBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
+						AllBluetoothTitles.insert(std::make_pair(TheBlueToothAddress, theTitle));
 					}
 				}
 				TheFile.close();
@@ -2756,8 +2756,8 @@ template <typename T> void WriteAllSVG(const std::map<bdaddr_t, std::vector<T>>&
 					CacheThermometerType = foo->second;
 			}
 			std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
-			if (GoveeBluetoothTitles.find(TheAddress) != GoveeBluetoothTitles.end())
-				ssTitle = GoveeBluetoothTitles.find(TheAddress)->second;
+			if (AllBluetoothTitles.find(TheAddress) != AllBluetoothTitles.end())
+				ssTitle = AllBluetoothTitles.find(TheAddress)->second;
 			std::filesystem::path OutputPath;
 			std::ostringstream OutputFilename;
 			OutputFilename.str("");
