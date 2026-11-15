@@ -882,7 +882,7 @@ Govee_Temp& Govee_Temp::operator +=(const Govee_Temp& b)
 	}
 	return(*this);
 }
-class Govee_Device {
+class Govee_Device : public Govee_Temp {
 public:
 	enum class ConnectionState { 
 		Disconnected, 
@@ -902,8 +902,7 @@ public:
 		MACAddress({ 0 }),
 		Name(""), 
 		SerialNumber(0),
-		LastDownload(0),
-		CurrentData() 
+		LastDownload(0)
 	{};
 	//Govee_Device(const std::string& data);
 	std::string WriteConsole(void) const;
@@ -924,15 +923,13 @@ public:
 	unsigned short SetSerialNumber(unsigned short value) { auto oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
 	time_t GetLastDownload(void) const { return(LastDownload); }
 	time_t SetLastDownload(time_t value) { auto oldValue = LastDownload; LastDownload = value; return(oldValue); }
-	const Govee_Temp GetLastReading(void) const { return(CurrentData); }
-	void SetLastReading(const Govee_Temp& value) { CurrentData = value; }
+	const Govee_Temp GetLastReading(void) const { return(*this); }
+	Govee_Device& SetLastReading(const Govee_Temp& b) { Govee_Temp::operator=(b); return *this; }
 	std::array<uint8_t, 16> GetSessionKey(void) const { return(SessionKey); }
 	std::array<uint8_t, 16> SetSessionKey(const std::array<uint8_t, 16>& value) { auto oldValue = SessionKey; SessionKey = value; return(oldValue); }
 	std::map<std::string, std::string> bluez_Characteristics;
 protected:
 	std::string Name;
-	Govee_Temp CurrentData;
-private:
 	ConnectionState State;
 	std::array<uint8_t, 16> SessionKey;
 	std::string FirmwareVersion;
@@ -1415,10 +1412,7 @@ public:
 	unsigned short GetSerialNumber(void) const { return(SerialNumber); }
 	unsigned short SetSerialNumber(unsigned short value) { auto oldValue = SerialNumber; SerialNumber = value; return(oldValue); }
 	const Ruuvi_Temp GetLastReading(void) const { return(*this); }
-	Ruuvi_Device& SetLastReading(const Ruuvi_Temp& b) {
-		Ruuvi_Temp::operator=(b); // Copy base part
-		return *this;
-	}
+	Ruuvi_Device& SetLastReading(const Ruuvi_Temp& b) { Ruuvi_Temp::operator=(b); return *this; }
 private:
 	std::string FirmwareVersion;
 	std::string HardwareVersion;
@@ -1427,11 +1421,11 @@ private:
 	time_t LastDownload;
 };
 /////////////////////////////////////////////////////////////////////////////
-std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, ThermometerType> AllThermometers;
-std::map<bdaddr_t, std::queue<Ruuvi_Temp>> RuuviTags;
+std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
+std::map<bdaddr_t, std::queue<Ruuvi_Temp>> RuuviTemperatures;
 std::map<bdaddr_t, Govee_Device> GoveeDevices;
-std::map<bdaddr_t, Ruuvi_Device> RuuviDevices; // This may be replaced by a different data structure in the future, but for now it is a map of the last reading after a download from each Ruuvi device.
+std::map<bdaddr_t, Ruuvi_Device> RuuviDevices;
 /////////////////////////////////////////////////////////////////////////////
 volatile bool bRun = true; // This is declared volatile so that the compiler won't optimized it out of loops later in the code
 void SignalHandlerSIGINT(int signal)
@@ -4859,7 +4853,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	{
 																		TemperatureInAdvertisment = localRuuvi.IsValid();
 																		std::queue<Ruuvi_Temp> foo;
-																		auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(info->bdaddr, foo));
+																		auto ret = RuuviTemperatures.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(info->bdaddr, foo));
 																		ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
 																		AddressInDeviceSet = true;
 																		ConsoleOutLine << " " << localRuuvi.WriteConsole();
@@ -5006,7 +5000,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									GenerateLogFile(GoveeTemperatures);
 									GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
-									GenerateLogFile(RuuviTags);
+									GenerateLogFile(RuuviTemperatures);
 									GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
 									if (bMonitorLoggingDirectory)
 										MonitorLoggedData();
@@ -5036,7 +5030,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			hci_close_dev(BlueToothDevice_Handle);
 			GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
 			GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
-			GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
+			GenerateLogFile(RuuviTemperatures); // flush contents of accumulated map to logfiles
 		}
 
 		if (ConsoleVerbosity > 1)
@@ -6212,7 +6206,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									else if (localRuuvi.ReadMSG(ManufacturerID, ManufacturerData))
 									{
 										std::queue<Ruuvi_Temp> foo;
-										auto ret = RuuviTags.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(dbusBTAddress, foo));
+										auto ret = RuuviTemperatures.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(dbusBTAddress, foo));
 										ret.first->second.push(localRuuvi);	// puts the measurement in the queue to be written to the log file
 										UpdateMRTGData(dbusBTAddress, localRuuvi, RuuviMRTGLogs);	// puts the measurement in the fake MRTG data structure
 										if (ConsoleVerbosity > 1)
@@ -7131,7 +7125,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 								GenerateLogFile(GoveeTemperatures);
 								GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
-								GenerateLogFile(RuuviTags);
+								GenerateLogFile(RuuviTemperatures);
 								GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
 								if (bMonitorLoggingDirectory)
 									MonitorLoggedData();
@@ -7202,7 +7196,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 	}
 	GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
 	GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
-	GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
+	GenerateLogFile(RuuviTemperatures); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
 /////////////////////////////////////////////////////////////////////////////
