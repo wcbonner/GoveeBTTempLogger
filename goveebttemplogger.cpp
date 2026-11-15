@@ -3306,14 +3306,14 @@ void bt_ListDevices(void)
 	else
 		std::cerr << ssOutput.str();
 }
-unsigned char BlueZ_HCI_GATT_EnableNotification(const bdaddr_t& GoveeBTAddress, const uint16_t handle, int l2cap_socket)
+unsigned char BlueZ_HCI_GATT_EnableNotification(const bdaddr_t& TheBTAddress, const uint16_t handle, int l2cap_socket)
 {
 	unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
 	struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[2]; } pkt = { BT_ATT_OP_WRITE_REQ, handle,{ 0x01 ,0x00 } };
 	pkt.handle++;
 	if (ConsoleVerbosity > 1)
 	{
-		std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
+		std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> BT_ATT_OP_WRITE_REQ Handle: ";
 		std::cout << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 		for (auto& iterator : pkt.buf)
 			std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
@@ -3331,14 +3331,14 @@ unsigned char BlueZ_HCI_GATT_EnableNotification(const bdaddr_t& GoveeBTAddress, 
 			if (buf[0] == BT_ATT_OP_WRITE_RSP)
 			{
 				if (ConsoleVerbosity > 1)
-					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
 			}
 			else if (buf[0] == BT_ATT_OP_ERROR_RSP)
 			{
 				struct __attribute__((__packed__)) bt_error { uint8_t opcode; uint8_t req_opcode; uint16_t handle; uint8_t errcode; } *result = (bt_error*)&(buf[0]);
 				if (ConsoleVerbosity > 1)
 				{
-					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_ERROR_RSP";
+					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_ERROR_RSP";
 					std::cout << " Handle: " << std::hex << std::setw(4) << std::setfill('0') << result->handle;
 					std::cout << " Error: " << std::dec << result->errcode;
 					std::cout << std::endl;
@@ -3494,13 +3494,13 @@ const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 
 //time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, int BatteryToRecord = 0)
 template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, T & TheDevice, int BatteryToRecord = 0)
 {
-	const bdaddr_t GoveeBTAddress(TheDevice.GetMACAddress());
+	const bdaddr_t TheBTAddress(TheDevice.GetMACAddress());
 	if (ConsoleVerbosity > 2)
-		std::cout << "[                   ] " << __func__ << " " << ba2string(GoveeBTAddress) << std::endl;
+		std::cout << "[                   ] " << __func__ << " " << ba2string(TheBTAddress) << std::endl;
 	time_t TimeDownloadStart(0);
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
-	const auto ConnectedThermometerType = AllThermometers.find(GoveeBTAddress)->second;
+	const auto ConnectedThermometerType = AllThermometers.find(TheBTAddress)->second;
 
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
@@ -3509,14 +3509,14 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 	{
 		// Bluetooth HCI Command - LE Create Connection (BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f))
 		uint16_t handle = 0;
-		bool bRandomAddress = (GoveeBTAddress.b[5] >> 4 == 0xC || GoveeBTAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
+		bool bRandomAddress = (TheBTAddress.b[5] >> 4 == 0xC || TheBTAddress.b[5] >> 4 == 0xD); // If the two most significant bits of the address are set to 1, it is defined as a Random Static Address
 		int iRet = hci_le_create_conn(
 			BlueToothDevice_Handle,
 			96, // interval, Scan Interval: 96 (60 msec)
 			48, // window, Scan Window: 48 (30 msec)
 			0x00, // initiator_filter, Initiator Filter Policy: Use Peer Address (0x00)
 			(bRandomAddress ? LE_RANDOM_ADDRESS : LE_PUBLIC_ADDRESS), // peer_bdaddr_type, Peer Address Type: Public Device Address (0x00)
-			GoveeBTAddress, // BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)
+			TheBTAddress, // BD_ADDR: e3:5e:cc:21:5c:0f (e3:5e:cc:21:5c:0f)
 			LE_RANDOM_ADDRESS, // own_bdaddr_type, Own Address Type: Random Device Address (0x01)
 			24, // min_interval, Connection Interval Min: 24 (30 msec)
 			40, // max_interval, Connection Interval Max: 40 (50 msec)
@@ -3527,7 +3527,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 			&handle,
 			15000);	// A 15 second timeout gives me a better chance of success
 		if (ConsoleVerbosity > 0)
-			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
+			std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] hci_le_create_conn Return(" << std::dec << iRet << ") handle (" << std::hex << std::setw(4) << std::setfill('0') << handle << ")" << std::endl;
 #ifdef BT_READ_REMOTE_FEATURES
 		if ((iRet == 0) && (handle != 0))
 		{
@@ -3538,7 +3538,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 				char* cp = lmp_featurestostr(features, "", 50);
 				if (cp != NULL)
 				{
-					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]     Features: " << cp << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "]     Features: " << cp << std::endl;
 					bt_free(cp);
 				}
 			}
@@ -3552,9 +3552,9 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 			iRet = hci_read_remote_version(BlueToothDevice_Handle, handle, &ver, 15000);
 			if (iRet != -1)
 			{
-				std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]      Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
-				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "]   Subversion: " << std::hex << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
-				std::cout << "[-------------------] [" << ba2string(GoveeBTAddress) << "] Manufacturer: " << bt_compidtostr(ver.manufacturer) << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "]      Version: " << lmp_vertostr(ver.lmp_ver) << std::endl;
+				std::cout << "[-------------------] [" << ba2string(TheBTAddress) << "]   Subversion: " << std::hex << std::setw(2) << std::setfill('0') << ver.lmp_subver << std::endl;
+				std::cout << "[-------------------] [" << ba2string(TheBTAddress) << "] Manufacturer: " << bt_compidtostr(ver.manufacturer) << std::endl;
 			}
 		}
 #endif
@@ -3578,7 +3578,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 			if (l2cap_socket < 0)
 			{
 				if (ConsoleVerbosity > 0)
-					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+					std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] Failed to create L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
 			}
 			else
 			{
@@ -3591,7 +3591,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 				if (bind(l2cap_socket, (struct sockaddr*)&srcaddr, sizeof(srcaddr)) < 0)
 				{
 					if (ConsoleVerbosity > 0)
-						std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
+						std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] Failed to bind L2CAP socket: " << strerror(errno) << " (" << errno << ")" << std::endl;
 					close(l2cap_socket);
 				}
 				else
@@ -3602,17 +3602,17 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 					dstaddr.l2_family = AF_BLUETOOTH;
 					dstaddr.l2_cid = htobs(ATT_CID);
 					dstaddr.l2_bdaddr_type = bRandomAddress ? BDADDR_LE_RANDOM : BDADDR_LE_PUBLIC;
-					bacpy(&dstaddr.l2_bdaddr, &GoveeBTAddress);
+					bacpy(&dstaddr.l2_bdaddr, &TheBTAddress);
 					if (connect(l2cap_socket, (struct sockaddr*)&dstaddr, sizeof(dstaddr)) < 0)
 					{
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << (bRandomAddress ? " BDADDR_LE_RANDOM" : " BDADDR_LE_PUBLIC") << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] Failed to connect: " << strerror(errno) << " (" << errno << ")" << (bRandomAddress ? " BDADDR_LE_RANDOM" : " BDADDR_LE_PUBLIC") << std::endl;
 						close(l2cap_socket);
 					}
 					else
 					{
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << (bRandomAddress ? " BDADDR_LE_RANDOM" : " BDADDR_LE_PUBLIC") << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] Connected L2CAP LE connection on ATT channel: " << ATT_CID << (bRandomAddress ? " BDADDR_LE_RANDOM" : " BDADDR_LE_PUBLIC") << std::endl;
 
 						unsigned char buf[HCI_MAX_EVENT_SIZE] = { 0 };
 						std::vector<BlueToothService> BTServices;
@@ -3621,7 +3621,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 						GATT_DeclarationPacket primary_service_declaration = { BT_ATT_OP_READ_BY_GRP_TYPE_REQ, 0x0001, 0xffff, GATT_PRIM_SVC_UUID };
 						do {
 							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.ending_handle << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << primary_service_declaration.ending_handle << std::endl;
 							if (-1 == send(l2cap_socket, &primary_service_declaration, sizeof(primary_service_declaration), 0))
 								buf[0] = BT_ATT_OP_ERROR_RSP;
 							else
@@ -3641,7 +3641,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												bt_uuid_t theUUID;
 												bt_uuid16_create(&theUUID, attribute_data->UUID);
 												if (ConsoleVerbosity > 1)
-													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
 												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
 												BlueToothService bts = { theUUID, attribute_data->starting_handle, attribute_data->ending_handle };
 												BTServices.push_back(bts);
@@ -3655,7 +3655,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												bt_uuid_t theUUID;
 												bt_uuid128_create(&theUUID, UUID_data);
 												if (ConsoleVerbosity > 1)
-													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->starting_handle << "..0x" << std::setw(4) << std::setfill('0') << attribute_data->ending_handle << " UUID: " << bt_UUID_2_String(&theUUID) << std::endl;
 												primary_service_declaration.starting_handle = attribute_data->ending_handle + 1;
 												BlueToothService bts = { theUUID, attribute_data->starting_handle, attribute_data->ending_handle };
 												BTServices.push_back(bts);
@@ -3666,7 +3666,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							}
 						} while (buf[0] != BT_ATT_OP_ERROR_RSP);
 						if (ConsoleVerbosity > 1)
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 
 						// Next I go through my stored set of SERVICES requesting CHARACTERISTICS based on the combination of starting handle and ending handle
 						for (auto bts = BTServices.begin(); bts != BTServices.end(); bts++)
@@ -3674,7 +3674,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							GATT_DeclarationPacket gatt_include_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, bts->starting_handle, bts->ending_handle, GATT_INCLUDE_UUID };
 							do {
 								if (ConsoleVerbosity > 1)
-									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Type Request, GATT Include Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.ending_handle << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> Read By Type Request, GATT Include Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_include_declaration.ending_handle << std::endl;
 								if (-1 == send(l2cap_socket, &gatt_include_declaration, sizeof(gatt_include_declaration), 0))
 									buf[0] = BT_ATT_OP_ERROR_RSP;
 								else
@@ -3690,12 +3690,12 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								}
 							} while (buf[0] != BT_ATT_OP_ERROR_RSP);
 							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 
 							GATT_DeclarationPacket gatt_characteristic_declaration = { BT_ATT_OP_READ_BY_TYPE_REQ, bts->starting_handle, bts->ending_handle, GATT_CHARAC_UUID };
 							do {
 								if (ConsoleVerbosity > 1)
-									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.ending_handle << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_characteristic_declaration.ending_handle << std::endl;
 								if (-1 == send(l2cap_socket, &gatt_characteristic_declaration, sizeof(gatt_characteristic_declaration), 0))
 									buf[0] = BT_ATT_OP_ERROR_RSP;
 								else
@@ -3734,11 +3734,11 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												}
 												if (ConsoleVerbosity > 1)
 												{
-													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << Characteristic.starting_handle;
+													std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << Characteristic.starting_handle;
 													std::cout << "..0x" << std::setw(4) << std::setfill('0') << Characteristic.ending_handle;
 													std::cout << " Characteristic Properties: 0x" << std::setw(2) << std::setfill('0') << unsigned(Characteristic.properties);
 													std::cout << " UUID: " << bt_UUID_2_String(&Characteristic.theUUID) << std::endl;
-													std::cout << "[                   ] [" << ba2string(GoveeBTAddress) << "] <== Service: 0x" << std::hex << std::setw(2) << std::setfill('0') << bts->ending_handle << " Characteristic: 0x" << std::setw(4) << Characteristic.ending_handle << " UUID: " << bt_UUID_2_String(&Characteristic.theUUID) << std::endl;
+													std::cout << "[                   ] [" << ba2string(TheBTAddress) << "] <== Service: 0x" << std::hex << std::setw(2) << std::setfill('0') << bts->ending_handle << " Characteristic: 0x" << std::setw(4) << Characteristic.ending_handle << " UUID: " << bt_UUID_2_String(&Characteristic.theUUID) << std::endl;
 												}
 												gatt_characteristic_declaration.starting_handle = Characteristic.ending_handle;
 												bts->characteristics.push_back(Characteristic);
@@ -3748,7 +3748,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								}
 							} while (buf[0] != BT_ATT_OP_ERROR_RSP);
 							if (ConsoleVerbosity > 1)
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP" << std::endl;
 						}
 
 						if (ConsoleVerbosity > 0)
@@ -3802,7 +3802,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									gatt_information.ending_handle++;
 									gatt_information.ending_handle++;
 									if (ConsoleVerbosity > 0)
-										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> Find Information Request, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.ending_handle << std::endl;
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> Find Information Request, Handles: 0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.starting_handle << "..0x" << std::hex << std::setw(4) << std::setfill('0') << gatt_information.ending_handle << std::endl;
 									if (-1 == send(l2cap_socket, &gatt_information, sizeof(gatt_information), 0))
 										buf[0] = BT_ATT_OP_ERROR_RSP;
 									else
@@ -3823,7 +3823,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 													bt_uuid16_create(&theUUID, attribute_data->UUID);
 													if (ConsoleVerbosity > 0)
 													{
-														std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Handle: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->handle;
+														std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Handle: 0x" << std::hex << std::setw(4) << std::setfill('0') << attribute_data->handle;
 														std::cout << " UUID: " << bt_UUID_2_String(&theUUID);
 														std::cout << std::endl;
 													}
@@ -3876,7 +3876,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									else if (btsc.theUUID == INTELLI_ROCKS_DATA)
 										bt_Handle_ReturnData = btsc.ending_handle;
 									if (btsc.properties & 0x10) // Notify
-										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
+										buf[0] = BlueZ_HCI_GATT_EnableNotification(TheBTAddress, btsc.ending_handle, l2cap_socket);
 								}
 							if (bts->theUUID == GOVEE_AUTH_SERVICE)
 								for (auto& btsc : bts->characteristics)
@@ -3886,12 +3886,12 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									else if (btsc.theUUID == GOVEE_AUTH_NOTIFY)
 										bt_Handle_AuthNotify = btsc.ending_handle;
 									if (btsc.properties & 0x10) // Notify
-										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
+										buf[0] = BlueZ_HCI_GATT_EnableNotification(TheBTAddress, btsc.ending_handle, l2cap_socket);
 								}
 							if (bts->theUUID == TELINK_OTA_SERVICE)
 								for (auto& btsc : bts->characteristics)
 									if (btsc.properties & 0x10) // Notify
-										buf[0] = BlueZ_HCI_GATT_EnableNotification(GoveeBTAddress, btsc.ending_handle, l2cap_socket);
+										buf[0] = BlueZ_HCI_GATT_EnableNotification(TheBTAddress, btsc.ending_handle, l2cap_socket);
 						}
 
 						if (bt_Handle_AuthNotify != 0)
@@ -3904,7 +3904,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; } GATT_ReadRequestPacket = { BT_ATT_OP_READ_REQ, bt_Handle_AuthConfig };
 							if (ConsoleVerbosity > 1)
 							{
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_READ_REQ Handle: ";
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> BT_ATT_OP_READ_REQ Handle: ";
 								std::cout << std::hex << std::setfill('0') << std::setw(4) << GATT_ReadRequestPacket.handle;
 								std::cout << " (AUTH_CONFIG)" << std::endl;
 							}
@@ -3918,7 +3918,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										// Success: <== BT_ATT_OP_READ_RSP 0201000002010000000000000000000000000000
 										if (ConsoleVerbosity > 1)
 										{
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_READ_RSP ";
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_RSP ";
 											for (auto index = 1; index < bufDataLen; index++)
 												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
 											std::cout << std::endl;
@@ -3929,7 +3929,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										struct __attribute__((__packed__)) bt_handle_value { uint8_t opcode;  uint16_t handle; uint8_t value[20]; } *data = (bt_handle_value*)&(buf[0]);
 										if (ConsoleVerbosity > 1)
 										{
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
 											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 										}
 										if (data->handle == bt_Handle_AuthNotify)
@@ -3969,7 +3969,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									}
 									else if (ConsoleVerbosity > 1)
 									{
-										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== ";
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== ";
 										for (auto index = 0; index < bufDataLen; index++)
 											std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
 										std::cout << std::endl;
@@ -3978,10 +3978,10 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								else if (bufDataLen == 1)
 								{
 									if (ConsoleVerbosity > 1)
-										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
 								}
 								else if (ConsoleVerbosity > 1)
-									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen < 0" << std::endl;
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== No Response bufDataLen < 0" << std::endl;
 							}
 #endif // BT_AUTH_CONFIG_READ
 
@@ -3998,7 +3998,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							GATT_DataPacket TX1 = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, {0xe7, 0x01} };
 							if (ConsoleVerbosity > 1)
 							{
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD      Handle: ";
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD      Handle: ";
 								std::cout << std::hex << std::setfill('0') << std::setw(4) << TX1.handle << " Value: ";
 								for (auto& iterator : TX1.buf)
 									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
@@ -4018,7 +4018,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
 											if (ConsoleVerbosity > 1)
-												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
@@ -4026,7 +4026,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 											GATT_DataPacketDecrypt(PreSharedKey, *data);
 											if (ConsoleVerbosity > 1)
 											{
-												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
 												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 												std::cout << " Value: ";
 												for (auto& iterator : data->buf)
@@ -4053,15 +4053,15 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									else if (bufDataLen == 1)
 									{
 										if (ConsoleVerbosity > 1)
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
 									}
 									else
 									{
 										if (ConsoleVerbosity > 1)
 										{
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response (0 bytes)" << std::endl;
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== No Response (0 bytes)" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Retrying..." << std::endl;
 										}
 									}
 								}
@@ -4069,7 +4069,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							GATT_DataPacket TX2 = { BT_ATT_OP_WRITE_CMD, bt_Handle_AuthWrite, {0xe7, 0x02} };
 							if (ConsoleVerbosity > 1)
 							{
-								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD      Handle: ";
+								std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> BT_ATT_OP_WRITE_CMD      Handle: ";
 								std::cout << std::hex << std::setfill('0') << std::setw(4) << TX2.handle << " Value: ";
 								for (auto& iterator : TX2.buf)
 									std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
@@ -4089,7 +4089,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										if (buf[0] == BT_ATT_OP_WRITE_RSP)
 										{
 											if (ConsoleVerbosity > 1)
-												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
 										}
 										else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 										{
@@ -4097,7 +4097,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 											GATT_DataPacketDecrypt(PreSharedKey, *data);
 											if (ConsoleVerbosity > 1)
 											{
-												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
 												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 												std::cout << " Value: ";
 												for (auto& iterator : data->buf)
@@ -4116,15 +4116,15 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									else if (bufDataLen == 1)
 									{
 										if (ConsoleVerbosity > 1)
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== No Response bufDataLen == 1 (0x" << std::hex << std::setfill('0') << std::setw(2) << buf[0] << ")" << std::endl;
 									}
 									else
 									{
 										if (ConsoleVerbosity > 1)
 										{
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== No Response (0 bytes)" << std::endl;
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== Retrying..." << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== No Response (0 bytes)" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Error: " << std::strerror(errno) << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== Retrying..." << std::endl;
 										}
 									}
 								}
@@ -4200,7 +4200,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							{
 								if (ConsoleVerbosity > 1)
 								{
-									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] ==> ";
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> ";
 									switch (pkt.opcode)
 									{
 									case BT_ATT_OP_WRITE_REQ:
@@ -4281,7 +4281,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									if (buf[0] == BT_ATT_OP_WRITE_RSP)
 									{
 										if (ConsoleVerbosity > 1)
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_WRITE_RSP" << std::endl;
 									}
 									else if (buf[0] == BT_ATT_OP_HANDLE_VAL_NOT)
 									{
@@ -4289,7 +4289,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										GATT_DataPacketDecrypt(SessionKey, *data); // if SessionKey is zero this does nothing
 										if (ConsoleVerbosity > 1)
 										{
-											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_HANDLE_VAL_NOT";
 											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 										}
 										if (ConsoleVerbosity > 2)
@@ -4327,7 +4327,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												Govee_Temp localTemp(TimeDownloadStart - (60 * offset--), Temperature, Humidity, BatteryToRecord);
 												localTemp.SetModel(ConnectedThermometerType);
 												std::queue<Govee_Temp> foo;
-												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(GoveeBTAddress, foo));
+												auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(TheBTAddress, foo));
 												ret.first->second.push(localTemp);
 												DataPointsRecieved++;
 											}
@@ -4435,7 +4435,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								{
 									if (ConsoleVerbosity > 1)
 									{
-										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "]";
+										std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "]";
 										std::cout << " bufDataLen(" << std::dec << bufDataLen << ")";
 										if (bufDataLen == 1)
 											std::cout << " No Response (0x" << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[0]) << ")";
@@ -4448,7 +4448,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							}
 						}
 						if (ConsoleVerbosity > 0)
-							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] Closing l2cap_socket" << std::endl;
+							std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] Closing l2cap_socket" << std::endl;
 						close(l2cap_socket);
 					}
 				}
@@ -4458,7 +4458,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 		{
 			hci_disconnect(BlueToothDevice_Handle, handle, HCI_OE_USER_ENDED_CONNECTION, 2000);
 			if (ConsoleVerbosity > 0)
-				std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(GoveeBTAddress) << "] hci_disconnect" << std::endl;
+				std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] hci_disconnect" << std::endl;
 		}
 		if (setsockopt(BlueToothDevice_Handle, SOL_HCI, HCI_FILTER, &original_filter, sizeof(original_filter)) < 0)
 			std::cerr << "[                   ] Error: Could not set socket options: " << strerror(errno) << std::endl;
@@ -4475,10 +4475,10 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 		std::ostringstream ssOutput;
 		if (ConsoleVerbosity > 0)
 			ssOutput << "[" << getTimeISO8601(true) << "] ";
-		ssOutput << "Download from device: [" << ba2string(GoveeBTAddress) << "]";
+		ssOutput << "Download from device: [" << ba2string(TheBTAddress) << "]";
 		ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
 		ssOutput << " (" << std::dec << DataPointsRecieved << ")";
-		auto downloadtype = AllThermometers.find(GoveeBTAddress);
+		auto downloadtype = AllThermometers.find(TheBTAddress);
 		if (downloadtype != AllThermometers.end())
 			ssOutput << " " << ThermometerType2String(downloadtype->second);
 		if (!TheDevice.GetHardwareVersion().empty())
