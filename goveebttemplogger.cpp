@@ -1428,7 +1428,7 @@ private:
 };
 /////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
-std::map<bdaddr_t, ThermometerType> GoveeThermometers;
+std::map<bdaddr_t, ThermometerType> AllThermometers;
 std::map<bdaddr_t, std::queue<Ruuvi_Temp>> RuuviTags;
 std::map<bdaddr_t, Govee_Device> GoveeDevices;
 std::map<bdaddr_t, Ruuvi_Device> RuuviDevices; // This may be replaced by a different data structure in the future, but for now it is a map of the last reading after a download from each Ruuvi device.
@@ -1980,8 +1980,8 @@ void ReadCacheDirectory(void)
 								if (std::regex_match(files.begin()->filename().string(), GoveeCacheFileRegex))
 								{
 									ThermometerType CacheThermometerType = ThermometerType::Unknown;
-									auto foo = GoveeThermometers.find(TheBlueToothAddress);
-									if (foo != GoveeThermometers.end())
+									auto foo = AllThermometers.find(TheBlueToothAddress);
+									if (foo != AllThermometers.end())
 										CacheThermometerType = foo->second;
 									std::vector<Govee_Temp> FakeMRTGFile;
 									FakeMRTGFile.reserve(2 + DAY_COUNT + WEEK_COUNT + MONTH_COUNT + YEAR_COUNT); // this might speed things up slightly
@@ -2634,8 +2634,8 @@ void ReadLoggedData(const std::filesystem::path& filename)
 			if (TheFile.is_open())
 			{
 				ThermometerType CacheThermometerType = ThermometerType::Unknown;
-				auto foo = GoveeThermometers.find(TheBlueToothAddress);
-				if (foo != GoveeThermometers.end())
+				auto foo = AllThermometers.find(TheBlueToothAddress);
+				if (foo != AllThermometers.end())
 					CacheThermometerType = foo->second;
 
 				std::vector<std::string> SortableFile;
@@ -2757,8 +2757,8 @@ template <typename T> void WriteAllSVG(const std::map<bdaddr_t, std::vector<T>>&
 			ThermometerType CacheThermometerType = MRTG.front().GetModel();
 			if (CacheThermometerType == ThermometerType::Unknown)
 			{
-				auto foo = GoveeThermometers.find(TheAddress);
-				if (foo != GoveeThermometers.end())
+				auto foo = AllThermometers.find(TheAddress);
+				if (foo != AllThermometers.end())
 					CacheThermometerType = foo->second;
 			}
 			std::string ssTitle(btAddress + " " + ThermometerType2String(CacheThermometerType)); // default title
@@ -3506,7 +3506,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 	time_t TimeDownloadStart(0);
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
-	const auto ConnectedThermometerType = GoveeThermometers.find(GoveeBTAddress)->second;
+	const auto ConnectedThermometerType = AllThermometers.find(GoveeBTAddress)->second;
 
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
@@ -4484,8 +4484,8 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 		ssOutput << "Download from device: [" << ba2string(GoveeBTAddress) << "]";
 		ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
 		ssOutput << " (" << std::dec << DataPointsRecieved << ")";
-		auto downloadtype = GoveeThermometers.find(GoveeBTAddress);
-		if (downloadtype != GoveeThermometers.end())
+		auto downloadtype = AllThermometers.find(GoveeBTAddress);
+		if (downloadtype != AllThermometers.end())
 			ssOutput << " " << ThermometerType2String(downloadtype->second);
 		if (!TheDevice.GetHardwareVersion().empty())
 			ssOutput << " HW:" << TheDevice.GetHardwareVersion();
@@ -4780,7 +4780,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																localTemp.SetModel(localName);
 																if (localTemp.GetModel() != ThermometerType::Unknown)
 																{
-																	GoveeThermometers.insert_or_assign(info->bdaddr, localTemp.GetModel());
+																	AllThermometers.insert_or_assign(info->bdaddr, localTemp.GetModel());
 																	AddressInDeviceSet = true;
 																}
 																if (ConsoleVerbosity > 2)
@@ -4824,16 +4824,16 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 																	}
 																	if (localTemp.GetModel() == ThermometerType::Unknown)
 																	{
-																		auto foo = GoveeThermometers.find(info->bdaddr);
-																		if (foo != GoveeThermometers.end())
+																		auto foo = AllThermometers.find(info->bdaddr);
+																		if (foo != AllThermometers.end())
 																			localTemp.SetModel(foo->second);
 																	}
 																	if (localTemp.ReadMSG(ManufacturerID, ManufacturerData))
 																	{
 																		if (localTemp.GetModel() == ThermometerType::Unknown)
 																		{
-																			auto foo = GoveeThermometers.find(info->bdaddr);
-																			if (foo != GoveeThermometers.end())
+																			auto foo = AllThermometers.find(info->bdaddr);
+																			if (foo != AllThermometers.end())
 																				localTemp.SetModel(foo->second);
 																		}
 																		if ((TemperatureInAdvertisment = localTemp.IsValid()))
@@ -4900,8 +4900,8 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 														if (RecentTemperature->second.GetLastReading().IsValid())
 															BatteryToRecord = RecentTemperature->second.GetLastReading().GetBattery();
 													time_t LastDownloadTime(0);
-													auto CurrentDeviceTypeMap = GoveeThermometers.find(info->bdaddr);
-													if (CurrentDeviceTypeMap != GoveeThermometers.end())
+													auto CurrentDeviceTypeMap = AllThermometers.find(info->bdaddr);
+													if (CurrentDeviceTypeMap != AllThermometers.end())
 													{
 														if (CurrentDeviceTypeMap->second == ThermometerType::RUUVI)
 														{
@@ -5004,7 +5004,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 										std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 									TimeStart = TimeNow;
 									GenerateLogFile(GoveeTemperatures);
-									GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
+									GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 									GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 									GenerateLogFile(RuuviTags);
 									GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
@@ -5035,7 +5035,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 			}
 			hci_close_dev(BlueToothDevice_Handle);
 			GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
-			GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
+			GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 			GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 		}
 
@@ -5840,8 +5840,8 @@ void bluez_device_download(DBusConnection* dbus_conn, const char* adapter_path, 
 			ssOutput << "Request Download from device: [" << ba2string(dbusBTAddress) << "]";
 			ssOutput << " " << timeToExcelLocal(TimeDownloadStart-(DataPointsToRequest*60)) << " " << timeToExcelLocal(TimeDownloadStart);
 			ssOutput << " (" << std::dec << DataPointsToRequest << ")";
-			auto downloadtype = GoveeThermometers.find(dbusBTAddress);
-			if (downloadtype != GoveeThermometers.end())
+			auto downloadtype = AllThermometers.find(dbusBTAddress);
+			if (downloadtype != AllThermometers.end())
 				ssOutput << " " << ThermometerType2String(downloadtype->second);
 			ssOutput << std::endl;
 		}
@@ -6159,12 +6159,12 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 									}
 									if (localTemp.GetModel() == ThermometerType::Unknown)
 									{
-										auto foo = GoveeThermometers.find(dbusBTAddress);
-										if (foo != GoveeThermometers.end())
+										auto foo = AllThermometers.find(dbusBTAddress);
+										if (foo != AllThermometers.end())
 											localTemp.SetModel(foo->second);
 									}
 									else
-										GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
+										AllThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
 									if (localTemp.ReadMSG(ManufacturerID, ManufacturerData))
 									{
 										std::queue<Govee_Temp> foo;
@@ -6253,7 +6253,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					ssOutput << " " << Key << ": " << value.str;
 				localTemp.SetModel(std::string(value.str));
 				if (localTemp.GetModel() != ThermometerType::Unknown)
-					GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
+					AllThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
 				auto existingdevice = GoveeDevices.find(dbusBTAddress);
 				if (existingdevice != GoveeDevices.end())
 					existingdevice->second.SetName(std::string(value.str));
@@ -6313,7 +6313,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 						ssOutput << " " << Key << ": " << value.str;
 					localTemp.SetModel(std::string(value.str));
 					if (localTemp.GetModel() != ThermometerType::Unknown)
-						GoveeThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
+						AllThermometers.insert_or_assign(dbusBTAddress, localTemp.GetModel());
 					bFirstUUID = false;
 				}
 			} while (dbus_message_iter_next(&array3_iter));
@@ -6336,8 +6336,8 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 							if (!ssOutput.str().empty())
 								ssOutput << std::endl << ssStartLine.str();
 							ssOutput << "   Last Download from device: [" << ba2string(dbusBTAddress) << "] " << timeToExcelLocal(LastDownloadTime);;
-							auto downloadtype = GoveeThermometers.find(dbusBTAddress);
-							if (downloadtype != GoveeThermometers.end())
+							auto downloadtype = AllThermometers.find(dbusBTAddress);
+							if (downloadtype != AllThermometers.end())
 								ssOutput << " " << ThermometerType2String(downloadtype->second);
 							if (!GoveeDevice->second.GetHardwareVersion().empty())
 								ssOutput << " (HW: " << GoveeDevice->second.GetHardwareVersion() << ")";
@@ -6366,7 +6366,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 					if (GoveeDevice != GoveeDevices.end())
 						if (GoveeDevice->second.bluez_Characteristics.size() >= 3)
 							if ((DaysBetweenDataDownload > 0) && !LogDirectory.empty())
-								if (GoveeThermometers.find(dbusBTAddress) != GoveeThermometers.end())
+								if (AllThermometers.find(dbusBTAddress) != AllThermometers.end())
 								{
 									auto LastDownloadTime = GoveeDevice->second.GetLastDownload();
 									// Don't try to download more often than once a week, because it uses more battery than just the advertisments
@@ -6556,7 +6556,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 								// 00 45 02 82 fd 02 86 e6 02 86 e6 02 86 e7 02 86 e7 02 86 e7
 								auto offset = uint16_t(packet[0]) << 8 | uint16_t(packet[1]);
 								if (ConsoleVerbosity > 1)
-									ssOutput << " " << ThermometerType2String(GoveeThermometers.find(dbusBTAddress)->second) << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
+									ssOutput << " " << ThermometerType2String(AllThermometers.find(dbusBTAddress)->second) << " offset: " << std::hex << std::setfill('0') << std::setw(4) << offset;
 								time_t LastReportedTime(0);
 								for (auto index = std::size_t(2); ((index < (packet.size() - 3) && (offset > 0))); index += 3)
 								{
@@ -6573,7 +6573,7 @@ std::string bluez_dbus_msg_iter(DBusMessageIter& array_iter, const bdaddr_t& dbu
 										ssOutput << " " << std::dec << Humidity;
 									}
 									Govee_Temp localTemp(TimeNow - (60 * offset--), Temperature, Humidity, BatteryToRecord);
-									localTemp.SetModel(GoveeThermometers.find(dbusBTAddress)->second);
+									localTemp.SetModel(AllThermometers.find(dbusBTAddress)->second);
 									localTemp.NormalizeTime(Govee_Temp::granularity::minute);
 									std::queue<Govee_Temp> foo;
 									auto ret = GoveeTemperatures.insert(std::pair<bdaddr_t, std::queue<Govee_Temp>>(dbusBTAddress, foo));
@@ -7129,7 +7129,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 									std::cout << "[" << getTimeISO8601(true) << "] " << std::dec << LogFileTime << " seconds or more have passed. Writing LOG Files" << std::endl;
 								TimeLog = TimeNow;
 								GenerateLogFile(GoveeTemperatures);
-								GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
+								GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 								GenerateCacheFile(GoveeMRTGLogs); // flush FakeMRTG data to cache files
 								GenerateLogFile(RuuviTags);
 								GenerateCacheFile(RuuviMRTGLogs); // flush FakeMRTG data to cache files
@@ -7181,7 +7181,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 							ssOutput = std::ostringstream(); // reinitialize my output stringstream
 						}
 						bluez_discovery(dbus_conn, BlueZAdapter.c_str(), false);
-						bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), GoveeThermometers);
+						bluez_dbus_RemoveKnownDevices(dbus_conn, BlueZAdapter.c_str(), AllThermometers);
 						//bluez_filter_le(dbus_conn, BlueZAdapter.c_str(), false, false); // remove discovery filter
 					}
 					else
@@ -7201,7 +7201,7 @@ int BlueZ_DBus_Mainloop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 		}
 	}
 	GenerateLogFile(GoveeTemperatures); // flush contents of accumulated map to logfiles
-	GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
+	GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 	GenerateLogFile(RuuviTags); // flush contents of accumulated map to logfiles
 	return(rVal);
 }
@@ -7572,7 +7572,7 @@ int main(int argc, char **argv)
 			SVGTitleMapFilename = std::filesystem::path(SVGDirectory / "gvh-titlemap.txt");
 		ReadTitleMap(SVGTitleMapFilename);
 	}
-	ReadPersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
+	ReadPersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 	if (UseBluetooth)
 	{
 		if (!SVGDirectory.empty())
@@ -7605,7 +7605,7 @@ int main(int argc, char **argv)
 		if (bUse_HCI_Interface)	// The HCI interface for bluetooth is deprecated, with BlueZ over DBus being preferred
 			BlueZ_HCI_MainLoop(ControllerAddress, BT_WhiteList, ExitValue, bMonitorLoggingDirectory, bUse_HCI_Passive);
 		#endif // _BLUEZ_HCI_
-		GeneratePersistenceFile(GoveeThermometers, GoveeDevices, RuuviDevices);
+		GeneratePersistenceFile(AllThermometers, GoveeDevices, RuuviDevices);
 		///////////////////////////////////////////////////////////////////////////////////////////////
 		OSSL_PROVIDER_unload(legacy);
 		OSSL_PROVIDER_unload(defaultp);
