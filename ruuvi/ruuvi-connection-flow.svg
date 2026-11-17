@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" height="569px" version="1.1" viewBox="-0.5 -0.5 511 569" width="511px">
+  <defs/>
+  <g>
+    <rect fill="#ffffff" height="60" pointer-events="all" stroke="#000000" width="120" x="70" y="0"/>
+    <g transform="translate(88.5,23.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="42" y="12">Peripheral (tag)</text>
+      </switch>
+    </g>
+    <rect fill="#ffffff" height="60" pointer-events="all" stroke="#000000" width="120" x="390" y="0"/>
+    <g transform="translate(408.5,23.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="42" y="12">Central (phone)</text>
+      </switch>
+    </g>
+    <path d="M 130 60 L 130 553.63" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 130 558.88 L 126.5 551.88 L 130 553.63 L 133.5 551.88 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 450 60 L 450 553.63" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 450 558.88 L 446.5 551.88 L 450 553.63 L 453.5 551.88 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 130 80 L 280 80 Q 290 80 300 80 L 443.63 80" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 448.88 80 L 441.88 83.5 L 443.63 80 L 441.88 76.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="80" x="250" y="60"/>
+    <g transform="translate(261.5,63.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="28" y="12">Advertises</text>
+      </switch>
+    </g>
+    <path d="M 450 120 L 136.37 120" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 120 L 138.12 116.5 L 136.37 120 L 138.12 123.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="140" x="220" y="100"/>
+    <g transform="translate(226.5,103.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="63" y="12">Request scan response</text>
+      </switch>
+    </g>
+    <path d="M 130 160 L 443.63 160" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 448.88 160 L 441.88 163.5 L 443.63 160 L 441.88 156.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="230" x="175" y="140"/>
+    <g transform="translate(178.5,143.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="111" y="12">Send scan response, contains NUS UUID</text>
+      </switch>
+    </g>
+    <path d="M 450 200 L 136.37 200" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 200 L 138.12 196.5 L 136.37 200 L 138.12 203.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="110" x="235" y="180"/>
+    <g transform="translate(241.5,183.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="49" y="12">Initiate connection</text>
+      </switch>
+    </g>
+    <path d="M 450 240 L 136.37 240" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 240 L 138.12 236.5 L 136.37 240 L 138.12 243.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 450 280 L 300 280 Q 290 280 280 280 L 136.37 280" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 280 L 138.12 276.5 L 136.37 280 L 138.12 283.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="110" x="235" y="220"/>
+    <g transform="translate(242.5,223.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="47" y="12">Discover services</text>
+      </switch>
+    </g>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="133" x="223.5" y="260"/>
+    <g transform="translate(226.5,263.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="64" y="12">Discover characteristics</text>
+      </switch>
+    </g>
+    <path d="M 450 320 L 136.37 320" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 320 L 138.12 316.5 L 136.37 320 L 138.12 323.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="180" x="200" y="300"/>
+    <g transform="translate(202.5,303.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="87" y="12">Register to NUS TX Notifications</text>
+      </switch>
+    </g>
+    <path d="M 130 360 L 443.63 360" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 448.88 360 L 441.88 363.5 L 443.63 360 L 441.88 356.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="250" x="165" y="340"/>
+    <g transform="translate(171.5,343.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="118" y="12">NUS TX notification: sensor data (heartbeat)</text>
+      </switch>
+    </g>
+    <path d="M 450 400 L 136.37 400" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 400 L 138.12 396.5 L 136.37 400 L 138.12 403.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="190" x="195" y="380"/>
+    <g transform="translate(196.5,383.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="93" y="12">NUS RX Write: request / command</text>
+      </switch>
+    </g>
+    <path d="M 130 440 L 443.63 440" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 448.88 440 L 441.88 443.5 L 443.63 440 L 441.88 436.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="170" x="205" y="420"/>
+    <g transform="translate(221.5,423.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="69" y="12">NUS TX notification: reply</text>
+      </switch>
+    </g>
+    <path d="M 130 460 L 110 460 Q 100 460 100 450 L 100 350 Q 100 340 110 340 L 123.63 340" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 128.88 340 L 121.88 343.5 L 123.63 340 L 121.88 336.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="30" pointer-events="all" stroke="none" transform="rotate(-90,80,400)" width="80" x="40" y="385"/>
+    <g transform="translate(40.5,386.5)rotate(-90,39,13)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="39" y="19">Continue connection</text>
+      </switch>
+    </g>
+    <path d="M 450 480 L 136.37 480" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 131.12 480 L 138.12 476.5 L 136.37 480 L 138.12 483.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="20" pointer-events="all" stroke="none" width="240" x="170" y="460"/>
+    <g transform="translate(200.5,463.5)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="89" y="12">End connection: Send disconnect</text>
+      </switch>
+    </g>
+    <path d="M 130 520 L 40 520 Q 30 520 30 510 L 30 80 Q 30 70 40 70 L 123.63 70" fill="none" pointer-events="stroke" stroke="#000000" stroke-miterlimit="10"/>
+    <path d="M 128.88 70 L 121.88 73.5 L 123.63 70 L 121.88 66.5 Z" fill="#000000" pointer-events="all" stroke="#000000" stroke-miterlimit="10"/>
+    <rect fill="none" height="30" pointer-events="all" stroke="none" transform="rotate(-90,15,260)" width="110" x="-40" y="245"/>
+    <g transform="translate(-32.5,253.5)rotate(-90,47,6)">
+      <switch>
+        <text fill="#000000" font-family="Helvetica" font-size="12px" text-anchor="middle" x="47" y="12">Restart sequence</text>
+      </switch>
+    </g>
+  </g>
+</svg>
