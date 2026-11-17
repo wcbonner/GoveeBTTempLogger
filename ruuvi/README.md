@@ -439,3 +439,251 @@ wim@WimPi5:~ $ ../visualstudio/projects/GoveeBTTempLogger/bin/ARM64/Debug/GoveeB
 [2026-04-17T12:17:47] D-Bus connection ":1.834" Closed
 GoveeBTTempLogger Version (non-CMake) Built on: Apr 17 2026 at 12:05:17 (exiting)
 ```
+
+## BLE Scanner RuuviTag top level 
+![image](20261117_005235000_iOS.jpg)
+
+## BLE Scanner RuuviTag Service Level
+![image](20261117_005301000_iOS.jpg)
+
+## BLE Scanner RuuviTag Characteristic level
+![image](20261117_005404000_iOS.png)
+
+## HCI Download Example output
+```
+[2026-11-16T16:59:43] Scanning Started. ScanInterval(40 msec) ScanWindow(30 msec) ScanType(1)
+[2026-11-16T16:59:43] 26 [E3:60:59:21:80:65] (Manu) ec88:0080fca80c5502 (Temp) -9.0°C (Humidity)  32.4% (Battery)  85% (GVH5074)
+[2026-11-16T16:59:43] Scanning Stopped.
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] hci_le_create_conn Return(0) handle (0040)
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] Connected L2CAP LE connection on ATT channel: 4 BDADDR_LE_PUBLIC
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] <== Handles: 0x0001..0x0005 UUID: 1800 (Generic Access)
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] <== Handles: 0x0006..0x0009 UUID: 1801 (Generic Attribute)
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] <== Handles: 0x000a..0x0016 UUID: 180a (Device Information)
+[2026-11-16T16:59:45] [E3:60:59:21:80:65] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xffff
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== Handles: 0x0017..0x002a UUID: fef5 (Dialog Semiconductor GmbH)
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x002b..0xffff
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== Handles: 0x002b..0x003b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x003c..0xffff
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0005
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0005
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== Handles: 0x0002..0x0003 Characteristic Properties: 0x02 UUID: 2a00 (Device Name)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x05 Characteristic: 0x0003 UUID: 2a00 (Device Name)
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== Handles: 0x0004..0x0005 Characteristic Properties: 0x02 UUID: 2a01 (Appearance)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x05 Characteristic: 0x0005 UUID: 2a01 (Appearance)
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0005..0x0005
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0006..0x0009
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0006..0x0009
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== Handles: 0x0007..0x0008 Characteristic Properties: 0x22 UUID: 2a05 (Service Changed)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x09 Characteristic: 0x0008 UUID: 2a05 (Service Changed)
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0008..0x0009
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:46] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000a..0x0016
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000a..0x0016
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x000b..0x000c Characteristic Properties: 0x02 UUID: 2a29 (Manufacturer Name String)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x16 Characteristic: 0x000c UUID: 2a29 (Manufacturer Name String)
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x000d..0x000e Characteristic Properties: 0x02 UUID: 2a24 (Model Number String)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x16 Characteristic: 0x000e UUID: 2a24 (Model Number String)
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x000f..0x0010 Characteristic Properties: 0x02 UUID: 2a26 (Firmware Revision String)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x16 Characteristic: 0x0010 UUID: 2a26 (Firmware Revision String)
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0010..0x0016
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x0011..0x0012 Characteristic Properties: 0x02 UUID: 2a28 (Software Revision String)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x16 Characteristic: 0x0012 UUID: 2a28 (Software Revision String)
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x0013..0x0014 Characteristic Properties: 0x02 UUID: 2a23 (System ID)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x16 Characteristic: 0x0014 UUID: 2a23 (System ID)
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x0015..0x0016 Characteristic Properties: 0x02 UUID: 2a50 (PnP ID)
+[                   ] [E3:60:59:21:80:65] <== Service: 0x16 Characteristic: 0x0016 UUID: 2a50 (PnP ID)
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0016..0x0016
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0017..0x002a
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0017..0x002a
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x0018..0x0019 Characteristic Properties: 0x0a UUID: 8082caa8-41a6-4021-91c6-56f9b954cc34
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x0019 UUID: 8082caa8-41a6-4021-91c6-56f9b954cc34
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0019..0x002a
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x001a..0x001b Characteristic Properties: 0x0a UUID: 724249f0-5ec3-4b5f-8804-42345af08651
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x001b UUID: 724249f0-5ec3-4b5f-8804-42345af08651
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001b..0x002a
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] <== Handles: 0x001c..0x001d Characteristic Properties: 0x02 UUID: 6c53db25-47a1-45fe-a022-7c92fb334fd4
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x001d UUID: 6c53db25-47a1-45fe-a022-7c92fb334fd4
+[2026-11-16T16:59:47] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001d..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x001e..0x001f Characteristic Properties: 0x0a UUID: 9d84b9a3-000c-49d8-9183-855b673fda31
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x001f UUID: 9d84b9a3-000c-49d8-9183-855b673fda31
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001f..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x0020..0x0021 Characteristic Properties: 0x0e UUID: 457871e8-d516-4ca1-9116-57d0b17b9cb2
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x0021 UUID: 457871e8-d516-4ca1-9116-57d0b17b9cb2
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0021..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x0022..0x0023 Characteristic Properties: 0x12 UUID: 5f78df94-798c-46f5-990a-b3eb6a065c88
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x0023 UUID: 5f78df94-798c-46f5-990a-b3eb6a065c88
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0023..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x0025..0x0026 Characteristic Properties: 0x02 UUID: 64b4e8b5-0de5-401b-a21d-acc8db3b913a
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x0026 UUID: 64b4e8b5-0de5-401b-a21d-acc8db3b913a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0026..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x0027..0x0028 Characteristic Properties: 0x02 UUID: 42c3dfdd-77be-4d9c-8454-8f875267fb3b
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x0028 UUID: 42c3dfdd-77be-4d9c-8454-8f875267fb3b
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0028..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x0029..0x002a Characteristic Properties: 0x02 UUID: b7de1eea-823d-43bb-a3af-c4903dfce23c
+[                   ] [E3:60:59:21:80:65] <== Service: 0x2a Characteristic: 0x002a UUID: b7de1eea-823d-43bb-a3af-c4903dfce23c
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x002a..0x002a
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Include Declaration, Handles: 0x002b..0x003b
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x002b..0x003b
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x002c..0x002d Characteristic Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[                   ] [E3:60:59:21:80:65] <== Service: 0x3b Characteristic: 0x002d UUID: 494e5445-4c4c-495f-524f-434b535f2012
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x002d..0x003b
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] <== Handles: 0x0030..0x0031 Characteristic Properties: 0x12 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[                   ] [E3:60:59:21:80:65] <== Service: 0x3b Characteristic: 0x0031 UUID: 494e5445-4c4c-495f-524f-434b535f2013
+[2026-11-16T16:59:48] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0031..0x003b
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== Handles: 0x0034..0x0035 Characteristic Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[                   ] [E3:60:59:21:80:65] <== Service: 0x3b Characteristic: 0x0035 UUID: 494e5445-4c4c-495f-524f-434b535f2011
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0035..0x003b
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== Handles: 0x0038..0x0039 Characteristic Properties: 0x1a UUID: 494e5445-4c4c-495f-524f-434b535f2014
+[                   ] [E3:60:59:21:80:65] <== Service: 0x3b Characteristic: 0x0039 UUID: 494e5445-4c4c-495f-524f-434b535f2014
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0039..0x003b
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[-------------------] Service Handles: 0x0001..0x0005 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 UUID: 2a00 (Device Name) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0004..0x0005 UUID: 2a01 (Appearance) Properties: 0x02 (Read)
+[-------------------] Service Handles: 0x0006..0x0009 UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x0007..0x0008 UUID: 2a05 (Service Changed) Properties: 0x22 (Read) (Indicate)
+[-------------------] Service Handles: 0x000a..0x0016 UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000b..0x000c UUID: 2a29 (Manufacturer Name String) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x000d..0x000e UUID: 2a24 (Model Number String) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x000f..0x0010 UUID: 2a26 (Firmware Revision String) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0011..0x0012 UUID: 2a28 (Software Revision String) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0013..0x0014 UUID: 2a23 (System ID) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0015..0x0016 UUID: 2a50 (PnP ID) Properties: 0x02 (Read)
+[-------------------] Service Handles: 0x0017..0x002a UUID: fef5 (Dialog Semiconductor GmbH)
+[                   ] Characteristic Handles: 0x0018..0x0019 UUID: 8082caa8-41a6-4021-91c6-56f9b954cc34 Properties: 0x0a (Read) (Write)
+[                   ] Characteristic Handles: 0x001a..0x001b UUID: 724249f0-5ec3-4b5f-8804-42345af08651 Properties: 0x0a (Read) (Write)
+[                   ] Characteristic Handles: 0x001c..0x001d UUID: 6c53db25-47a1-45fe-a022-7c92fb334fd4 Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x001e..0x001f UUID: 9d84b9a3-000c-49d8-9183-855b673fda31 Properties: 0x0a (Read) (Write)
+[                   ] Characteristic Handles: 0x0020..0x0021 UUID: 457871e8-d516-4ca1-9116-57d0b17b9cb2 Properties: 0x0e (Read) (Write Without Response) (Write)
+[                   ] Characteristic Handles: 0x0022..0x0023 UUID: 5f78df94-798c-46f5-990a-b3eb6a065c88 Properties: 0x12 (Read) (Notify)
+[                   ] Characteristic Handles: 0x0025..0x0026 UUID: 64b4e8b5-0de5-401b-a21d-acc8db3b913a Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0027..0x0028 UUID: 42c3dfdd-77be-4d9c-8454-8f875267fb3b Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0029..0x002a UUID: b7de1eea-823d-43bb-a3af-c4903dfce23c Properties: 0x02 (Read)
+[-------------------] Service Handles: 0x002b..0x003b UUID: 494e5445-4c4c-495f-524f-434b535f4857
+[                   ] Characteristic Handles: 0x002c..0x002d UUID: 494e5445-4c4c-495f-524f-434b535f2012 Properties: 0x1a (Read) (Write) (Notify)
+[                   ] Characteristic Handles: 0x0030..0x0031 UUID: 494e5445-4c4c-495f-524f-434b535f2013 Properties: 0x12 (Read) (Notify)
+[                   ] Characteristic Handles: 0x0034..0x0035 UUID: 494e5445-4c4c-495f-524f-434b535f2011 Properties: 0x1a (Read) (Write) (Notify)
+[                   ] Characteristic Handles: 0x0038..0x0039 UUID: 494e5445-4c4c-495f-524f-434b535f2014 Properties: 0x1a (Read) (Write) (Notify)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ Handle: 002e Value: 0100 (EnableNotification)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ Handle: 0032 Value: 0100 (EnableNotification)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ Handle: 0036 Value: 0100 (EnableNotification)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ Handle: 003a Value: 0100 (EnableNotification)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ      Handle: 0035 Value: aa08000000000000000000000000000000000000 (Battery Level Request)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ      Handle: 0035 Value: aa0c000000000000000000000000000000000000 (MAC Address and Serial Request)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0035 (Battery Level: 85%)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ      Handle: 0035 Value: aa0d000000000000000000000000000000000000 (Hardware Version Request)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ      Handle: 0035 Value: aa0e000000000000000000000000000000000000 (Firmware Version Request)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0035 (MAC Address: E3:60:59:21:80:65 Serial Number: 25072)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] ==> BT_ATT_OP_WRITE_REQ      Handle: 002d Value: 3301180800010000000000000000000000000000 (Data Request: 6152 points)
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:49] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0035 (Hardware: 1.00.01)
+[2026-11-16T16:59:50] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:50] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0035 (Firmware: 1.01.04)
+[2026-11-16T16:59:50] [E3:60:59:21:80:65] <== BT_ATT_OP_WRITE_RSP
+[2026-11-16T16:59:50] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 002d (Data Returned: 0)
+[2026-11-16T16:59:50] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0031 offset: 1808 -8.1922 92.2 -8.1922 92.2 -8.1922 92.2 -8.1922 92.2 -8.1922 92.2 -8.1922 92.2
+[2026-11-16T16:59:50] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0031 offset: 1802 -8.1922 92.2 -8.1922 92.2 -8.1922 92.2 -8.1922 92.2 -8.192 92 -8.192 92
+[2026-11-16T16:59:58] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0031 offset: 0008 -7.0656 65.6 -7.0656 65.6 -7.0656 65.6 -7.0656 65.6 -7.0656 65.6 -7.0656 65.6
+[2026-11-16T16:59:58] [E3:60:59:21:80:65] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 0031 offset: 0002 -7.0656 65.6 -7.0656 65.6
+[2026-11-16T16:59:58] [E3:60:59:21:80:65] Closing l2cap_socket
+[2026-11-16T16:59:58] [E3:60:59:21:80:65] hci_disconnect
+[2026-11-16T16:59:58] Download from device: [E3:60:59:21:80:65] 2026-11-12 10:27:00 2026-11-16 16:59:00 (6152) (GVH5074) HW:1.00.01 FW:1.01.04 SN:25072
+[2026-11-16T16:59:58] Scanning Stopped.
+[2026-11-16T16:59:58] Scanning Started. ScanInterval(60 msec) ScanWindow(30 msec) ScanType(1)
+[2026-11-16T16:59:58] 46 [DD:4C:E8:7A:11:6E] (Manu) 0499:0514353456caae0380fe5cffc4b6d61051eadd4ce87a116e (Temp) 25.9°C (Humidity) 33.49% (Pressure) 1018.86 hPa (Battery) 73% (TXPower)  4 dBm (AccelerationX)  0.896 g (AccelerationY) -0.420 g (AccelerationZ) -0.060 g (MovementCounter) 16 (MeasurementSequenceNumber) 20970 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
+[2026-11-16T16:59:59] Scanning Stopped.
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] hci_le_create_conn Return(0) handle (0040)
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] Connected L2CAP LE connection on ATT channel: 4 BDADDR_LE_RANDOM
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] <== Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] <== Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] <== Handles: 0x000e..0x0016 UUID: 180a (Device Information)
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xffff
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] <== Handles: 0x0017..0xffff UUID: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0000..0xffff
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0009
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0009
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0002..0x0003 Characteristic Properties: 0x02 UUID: 2a00 (Device Name)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0003 UUID: 2a00 (Device Name)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0004..0x0005 Characteristic Properties: 0x02 UUID: 2a01 (Appearance)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0005 UUID: 2a01 (Appearance)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0006..0x0007 Characteristic Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0007 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0007..0x0009
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0008..0x0009 Characteristic Properties: 0x02 UUID: 2aa6
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0009 UUID: 2aa6
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0009..0x0009
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000a..0x000d
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000a..0x000d
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x000b..0x000c Characteristic Properties: 0x20 UUID: 2a05 (Service Changed)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x0d Characteristic: 0x000c UUID: 2a05 (Service Changed)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000c..0x000d
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000e..0x0016
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000e..0x0016
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x000f..0x0010 Characteristic Properties: 0x02 UUID: 2a29 (Manufacturer Name String)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0010 UUID: 2a29 (Manufacturer Name String)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0011..0x0012 Characteristic Properties: 0x02 UUID: 2a24 (Model Number String)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0012 UUID: 2a24 (Model Number String)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0013..0x0014 Characteristic Properties: 0x02 UUID: 2a27
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0014 UUID: 2a27
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0014..0x0016
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0015..0x0016 Characteristic Properties: 0x02 UUID: 2a26 (Firmware Revision String)
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0016 UUID: 2a26 (Firmware Revision String)
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0016..0x0016
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0017..0xffff
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0017..0xffff
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] <== Handles: 0x0018..0x0019 Characteristic Properties: 0x0c UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0xffff Characteristic: 0x0019 UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0019..0xffff
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] <== Handles: 0x001a..0x001b Characteristic Properties: 0x10 UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+[                   ] [DD:4C:E8:7A:11:6E] <== Service: 0xffff Characteristic: 0x001b UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001b..0xffff
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[                   ] Characteristic Handles: 0x0002..0x0003 UUID: 2a00 (Device Name) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0004..0x0005 UUID: 2a01 (Appearance) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0006..0x0007 UUID: 2a04 (Peripheral Preferred Connection Parameters) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0008..0x0009 UUID: 2aa6 Properties: 0x02 (Read)
+[-------------------] Service Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[                   ] Characteristic Handles: 0x000b..0x000c UUID: 2a05 (Service Changed) Properties: 0x20 (Indicate)
+[-------------------] Service Handles: 0x000e..0x0016 UUID: 180a (Device Information)
+[                   ] Characteristic Handles: 0x000f..0x0010 UUID: 2a29 (Manufacturer Name String) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0011..0x0012 UUID: 2a24 (Model Number String) Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0013..0x0014 UUID: 2a27 Properties: 0x02 (Read)
+[                   ] Characteristic Handles: 0x0015..0x0016 UUID: 2a26 (Firmware Revision String) Properties: 0x02 (Read)
+[-------------------] Service Handles: 0x0017..0xffff UUID: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+[                   ] Characteristic Handles: 0x0018..0x0019 UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e Properties: 0x0c (Write Without Response) (Write)
+[                   ] Characteristic Handles: 0x001a..0x001b UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e Properties: 0x10 (Notify)
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ      Handle: 0000 Value: aa08000000000000000000000000000000000000
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ      Handle: 0000 Value: aa0c000000000000000000000000000000000000
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ      Handle: 0000 Value: aa0d000000000000000000000000000000000000
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ      Handle: 0000 Value: aa0e000000000000000000000000000000000000
+[2026-11-16T17:00:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ      Handle: 0000 Value: 3301ffff00010000000000000000000000000000 (Data Request: 65535 points)
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
+Killed
+```
