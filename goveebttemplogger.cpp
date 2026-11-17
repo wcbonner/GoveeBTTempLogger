@@ -4131,35 +4131,41 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 						}
 
 						std::queue<GATT_DataPacket> WritePacketQueue;
+						if (ConnectedThermometerType == ThermometerType::RUUVI)
+						{
+
+						}
+						else
+						{
 #ifdef DEBUG
 #define TEST_COMMANDS
 #endif
 #ifdef TEST_COMMANDS
-						for (auto command = uint8_t(0); command < uint8_t(0x10); command++)
-							WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, command} });
-						WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x02} });
+							for (auto command = uint8_t(0); command < uint8_t(0x10); command++)
+								WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, command} });
+							WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x02} });
 #else
-						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
-						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
-						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
-						WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
+							WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x08} }); // Request battery level
+							WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0c} }); // Request Request MAC address and serial
+							WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0d} }); // Request Hardware Version
+							WritePacketQueue.push({ static_cast<uint8_t>(bDeviceData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_DeviceData, {0xaa, 0x0e} }); // Request Firmware Version
 #endif
 
-						GATT_DataPacket MyRequest({ static_cast<uint8_t>(bRequestData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x01} });
-						time(&TimeDownloadStart);
-						TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
-						uint16_t DataPointsToRequest = 0xffff;
-						if (((TimeDownloadStart - TheDevice.GetLastDownload()) / 60) < 0xffff)
-							DataPointsToRequest = uint16_t((TimeDownloadStart - TheDevice.GetLastDownload()) / 60);
+							GATT_DataPacket MyRequest({ static_cast<uint8_t>(bRequestData_WriteWithoutResponse ? BT_ATT_OP_WRITE_CMD : BT_ATT_OP_WRITE_REQ), bt_Handle_RequestData, {0x33, 0x01} });
+							time(&TimeDownloadStart);
+							TimeDownloadStart = (TimeDownloadStart / 60) * 60; // trick to align time on minute interval
+							uint16_t DataPointsToRequest = 0xffff;
+							if (((TimeDownloadStart - TheDevice.GetLastDownload()) / 60) < 0xffff)
+								DataPointsToRequest = uint16_t((TimeDownloadStart - TheDevice.GetLastDownload()) / 60);
 #ifdef DEBUG
-						DataPointsToRequest = 123; // this saves a huge amount of time
+							DataPointsToRequest = 123; // this saves a huge amount of time
 #endif // DEBUG
-						MyRequest.buf[2] = uint8_t(DataPointsToRequest >> 8);
-						MyRequest.buf[3] = uint8_t(DataPointsToRequest);
-						MyRequest.buf[4] = uint8_t(0x00);
-						MyRequest.buf[5] = uint8_t(0x01);
-						WritePacketQueue.push(MyRequest);
-
+							MyRequest.buf[2] = uint8_t(DataPointsToRequest >> 8);
+							MyRequest.buf[3] = uint8_t(DataPointsToRequest);
+							MyRequest.buf[4] = uint8_t(0x00);
+							MyRequest.buf[5] = uint8_t(0x01);
+							WritePacketQueue.push(MyRequest);
+						}
 						//WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0x33,0x01,0x3d,0xee,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xe0} });
 						//WritePacketQueue.push({ BT_ATT_OP_WRITE_REQ, bt_Handle_RequestData, {0x33,0x01,0x70,0x81,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xc2} });
 						// The following while loop attempts to read from the non-blocking socket.
@@ -4191,7 +4197,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 						// Then there was a notification on handle 0x002d
 						// Value: ee010a53000000000000000000000000000000b6
 						// There were 2644 Notification packets on Handle 31,
-						bool bDownloadInProgress(true);
+						bool bDownloadInProgress(!WritePacketQueue.empty());
 						while (bDownloadInProgress)
 						{
 							auto pkt = WritePacketQueue.front();
