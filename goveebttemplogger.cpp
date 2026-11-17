@@ -1394,7 +1394,7 @@ Ruuvi_Temp& Ruuvi_Temp::operator +=(const Ruuvi_Temp& b)
 	}
 	return(*this);
 }
-class Ruuvi_Device : Ruuvi_Temp {
+class Ruuvi_Device : public Ruuvi_Temp {
 public:
 	Ruuvi_Device() :
 		MACAddress({ 0 }),
@@ -3490,8 +3490,7 @@ void GATT_DataPacketDecrypt(const std::array<uint8_t, 16>& session_key, GATT_Dat
 }
 const std::array<uint8_t, 16> PreSharedKey{ 0x4d, 0x61, 0x6b, 0x69, 0x6e, 0x67, 0x4c, 0x69, 0x66, 0x65, 0x53, 0x6d, 0x61, 0x72, 0x74, 0x65 }; // The Govee Home app contains a hardcoded 16-byte PSK: "MakingLifeSmarte"
 /////////////////////////////////////////////////////////////////////////////
-// Connect to a Govee Thermometer device over Bluetooth and download its historical data.
-//time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, const bdaddr_t GoveeBTAddress, const time_t GoveeLastReadTime = 0, int BatteryToRecord = 0)
+// Connect to a Thermometer device over Bluetooth and download its historical data.
 template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Handle, T & TheDevice, int BatteryToRecord = 0)
 {
 	const bdaddr_t TheBTAddress(TheDevice.GetMACAddress());
@@ -3500,7 +3499,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 	time_t TimeDownloadStart(0);
 	uint16_t DataPointsRecieved(0);
 	uint16_t offset(0);
-	const auto ConnectedThermometerType = AllThermometers.find(TheBTAddress)->second;
+	const auto ConnectedThermometerType = TheDevice.GetModel();
 
 	// Save the current HCI filter (Host Controller Interface)
 	struct hci_filter original_filter;
@@ -4682,7 +4681,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													std::cout << std::endl;
 													std::cout << "[                   ] ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^                ^^--> le_advertising_info.length (bytes following)" << std::endl;
 													std::cout << "[                   ] |  |  |  |  |  |  |  ^---------------------> le_advertising_info.bdaddr [" << addr << "]" << std::endl;
-													std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type" << std::endl;
+													std::cout << "[                   ] |  |  |  |  |  |  ^------------------------> le_advertising_info.bdaddr_type = " << (info->bdaddr_type==0?"LE_PUBLIC_ADDRESS":"LE_RANDOM_ADDRESS") << std::endl;
 													std::cout << "[                   ] |  |  |  |  |  ^---------------------------> ??" << std::endl;
 													std::cout << "[                   ] |  |  |  |  ^------------------------------> le_advertising_info.evt_type" << std::endl;
 													std::cout << "[                   ] |  |  |  ^---------------------------------> evt_le_meta_event.subevent = EVT_LE_ADVERTISING_REPORT = 02" << std::endl;
@@ -4890,6 +4889,7 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 												{
 													int BatteryToRecord(0);
 													time_t LastDownloadTime(0);
+													// look up the last download time and battery level for this device, so we can pass it to the download function. If we don't do this, then the device will be downloaded every time we see an advertisment from it, which is not good for battery life.
 													auto CurrentDeviceTypeMap = AllThermometers.find(info->bdaddr);
 													if (CurrentDeviceTypeMap != AllThermometers.end())
 													{
@@ -4927,16 +4927,17 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 													// Don't try to download more often than once a week, because it uses more battery than just the advertisments
 													if (difftime(TimeNow, LastDownloadTime) > (60 * 60 * 24 * DaysBetweenDataDownload))
 													{
-														bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList, HCI_Passive_Scanning);
 														time_t DownloadTime(0);
 														if (CurrentDeviceTypeMap->second == ThermometerType::RUUVI)
 														{
 															auto CurrentDeviceMap = RuuviDevices.find(info->bdaddr);
 															if (CurrentDeviceMap != RuuviDevices.end())
 															{
+																bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList, HCI_Passive_Scanning);
 																DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
 																if (DownloadTime > 0)
 																	CurrentDeviceMap->second.SetLastDownload(DownloadTime);
+																btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
 															}
 														}
 														else
@@ -4944,12 +4945,13 @@ void BlueZ_HCI_MainLoop(std::string& ControllerAddress, std::set<bdaddr_t>& BT_W
 															auto CurrentDeviceMap = GoveeDevices.find(info->bdaddr);
 															if (CurrentDeviceMap != GoveeDevices.end())
 															{
+																bt_LEScan(BlueToothDevice_Handle, false, BT_WhiteList, HCI_Passive_Scanning);
 																DownloadTime = BlueZ_HCI_ConnectAndDownload(BlueToothDevice_Handle, CurrentDeviceMap->second, BatteryToRecord);
 																if (DownloadTime > 0)
 																	CurrentDeviceMap->second.SetLastDownload(DownloadTime);
+																btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
 															}
 														}
-														btRVal = bt_LEScan(BlueToothDevice_Handle, true, BT_WhiteList, HCI_Passive_Scanning);
 														if (btRVal < 0)
 														{
 															bRun = false; // rely on inetd to restart entire process
