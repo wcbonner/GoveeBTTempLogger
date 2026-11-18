@@ -2902,6 +2902,7 @@ const char* addr_type_name(const int dst_type)
 #define ATT_CID 4
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t starting_handle; uint16_t ending_handle; uint16_t UUID; } GATT_DeclarationPacket;
 typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; uint8_t buf[20]; } GATT_DataPacket;
+typedef struct __attribute__((__packed__)) { uint8_t opcode; uint16_t handle; } GATT_ReadPacket;
 class BlueToothServiceCharacteristic { public: uint16_t starting_handle; uint8_t properties; uint16_t ending_handle; bt_uuid_t theUUID; };
 class BlueToothService { public: bt_uuid_t theUUID; uint16_t starting_handle; uint16_t ending_handle; std::vector<BlueToothServiceCharacteristic> characteristics; };
 const int bt_TimeOut = 1000;
@@ -3839,6 +3840,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 						uint16_t bt_Handle_ReturnData(0);	// 494e5445-4c4c-495f-524f-434b535f2013
 						uint16_t bt_Handle_AuthWrite(0);	// 00010203-0405-0607-0809-0a0b0c0d1910
 						uint16_t bt_Handle_AuthNotify(0);	// 02f00000-0000-0000-0000-00000000fe01
+						uint16_t bt_Handle_NordicRX(0);		// 6e400002-b5a3-f393-e0a9-e50e24dcca9e
 						bool bDeviceData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2011
 						bool bRequestData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2012
 						// This loops through and enables notification on each of the Govee service handles
@@ -3859,6 +3861,9 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							bt_uuid_t TELINK_OTA_C1;      bt_uuid128_create(&TELINK_OTA_C1,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x01 });
 							bt_uuid_t TELINK_OTA_C2;      bt_uuid128_create(&TELINK_OTA_C2,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x02 });
 							bt_uuid_t TELINK_OTA_C3;      bt_uuid128_create(&TELINK_OTA_C3,      { 0x02, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x03 });
+							bt_uuid_t NORDIC_UART_SERVICE; bt_uuid128_create(&NORDIC_UART_SERVICE, { 0x6e, 0x40, 0x00, 0x01, 0xb5, 0xa3, 0xf3, 0x93, 0xe0, 0xa9, 0xe5, 0x0e, 0x24, 0xdc, 0xca, 0x9e });
+							bt_uuid_t NORDIC_UART_RX;      bt_uuid128_create(&NORDIC_UART_RX, { 0x6e, 0x40, 0x00, 0x02, 0xb5, 0xa3, 0xf3, 0x93, 0xe0, 0xa9, 0xe5, 0x0e, 0x24, 0xdc, 0xca, 0x9e });
+							bt_uuid_t NORDIC_UART_TX;      bt_uuid128_create(&NORDIC_UART_TX, { 0x6e, 0x40, 0x00, 0x03, 0xb5, 0xa3, 0xf3, 0x93, 0xe0, 0xa9, 0xe5, 0x0e, 0x24, 0xdc, 0xca, 0x9e });
 							if (bts->theUUID == INTELLI_ROCKS_SERVICE)
 								for (auto & btsc : bts->characteristics)
 								{
@@ -3891,6 +3896,14 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								for (auto& btsc : bts->characteristics)
 									if (btsc.properties & 0x10) // Notify
 										buf[0] = BlueZ_HCI_GATT_EnableNotification(TheBTAddress, btsc.ending_handle, l2cap_socket);
+							if (bts->theUUID == NORDIC_UART_SERVICE)
+								for (auto& btsc : bts->characteristics)
+								{
+									if (btsc.theUUID == NORDIC_UART_RX)
+										bt_Handle_NordicRX = btsc.ending_handle;
+									if (btsc.properties & 0x10) // Notify
+										buf[0] = BlueZ_HCI_GATT_EnableNotification(TheBTAddress, btsc.ending_handle, l2cap_socket);
+								}
 						}
 
 						if (bt_Handle_AuthNotify != 0)
@@ -4133,7 +4146,54 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 						std::queue<GATT_DataPacket> WritePacketQueue;
 						if (ConnectedThermometerType == ThermometerType::RUUVI)
 						{
-
+							std::queue<GATT_ReadPacket> ReadPacketQueue;
+							bt_uuid_t DEVICE_INFORMATION_SERVICE; bt_uuid16_create(&DEVICE_INFORMATION_SERVICE, 0x180A);
+							bt_uuid_t MANUFACTURER_NAME_STRING; bt_uuid16_create(&MANUFACTURER_NAME_STRING, 0x2A29);
+							bt_uuid_t MODEL_NUMBER_STRING; bt_uuid16_create(&MODEL_NUMBER_STRING, 0x2A24);
+							bt_uuid_t SERIAL_NUMBER_STRING; bt_uuid16_create(&SERIAL_NUMBER_STRING, 0x2A25);
+							bt_uuid_t FIRMWARE_REVISION_STRING; bt_uuid16_create(&FIRMWARE_REVISION_STRING, 0x2A26);
+							bt_uuid_t HARDWARE_REVISION_STRING; bt_uuid16_create(&HARDWARE_REVISION_STRING, 0x2A27);
+							for (auto bts = BTServices.begin(); (bts != BTServices.end() && (buf[0] != BT_ATT_OP_ERROR_RSP)); bts++)
+								if (bts->theUUID == DEVICE_INFORMATION_SERVICE)
+									for (auto& btsc : bts->characteristics)
+										if (btsc.theUUID == MANUFACTURER_NAME_STRING || btsc.theUUID == MODEL_NUMBER_STRING || btsc.theUUID == SERIAL_NUMBER_STRING || btsc.theUUID == FIRMWARE_REVISION_STRING || btsc.theUUID == HARDWARE_REVISION_STRING)
+											ReadPacketQueue.push({ BT_ATT_OP_READ_REQ, btsc.ending_handle });
+							while (!ReadPacketQueue.empty())
+							{
+								auto pkt = ReadPacketQueue.front();
+								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
+								{
+									buf[0] = BT_ATT_OP_ERROR_RSP;
+									break;
+								}
+								else
+								{
+									ReadPacketQueue.pop();
+									auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
+									if (bufDataLen > 0)
+									{
+										if (buf[0] == BT_ATT_OP_READ_RSP)
+										{
+											GATT_DataPacket* data = (GATT_DataPacket*)&(buf[0]);
+											if (ConsoleVerbosity > 1)
+											{
+												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_RSP";
+												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+											}
+											if (ConsoleVerbosity > 2)
+											{
+												std::cout << " Value: ";
+												for (auto& iterator : data->buf)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+											}
+											if (ConsoleVerbosity > 1)
+												std::cout << std::endl;
+										}
+									}
+								}
+							}
+							if (bt_Handle_NordicRX != 0)
+								WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11, 0x5D, 0xC1, 0x4C, 0x56, 0x00, 0x00, 0x00, 0x00 } });
 						}
 						else
 						{
@@ -4208,6 +4268,9 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> ";
 									switch (pkt.opcode)
 									{
+									case BT_ATT_OP_READ_REQ:
+										std::cout << "BT_ATT_OP_READ_REQ";
+										break;
 									case BT_ATT_OP_WRITE_REQ:
 										std::cout << "BT_ATT_OP_WRITE_REQ";
 										break;
@@ -4218,14 +4281,14 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									std::cout << "      Handle: " << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
 									for (auto & iterator : pkt.buf)
 										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
-									if (pkt.handle == bt_Handle_RequestData)
+									if (pkt.handle == bt_Handle_RequestData) // INTELLI_ROCKS_COMMAND
 									{
 										if (pkt.buf[0] == 0x33 && pkt.buf[1] == 0x01)
 											std::cout << " (Data Request: " << std::dec << ((uint16_t(pkt.buf[2]) << 8) | uint16_t(pkt.buf[3])) << " points)";
 										if (pkt.buf[0] == 0xaa && pkt.buf[1] == 0x01)
 											std::cout << " (Keep Alive)";
 									}
-									else if (pkt.handle == bt_Handle_DeviceData)
+									else if (pkt.handle == bt_Handle_DeviceData) // INTELLI_ROCKS_DEVICE
 									{
 										if (pkt.buf[0] == 0xaa)
 										{
@@ -4283,6 +4346,23 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								auto bufDataLen = recv(l2cap_socket, buf, sizeof(buf), 0);
 								if (bufDataLen > 0)
 								{
+									if (buf[0] == BT_ATT_OP_READ_RSP)
+									{
+										GATT_DataPacket* data = (GATT_DataPacket*)&(buf[0]);
+										if (ConsoleVerbosity > 1)
+										{
+											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_RSP";
+											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+										}
+										if (ConsoleVerbosity > 2)
+										{
+											std::cout << " Value: ";
+											for (auto& iterator : data->buf)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+										}
+										if (ConsoleVerbosity > 1)
+											std::cout << std::endl;
+									}
 									if (buf[0] == BT_ATT_OP_WRITE_RSP)
 									{
 										if (ConsoleVerbosity > 1)
