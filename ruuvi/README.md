@@ -507,65 +507,64 @@ When the log buffer is sent and no more data remains, a special message with the
 
 ## HCI Download Example output
 ```
-[2026-11-19T12:38:53] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050D1E4E24C92A0384FE50FFC8B5164FC3D8DD4CE87A116E (Temp) 16.8°C (Humidity) 50.01% (Pressure) 1014.98 hPa (Battery) 72% (TXPower)  4 dBm (AccelerationX)  0.900 g (AccelerationY) -0.432 g (AccelerationZ) -0.056 g (MovementCounter) 79 (MeasurementSequenceNumber) 50136 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
-[2026-11-19T12:38:53] Scanning Stopped.
+[2026-11-19T15:28:13] 46 [DD:4C:E8:7A:11:6E] (Flags) 06 (Manu) 0499:050DB14BBCC94C0384FE44FFC4B5164FD34DDD4CE87A116E (Temp) 17.5°C (Humidity) 48.47% (Pressure) 1015.32 hPa (Battery) 72% (TXPower)  4 dBm (AccelerationX)  0.900 g (AccelerationY) -0.444 g (AccelerationZ) -0.060 g (MovementCounter) 79 (MeasurementSequenceNumber) 54093 (BluetoothAddress) DD:4C:E8:7A:11:6E (Ruuvi)
+[2026-11-19T15:28:13] Scanning Stopped.
 [                   ] BlueZ_HCI_ConnectAndDownload DD:4C:E8:7A:11:6E
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] hci_le_create_conn Return(0) handle (0041)
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] Connected L2CAP LE connection on ATT channel: 4 BDADDR_LE_RANDOM
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] <== Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] <== Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] <== Handles: 0x000e..0x0016 UUID: 180a (Device Information)
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xffff
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] <== Handles: 0x0017..0xffff UUID: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
-[2026-11-19T12:38:58] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0000..0xffff
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0009
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0009
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] <== Handles: 0x0002..0x0003 Characteristic Properties: 0x02 UUID: 2a00 (Device Name)
+[2026-11-19T15:28:14] [DD:4C:E8:7A:11:6E] hci_le_create_conn Return(0) handle (0040)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] Connected L2CAP LE connection on ATT channel: 4 BDADDR_LE_RANDOM
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0001..0xffff
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x000a..0x000d UUID: 1801 (Generic Attribute)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x000e..0x0016 UUID: 180a (Device Information)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0017..0xffff
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x0017..0xffff UUID: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Group Type Request, GATT Primary Service Declaration, Handles: 0x0000..0xffff
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_GRP_TYPE_REQ GATT_PRIM_SVC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0001..0x0009
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0001..0x0009
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x0002..0x0003 Characteristic Properties: 0x02 UUID: 2a00 (Device Name)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0003 UUID: 2a00 (Device Name)
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] <== Handles: 0x0004..0x0005 Characteristic Properties: 0x02 UUID: 2a01 (Appearance)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x0004..0x0005 Characteristic Properties: 0x02 UUID: 2a01 (Appearance)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0005 UUID: 2a01 (Appearance)
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] <== Handles: 0x0006..0x0007 Characteristic Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x0006..0x0007 Characteristic Properties: 0x02 UUID: 2a04 (Peripheral Preferred Connection Parameters)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0007 UUID: 2a04 (Peripheral Preferred Connection Parameters)
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0007..0x0009
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] <== Handles: 0x0008..0x0009 Characteristic Properties: 0x02 UUID: 2aa6
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0007..0x0009
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== Handles: 0x0008..0x0009 Characteristic Properties: 0x02 UUID: 2aa6
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x09 Characteristic: 0x0009 UUID: 2aa6
-[2026-11-19T12:38:59] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0009..0x0009
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000a..0x000d
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000a..0x000d
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] <== Handles: 0x000b..0x000c Characteristic Properties: 0x20 UUID: 2a05 (Service Changed)
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0009..0x0009
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000a..0x000d
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:15] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000a..0x000d
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x000b..0x000c Characteristic Properties: 0x20 UUID: 2a05 (Service Changed)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x0d Characteristic: 0x000c UUID: 2a05 (Service Changed)
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000c..0x000d
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000e..0x0016
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:39:00] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000e..0x0016
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x000f..0x0010 Characteristic Properties: 0x02 UUID: 2a29 (Manufacturer Name String)
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000c..0x000d
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x000e..0x0016
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x000e..0x0016
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x000f..0x0010 Characteristic Properties: 0x02 UUID: 2a29 (Manufacturer Name String)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0010 UUID: 2a29 (Manufacturer Name String)
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0011..0x0012 Characteristic Properties: 0x02 UUID: 2a24 (Model Number String)
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x0011..0x0012 Characteristic Properties: 0x02 UUID: 2a24 (Model Number String)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0012 UUID: 2a24 (Model Number String)
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0013..0x0014 Characteristic Properties: 0x02 UUID: 2a27
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x0013..0x0014 Characteristic Properties: 0x02 UUID: 2a27
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0014 UUID: 2a27
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0014..0x0016
-^C***************** SIGINT: Caught Ctrl-C, finishing loop and quitting. *****************
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0015..0x0016 Characteristic Properties: 0x02 UUID: 2a26 (Firmware Revision String)
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0014..0x0016
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x0015..0x0016 Characteristic Properties: 0x02 UUID: 2a26 (Firmware Revision String)
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0x16 Characteristic: 0x0016 UUID: 2a26 (Firmware Revision String)
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0016..0x0016
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0017..0xffff
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0017..0xffff
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] <== Handles: 0x0018..0x0019 Characteristic Properties: 0x0c UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0016..0x0016
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Include Declaration, Handles: 0x0017..0xffff
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_INCLUDE_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0017..0xffff
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x0018..0x0019 Characteristic Properties: 0x0c UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0xffff Characteristic: 0x0019 UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
-[2026-11-19T12:39:01] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0019..0xffff
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] <== Handles: 0x001a..0x001b Characteristic Properties: 0x10 UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x0019..0xffff
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== Handles: 0x001a..0x001b Characteristic Properties: 0x10 UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
 [                   ] [DD:4C:E8:7A:11:6E] <== Service: 0xffff Characteristic: 0x001b UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001b..0xffff
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> Read By Type Request, GATT Characteristic Declaration, Handles: 0x001b..0xffff
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_BY_TYPE_REQ GATT_CHARAC_UUID BT_ATT_OP_ERROR_RSP
 [-------------------] Service Handles: 0x0001..0x0009 UUID: 1800 (Generic Access)
 [                   ] Characteristic Handles: 0x0002..0x0003 UUID: 2a00 (Device Name) Properties: 0x02 (Read)
 [                   ] Characteristic Handles: 0x0004..0x0005 UUID: 2a01 (Appearance) Properties: 0x02 (Read)
@@ -581,22 +580,51 @@ When the log buffer is sent and no more data remains, a special message with the
 [-------------------] Service Handles: 0x0017..0xffff UUID: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
 [                   ] Characteristic Handles: 0x0018..0x0019 UUID: 6e400002-b5a3-f393-e0a9-e50e24dcca9e Properties: 0x0c (Write Without Response) (Write)
 [                   ] Characteristic Handles: 0x001a..0x001b UUID: 6e400003-b5a3-f393-e0a9-e50e24dcca9e Properties: 0x10 (Notify)
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ Handle: 001c Value: 0100 (EnableNotification)
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_WRITE_RSP
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0010
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 527575766920496e6e6f766174696f6e73204c74646e : Ruuvi Innovations Ltdn
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0012
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 5275757669546167204276 : RuuviTag Bv
-[2026-11-19T12:39:02] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0014
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 436865636b2050434242 : Check PCBB
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0016
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 52757576692046572076332e33312e312b646566617500 : Ruuvi FW v3.31.1+defau
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ      Handle: 0019 Value: 3a3a11001b6430001b61d8000000000000000000
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_WRITE_RSP
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a3110001b63d100001387312e312b6465666175 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a3210001b63d100018c79312e312b6465666175 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a3010001b63d100000690312e312b6465666175 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a3a10ffffffffffffffff312e312b6465666175 (Nordic TX) (To: environmental. From: environmental. Action: write log data) (No more logs)
-[2026-11-19T12:39:03] [DD:4C:E8:7A:11:6E] Closing l2cap_socket
-[2026-11-19T12:39:04] [DD:4C:E8:7A:11:6E] hci_disconnect
+[2026-11-19T15:28:16] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_REQ Handle: 001c Value: 0100 (EnableNotification)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_WRITE_RSP
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0010
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 527575766920496e6e6f766174696f6e73204c7464 : Ruuvi Innovations Ltd
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0012
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 52757576695461672042 : RuuviTag B
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0014
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 436865636b20504342 : Check PCB
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_READ_REQ Handle: 0016
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_READ_RSP Value: 52757576692046572076332e33312e312b6465666175 : Ruuvi FW v3.31.1+defau
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] ==> BT_ATT_OP_WRITE_CMD      Handle: 0019 Value: 3a3a116aff86116aff7801 (Nordic RX)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff7a3c00001309 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff7a3c00018c92 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff7a3c000006d6 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff7b6900001304 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff7b6900018c93 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff7b69000006d6 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff7c9700001302 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff7c9700018c91 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff7c97000006d7 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff7dc4000012ff (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff7dc400018c9a (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff7dc4000006d8 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff7ef2000012fe (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff7ef200018c9d (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff7ef2000006d8 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff801f000012fa (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff801f00018c99 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff801f000006d9 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff814b000012f6 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff814b00018c9a (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff814b000006d9 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff8278000012f7 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff827800018ca3 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff8278000006d8 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff83a5000012f5 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff83a500018ca1 (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff83a5000006d8 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff84d2000012f3 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff84d200018c9f (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff84d2000006d8 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a31106aff8600000012f0 (Nordic TX) (To: environmental. From: humidity. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a32106aff860000018c9a (Nordic TX) (To: environmental. From: pressure. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a30106aff8600000006d8 (Nordic TX) (To: environmental. From: temperature. Action: write log data)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] <== BT_ATT_OP_HANDLE_VAL_NOT Handle: 001b Value: 3a3a10ffffffffffffffff (Nordic TX) (To: environmental. From: environmental. Action: write log data) (No more logs)
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] Closing l2cap_socket
+[2026-11-19T15:28:17] [DD:4C:E8:7A:11:6E] hci_disconnect
 ```

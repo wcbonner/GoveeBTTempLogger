@@ -4203,10 +4203,10 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							}
 							if (bt_Handle_NordicRX != 0)
 							{
-								GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11 } });
+								GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_CMD), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11 } });
 								time_t timeNow;
 								time(&timeNow);
-								time_t timeFirst(timeNow - 600);
+								time_t timeFirst(timeNow - 3600);
 								//timeNow = timeNow / 1000U;
 								MyRequest.buf[3] = (uint8_t)((timeNow >> 24U) & 0xFFU); // from re_log_write_timestamp https://github.com/ruuvi/ruuvi.endpoints.c/blob/5a0cf2428d816740b01cb4403b75575eff78b9a3/src/ruuvi_endpoints.c#L126
 								MyRequest.buf[4] = (uint8_t)((timeNow >> 16U) & 0xFFU);
@@ -4287,6 +4287,9 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							auto pkt = WritePacketQueue.front();
 							if (!WritePacketQueue.empty())
 							{
+								auto sizetosend = sizeof(pkt);
+								if (ConnectedThermometerType == ThermometerType::RUUVI)
+									sizetosend = 3 + 3 + 8; // 3 bytes bt header + 3 bytes ruuvi header + 8 bytes payload
 								if (ConsoleVerbosity > 1)
 								{
 									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> ";
@@ -4303,8 +4306,8 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										break;
 									}
 									std::cout << "      Handle: " << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << " Value: ";
-									for (auto & iterator : pkt.buf)
-										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+									for (auto index = 0; index < (sizetosend-3); index++)
+										std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(pkt.buf[index]);
 									if (pkt.handle == bt_Handle_RequestData) // INTELLI_ROCKS_COMMAND
 									{
 										if (pkt.buf[0] == 0x33 && pkt.buf[1] == 0x01)
@@ -4354,10 +4357,15 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 											}
 										}
 									}
+									else if (pkt.handle == bt_Handle_NordicRX) // RUUVI_COMMAND
+									{
+										std::cout << " (Nordic RX)";
+									}
 									std::cout << std::endl;
 								}
-								GATT_DataPacketEncrypt(SessionKey, pkt); // This always creates a checksum in the last byte of the data, it only encrypts the data if the SessionKey is nonzero
-								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
+								if (ConnectedThermometerType != ThermometerType::RUUVI)
+									GATT_DataPacketEncrypt(SessionKey, pkt); // This always creates a checksum in the last byte of the data, it only encrypts the data if the SessionKey is nonzero
+								if (-1 == send(l2cap_socket, &pkt, sizetosend, 0))
 								{
 									buf[0] = BT_ATT_OP_ERROR_RSP;
 									bDownloadInProgress = false;
