@@ -653,7 +653,7 @@ bool Govee_Temp::ReadMSG(const uint16_t Manufacturer, const std::vector<uint8_t>
 		int iTemp = int(Data[2]) << 16 | int(Data[3]) << 8 | int(Data[4]);
 		bool bNegative = iTemp & 0x800000;	// check sign bit
 		iTemp = iTemp & 0x7ffff;			// mask off sign bit
-		Temperature[0] = float(iTemp) / 10000.0;
+		Temperature[0] = float(iTemp / 1000) / 10.0; // issue #116 fix. 
 		Humidity = float(iTemp % 1000) / 10.0;
 		if (bNegative)						// apply sign bit
 			Temperature[0] = -1.0 * Temperature[0];
