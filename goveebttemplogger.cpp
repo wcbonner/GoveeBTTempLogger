@@ -3841,6 +3841,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 						uint16_t bt_Handle_AuthWrite(0);	// 00010203-0405-0607-0809-0a0b0c0d1910
 						uint16_t bt_Handle_AuthNotify(0);	// 02f00000-0000-0000-0000-00000000fe01
 						uint16_t bt_Handle_NordicRX(0);		// 6e400002-b5a3-f393-e0a9-e50e24dcca9e
+						uint16_t bt_Handle_NordicTX(0);		// 6e400003-b5a3-f393-e0a9-e50e24dcca9e
 						bool bDeviceData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2011
 						bool bRequestData_WriteWithoutResponse(false); // 494e5445-4c4c-495f-524f-434b535f2012
 						// This loops through and enables notification on each of the Govee service handles
@@ -3901,6 +3902,8 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								{
 									if (btsc.theUUID == NORDIC_UART_RX)
 										bt_Handle_NordicRX = btsc.ending_handle;
+									if (btsc.theUUID == NORDIC_UART_TX)
+										bt_Handle_NordicTX = btsc.ending_handle;
 									if (btsc.properties & 0x10) // Notify
 										buf[0] = BlueZ_HCI_GATT_EnableNotification(TheBTAddress, btsc.ending_handle, l2cap_socket);
 								}
@@ -4161,9 +4164,12 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							while (!ReadPacketQueue.empty())
 							{
 								auto pkt = ReadPacketQueue.front();
+								if (ConsoleVerbosity > 1)
+									std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] ==> BT_ATT_OP_READ_REQ" << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << pkt.handle << std::endl;
 								if (-1 == send(l2cap_socket, &pkt, sizeof(pkt), 0))
 								{
 									buf[0] = BT_ATT_OP_ERROR_RSP;
+									std::cout << "[                   ] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_ERROR_RSP" << std::endl;
 									break;
 								}
 								else
@@ -4174,26 +4180,44 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									{
 										if (buf[0] == BT_ATT_OP_READ_RSP)
 										{
-											GATT_DataPacket* data = (GATT_DataPacket*)&(buf[0]);
 											if (ConsoleVerbosity > 1)
 											{
 												std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_RSP";
-												std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+												std::cout << " Value: ";
 											}
 											if (ConsoleVerbosity > 2)
 											{
-												std::cout << " Value: ";
-												for (auto& iterator : data->buf)
-													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+												for (auto index = 1; index < bufDataLen; index++)
+													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
+												std::cout << " : ";
 											}
 											if (ConsoleVerbosity > 1)
+											{
+												for (auto index = 1; index < bufDataLen; index++)
+													std::cout << char(buf[index]);
 												std::cout << std::endl;
+											}
 										}
 									}
 								}
 							}
 							if (bt_Handle_NordicRX != 0)
-								WritePacketQueue.push({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11, 0x5D, 0xC1, 0x4C, 0x56, 0x00, 0x00, 0x00, 0x00 } });
+							{
+								GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_REQ), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11 } });
+								time_t timeNow;
+								time(&timeNow);
+								time_t timeFirst(timeNow - 600);
+								//timeNow = timeNow / 1000U;
+								MyRequest.buf[3] = (uint8_t)((timeNow >> 24U) & 0xFFU); // from re_log_write_timestamp https://github.com/ruuvi/ruuvi.endpoints.c/blob/5a0cf2428d816740b01cb4403b75575eff78b9a3/src/ruuvi_endpoints.c#L126
+								MyRequest.buf[4] = (uint8_t)((timeNow >> 16U) & 0xFFU);
+								MyRequest.buf[5] = (uint8_t)((timeNow >> 8U) & 0xFFU);
+								MyRequest.buf[6] = (uint8_t)(timeNow & 0xFFU);
+								MyRequest.buf[7] = (uint8_t)((timeFirst >> 24U) & 0xFFU);
+								MyRequest.buf[8] = (uint8_t)((timeFirst >> 16U) & 0xFFU);
+								MyRequest.buf[9] = (uint8_t)((timeFirst >> 8U) & 0xFFU);
+								MyRequest.buf[10] = (uint8_t)(timeFirst & 0xFFU);
+								WritePacketQueue.push(MyRequest);
+							}
 						}
 						else
 						{
@@ -4352,7 +4376,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										if (ConsoleVerbosity > 1)
 										{
 											std::cout << "[" << getTimeISO8601(true) << "] [" << ba2string(TheBTAddress) << "] <== BT_ATT_OP_READ_RSP";
-											std::cout << " Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
+											std::cout << "      Handle: " << std::hex << std::setfill('0') << std::setw(4) << data->handle;
 										}
 										if (ConsoleVerbosity > 2)
 										{
@@ -4380,8 +4404,8 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										if (ConsoleVerbosity > 2)
 										{
 											std::cout << " Value: ";
-											for (auto& iterator : data->buf)
-												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+											for (auto index = 3; index < bufDataLen; index++)
+												std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(buf[index]);
 										}
 										if (data->handle == bt_Handle_ReturnData)
 										{
@@ -4510,6 +4534,60 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												std::cout << " Value: ";
 												for (auto& iterator : data->buf)
 													std::cout << std::hex << std::setfill('0') << std::setw(2) << unsigned(iterator);
+											}
+										}
+										else if (data->handle == bt_Handle_NordicTX)
+										{
+											if (ConsoleVerbosity > 1)
+												std::cout << " (Nordic TX)";
+											if (buf[3] == 0x30 &&
+												buf[4] == 0x30 &&
+												buf[5] == 0x10)
+											{
+												if (ConsoleVerbosity > 1)
+													std::cout << " (To: temperature. From: temperature. Action: write log data)";
+											}
+											else if (buf[3] == 0x3a &&
+													buf[4] == 0x3a &&
+													buf[5] == 0x10)
+											{
+												if (ConsoleVerbosity > 1)
+													std::cout << " (To: environmental. From: environmental. Action: write log data)";
+											}
+											else if (buf[3] == 0x3a &&
+												buf[4] == 0x30 &&
+												buf[5] == 0x10)
+											{
+												if (ConsoleVerbosity > 1)
+													std::cout << " (To: environmental. From: temperature. Action: write log data)";
+											}
+											else if (buf[3] == 0x3a &&
+												buf[4] == 0x31 &&
+												buf[5] == 0x10)
+											{
+												if (ConsoleVerbosity > 1)
+													std::cout << " (To: environmental. From: humidity. Action: write log data)";
+											}
+											else if (buf[3] == 0x3a &&
+												buf[4] == 0x32 &&
+												buf[5] == 0x10)
+											{
+												if (ConsoleVerbosity > 1)
+													std::cout << " (To: environmental. From: pressure. Action: write log data)";
+											}
+											if (buf[6] == 0xFF &&
+												buf[7] == 0xFF &&
+												buf[8] == 0xFF &&
+												buf[9] == 0xFF &&
+												buf[10] == 0xFF &&
+												buf[11] == 0xFF &&
+												buf[12] == 0xFF &&
+												buf[13] == 0xFF)
+											{
+												bDownloadInProgress = false;
+												if (ConsoleVerbosity > 1)
+													std::cout << " (No more logs)";
+												//bRun = false; //HACK: I want to stop running after a successful ruuvi download, so I will set bRun to true to exit the loop
 											}
 										}
 										if (ConsoleVerbosity > 1)
