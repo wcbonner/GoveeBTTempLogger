@@ -1421,6 +1421,85 @@ private:
 	time_t LastDownload;
 };
 /////////////////////////////////////////////////////////////////////////////
+std::string Nordic2Console(const uint8_t Data[])
+{
+	std::ostringstream ssValue;
+	for (auto index = 0; index < 3; index++)
+		switch (Data[index])
+		{
+		case 0x30:
+			ssValue << " (temp)";
+			break;
+		case 0x31:
+			ssValue << " (humi)";
+			break;
+		case 0x32:
+			ssValue << " (pres)";
+			break;
+		case 0x3A:
+			ssValue << " (all)";
+			break;
+		case 0x10:
+			ssValue << " (RX)";
+			break;
+		case 0x11:
+			ssValue << " (TX)";
+			break;
+		default:
+			ssValue << " (Unknown)";
+		}
+	if (Data[2] == 0x11)
+	{
+		ssValue << " " << timeToISO8601(time_t((Data[7] << 24U) | (Data[8] << 16U) | (Data[9] << 8U) | (Data[10])));
+		ssValue << " " << timeToISO8601(time_t((Data[3] << 24U) | (Data[4] << 16U) | (Data[5] << 8U) | (Data[6])));
+	}
+	else if (Data[3] == 0xFF &&
+		Data[4] == 0xFF &&
+		Data[5] == 0xFF &&
+		Data[6] == 0xFF &&
+		Data[7] == 0xFF &&
+		Data[8] == 0xFF &&
+		Data[9] == 0xFF &&
+		Data[10] == 0xFF)
+	{ 
+		ssValue << " (No more logs)";
+	}
+	else
+	{
+		ssValue << " " << timeToISO8601(time_t((Data[3] << 24U) | (Data[4] << 16U) | (Data[5] << 8U) | (Data[6])));
+		switch (Data[1])
+		{
+		case 0x30:
+			//ssValue << " (temperature)";
+			{
+				long temp = (Data[7] << 24U) | (Data[8] << 16U) | (Data[9] << 8U) | (Data[10]);
+				double tempC = double(temp) / 100.0;
+				ssValue << " " << std::fixed << std::setprecision(2) << tempC << "\u00B0C";
+			}
+			break;
+		case 0x31:
+			//ssValue << " (humidity)";
+			{
+				long humidity = (Data[7] << 24U) | (Data[8] << 16U) | (Data[9] << 8U) | (Data[10]);
+				double humidityPercent = double(humidity) / 100.0;
+				ssValue << " " << std::fixed << std::setprecision(2) << humidityPercent << "%";
+			}
+			break;
+		case 0x32:
+			//ssValue << " (pressure)";
+			{
+				long pressure = (Data[7] << 24U) | (Data[8] << 16U) | (Data[9] << 8U) | (Data[10]);
+				double pressureHpa = double(pressure) / 100.0;
+				ssValue << " " << std::fixed << std::setprecision(2) << pressureHpa << " hPa";
+			}
+			break;
+		default:
+			ssValue << " (Unknown)";
+		}
+	}
+	return(ssValue.str());	
+}
+/////////////////////////////////////////////////////////////////////////////
 std::map<bdaddr_t, ThermometerType> AllThermometers;
 std::map<bdaddr_t, std::queue<Govee_Temp>> GoveeTemperatures;
 std::map<bdaddr_t, std::queue<Ruuvi_Temp>> RuuviTemperatures;
@@ -4206,7 +4285,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_CMD), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11 } });
 								time_t timeNow;
 								time(&timeNow);
-								time_t timeFirst(timeNow - 3600);
+								time_t timeFirst(timeNow - (3600*24*7));
 								//timeNow = timeNow / 1000U;
 								MyRequest.buf[3] = (uint8_t)((timeNow >> 24U) & 0xFFU); // from re_log_write_timestamp https://github.com/ruuvi/ruuvi.endpoints.c/blob/5a0cf2428d816740b01cb4403b75575eff78b9a3/src/ruuvi_endpoints.c#L126
 								MyRequest.buf[4] = (uint8_t)((timeNow >> 16U) & 0xFFU);
@@ -4360,8 +4439,9 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 									else if (pkt.handle == bt_Handle_NordicRX) // RUUVI_COMMAND
 									{
 										std::cout << " (Nordic RX)";
+										std::cout << Nordic2Console(pkt.buf);
+										std::cout << std::endl;
 									}
-									std::cout << std::endl;
 								}
 								if (ConnectedThermometerType != ThermometerType::RUUVI)
 									GATT_DataPacketEncrypt(SessionKey, pkt); // This always creates a checksum in the last byte of the data, it only encrypts the data if the SessionKey is nonzero
@@ -4548,41 +4628,8 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 										{
 											if (ConsoleVerbosity > 1)
 												std::cout << " (Nordic TX)";
-											if (buf[3] == 0x30 &&
-												buf[4] == 0x30 &&
-												buf[5] == 0x10)
-											{
-												if (ConsoleVerbosity > 1)
-													std::cout << " (To: temperature. From: temperature. Action: write log data)";
-											}
-											else if (buf[3] == 0x3a &&
-													buf[4] == 0x3a &&
-													buf[5] == 0x10)
-											{
-												if (ConsoleVerbosity > 1)
-													std::cout << " (To: environmental. From: environmental. Action: write log data)";
-											}
-											else if (buf[3] == 0x3a &&
-												buf[4] == 0x30 &&
-												buf[5] == 0x10)
-											{
-												if (ConsoleVerbosity > 1)
-													std::cout << " (To: environmental. From: temperature. Action: write log data)";
-											}
-											else if (buf[3] == 0x3a &&
-												buf[4] == 0x31 &&
-												buf[5] == 0x10)
-											{
-												if (ConsoleVerbosity > 1)
-													std::cout << " (To: environmental. From: humidity. Action: write log data)";
-											}
-											else if (buf[3] == 0x3a &&
-												buf[4] == 0x32 &&
-												buf[5] == 0x10)
-											{
-												if (ConsoleVerbosity > 1)
-													std::cout << " (To: environmental. From: pressure. Action: write log data)";
-											}
+											if (ConsoleVerbosity > 2)
+												std::cout << Nordic2Console(&(buf[3]));
 											if (buf[6] == 0xFF &&
 												buf[7] == 0xFF &&
 												buf[8] == 0xFF &&
@@ -4593,9 +4640,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												buf[13] == 0xFF)
 											{
 												bDownloadInProgress = false;
-												if (ConsoleVerbosity > 1)
-													std::cout << " (No more logs)";
-												//bRun = false; //HACK: I want to stop running after a successful ruuvi download, so I will set bRun to true to exit the loop
+												bRun = false; //HACK: I want to stop running after a successful ruuvi download, so I will set bRun to true to exit the loop
 											}
 										}
 										if (ConsoleVerbosity > 1)
