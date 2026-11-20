@@ -1113,6 +1113,7 @@ public:
 	time_t Time;
 	Ruuvi_Temp() : Time(0), Temperature(0x8000), Humidity(0xFFFF), Pressure(0xFFFF), AccelerationX(0x8000), AccelerationY(0x8000), AccelerationZ(0x8000), Battery(0x7FF), TXPower(0x1F), MovementCounter(0xFF), MeasurementSequenceNumber(0xFFFF), BluetoothAddress({ 0 }), Averages(0), TemperatureMin(SHRT_MAX), TemperatureMax(SHRT_MIN), HumidityMin(USHRT_MAX), HumidityMax(0), PressureMin(USHRT_MAX), PressureMax(0), Model(ThermometerType::RUUVI) {};
 	Ruuvi_Temp(const std::string& data);
+	Ruuvi_Temp(const uint8_t data[], const bdaddr_t theBluetoothAddress);
 	std::string WriteTXT(const char seperator = '\t') const;
 	std::string WriteConsole(void) const;
 	std::string WriteCache(void) const;
@@ -1192,6 +1193,43 @@ Ruuvi_Temp::Ruuvi_Temp(const std::string& data)
 		BluetoothAddress = string2ba(TheBlueToothAddressString);
 		Averages = 1;
 	}
+}
+Ruuvi_Temp::Ruuvi_Temp(const uint8_t data[], const bdaddr_t theBluetoothAddress)
+{
+	*this = Ruuvi_Temp();	// Make sure all values are initialized, even if the data is invalid. This allows the IsValid() function to work correctly.
+	BluetoothAddress = theBluetoothAddress;
+	Time = time_t((data[3] << 24U) | (data[4] << 16U) | (data[5] << 8U) | (data[6]));
+	switch (data[1])
+	{
+	case 0x30:
+		//ssValue << " (temperature)";
+	{
+		long temp = (data[7] << 24U) | (data[8] << 16U) | (data[9] << 8U) | (data[10]);
+		double tempC = double(temp) / 100.0;
+		Temperature = short(tempC / 0.005);
+		Averages = 1;
+	}
+	break;
+	case 0x31:
+		//ssValue << " (humidity)";
+	{
+		long humidity = (data[7] << 24U) | (data[8] << 16U) | (data[9] << 8U) | (data[10]);
+		double humidityPercent = double(humidity) / 100.0;
+		Humidity = short(humidityPercent / 0.0025);
+		Averages = 1;
+	}
+	break;
+	case 0x32:
+		//ssValue << " (pressure)";
+	{
+		long pressure = (data[7] << 24U) | (data[8] << 16U) | (data[9] << 8U) | (data[10]);
+		double pressureHpa = double(pressure) / 100.0;
+		Pressure = short((pressureHpa * 100)-50000.0);
+		Averages = 1;
+	}
+	break;
+	}
+
 }
 std::string Ruuvi_Temp::WriteTXT(const char seperator) const
 {
@@ -1629,6 +1667,16 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 					if (search->second.GetSerialNumber() != 0)
 						std::cout << " SN:" << std::dec << search->second.GetSerialNumber();
 				}
+				else if (auto search = RuuviDevices.find(TheAddress); search != RuuviDevices.end())
+				{
+					std::cout << " " << timeToISO8601(search->second.GetLastDownload());
+					if (!search->second.GetHardwareVersion().empty())
+						std::cout << " HW:" << search->second.GetHardwareVersion();
+					if (!search->second.GetFirmwareVersion().empty())
+						std::cout << " FW:" << search->second.GetFirmwareVersion();
+					if (search->second.GetSerialNumber() != 0)
+						std::cout << " SN:" << std::dec << search->second.GetSerialNumber();
+				}
 				std::cout << std::endl;
 			}
 		// If PersistenceData has updated information, write new data to file
@@ -1674,6 +1722,12 @@ void GeneratePersistenceFile(std::map<bdaddr_t, ThermometerType> & ThermometerTy
 					{
 						if (0 != search->second.GetLastDownload())
 							PersistenceFile << "\t" << timeToISO8601(search->second.GetLastDownload());
+						if (!search->second.GetHardwareVersion().empty())
+							PersistenceFile << "\tHW:" << search->second.GetHardwareVersion();
+						if (!search->second.GetFirmwareVersion().empty())
+							PersistenceFile << "\tFW:" << search->second.GetFirmwareVersion();
+						if (search->second.GetSerialNumber() != 0)
+							PersistenceFile << "\tSN:" << std::dec << search->second.GetSerialNumber();
 					}
 					PersistenceFile << std::endl;
 				}
@@ -4289,18 +4343,19 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 							if (bt_Handle_NordicRX != 0)
 							{
 								GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_CMD), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11 } });
-								time_t timeNow;
-								time(&timeNow);
-								time_t timeFirst(timeNow - (3600*24*10));
-								//timeNow = timeNow / 1000U;
-								MyRequest.buf[3] = (uint8_t)((timeNow >> 24U) & 0xFFU); // from re_log_write_timestamp https://github.com/ruuvi/ruuvi.endpoints.c/blob/5a0cf2428d816740b01cb4403b75575eff78b9a3/src/ruuvi_endpoints.c#L126
-								MyRequest.buf[4] = (uint8_t)((timeNow >> 16U) & 0xFFU);
-								MyRequest.buf[5] = (uint8_t)((timeNow >> 8U) & 0xFFU);
-								MyRequest.buf[6] = (uint8_t)(timeNow & 0xFFU);
-								MyRequest.buf[7] = (uint8_t)((timeFirst >> 24U) & 0xFFU);
-								MyRequest.buf[8] = (uint8_t)((timeFirst >> 16U) & 0xFFU);
-								MyRequest.buf[9] = (uint8_t)((timeFirst >> 8U) & 0xFFU);
-								MyRequest.buf[10] = (uint8_t)(timeFirst & 0xFFU);
+								time(&TimeDownloadStart);
+								time_t TimeDownloadOld(TimeDownloadStart - (3600 * 24 * 10)); // 10 days ago
+								//time_t TimeDownloadOld(TimeDownloadStart - (3600)); // 1 hour ago
+								if (TheDevice.GetLastDownload() > TimeDownloadOld)
+									TimeDownloadOld = TheDevice.GetLastDownload();
+								MyRequest.buf[3] = (uint8_t)((TimeDownloadStart >> 24U) & 0xFFU); // from re_log_write_timestamp https://github.com/ruuvi/ruuvi.endpoints.c/blob/5a0cf2428d816740b01cb4403b75575eff78b9a3/src/ruuvi_endpoints.c#L126
+								MyRequest.buf[4] = (uint8_t)((TimeDownloadStart >> 16U) & 0xFFU);
+								MyRequest.buf[5] = (uint8_t)((TimeDownloadStart >> 8U) & 0xFFU);
+								MyRequest.buf[6] = (uint8_t)(TimeDownloadStart & 0xFFU);
+								MyRequest.buf[7] = (uint8_t)((TimeDownloadOld >> 24U) & 0xFFU);
+								MyRequest.buf[8] = (uint8_t)((TimeDownloadOld >> 16U) & 0xFFU);
+								MyRequest.buf[9] = (uint8_t)((TimeDownloadOld >> 8U) & 0xFFU);
+								MyRequest.buf[10] = (uint8_t)(TimeDownloadOld & 0xFFU);
 								WritePacketQueue.push(MyRequest);
 							}
 						}
@@ -4646,7 +4701,18 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 												buf[13] == 0xFF)
 											{
 												bDownloadInProgress = false;
-												bRun = false; //HACK: I want to stop running after a successful ruuvi download, so I will set bRun to true to exit the loop
+												//bRun = false; //HACK: I want to stop running after a successful ruuvi download, so I will set bRun to true to exit the loop
+											}
+											else
+											{
+												Ruuvi_Temp localTemp(&(buf[3]), TheBTAddress);
+												if (localTemp.IsValid())
+												{
+													std::queue<Ruuvi_Temp> foo;
+													auto ret = RuuviTemperatures.insert(std::pair<bdaddr_t, std::queue<Ruuvi_Temp>>(TheBTAddress, foo));
+													ret.first->second.push(localTemp);
+													DataPointsRecieved++;
+												}
 											}
 										}
 										if (ConsoleVerbosity > 1)
@@ -4689,31 +4755,47 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 		TimeDownloadStart = 0;
 	if ((DataPointsRecieved > 0) && (TimeDownloadStart != 0))
 	{
-		auto TimeStart = TimeDownloadStart - static_cast<long>(60) * DataPointsRecieved;
-		auto TimeStop = TimeDownloadStart;
-		TimeStart -= static_cast<long>(60) * offset;
-		TimeStop -= static_cast<long>(60) * offset;
-
-		std::ostringstream ssOutput;
-		if (ConsoleVerbosity > 0)
-			ssOutput << "[" << getTimeISO8601(true) << "] ";
-		ssOutput << "Download from device: [" << ba2string(TheBTAddress) << "]";
-		ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
-		ssOutput << " (" << std::dec << DataPointsRecieved << ")";
-		auto downloadtype = AllThermometers.find(TheBTAddress);
-		if (downloadtype != AllThermometers.end())
-			ssOutput << " " << ThermometerType2String(downloadtype->second);
-		if (!TheDevice.GetHardwareVersion().empty())
-			ssOutput << " HW:" << TheDevice.GetHardwareVersion();
-		if (!TheDevice.GetFirmwareVersion().empty())
-			ssOutput << " FW:" << TheDevice.GetFirmwareVersion();
-		if (TheDevice.GetSerialNumber() != 0)
-			ssOutput << " SN:" << std::dec << TheDevice.GetSerialNumber();
-		if (ConsoleVerbosity > 0)
-			std::cout << ssOutput.str() << std::endl;
+		if (ConnectedThermometerType == ThermometerType::RUUVI)
+		{ 
+			auto TimeStart = TimeDownloadStart - ((static_cast<long>(60*5) * DataPointsRecieved)/3);
+			std::ostringstream ssOutput;
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[" << getTimeISO8601(true) << "] ";
+			ssOutput << "Download from device: [" << ba2string(TheBTAddress) << "]";
+			ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeDownloadStart);
+			ssOutput << " (" << std::dec << DataPointsRecieved << ")";
+			ssOutput << " " << ThermometerType2String(ConnectedThermometerType);
+			if (ConsoleVerbosity > 0)
+				std::cout << ssOutput.str() << std::endl;
+			else
+				std::cerr << ssOutput.str() << std::endl;
+		}
 		else
-			std::cerr << ssOutput.str() << std::endl;
-		TimeDownloadStart -= static_cast<long>(60) * offset;
+		{
+			auto TimeStart = TimeDownloadStart - static_cast<long>(60) * DataPointsRecieved;
+			auto TimeStop = TimeDownloadStart;
+			TimeStart -= static_cast<long>(60) * offset;
+			TimeStop -= static_cast<long>(60) * offset;
+
+			std::ostringstream ssOutput;
+			if (ConsoleVerbosity > 0)
+				ssOutput << "[" << getTimeISO8601(true) << "] ";
+			ssOutput << "Download from device: [" << ba2string(TheBTAddress) << "]";
+			ssOutput << " " << timeToExcelLocal(TimeStart) << " " << timeToExcelLocal(TimeStop);
+			ssOutput << " (" << std::dec << DataPointsRecieved << ")";
+			ssOutput << " " << ThermometerType2String(ConnectedThermometerType);
+			if (!TheDevice.GetHardwareVersion().empty())
+				ssOutput << " HW:" << TheDevice.GetHardwareVersion();
+			if (!TheDevice.GetFirmwareVersion().empty())
+				ssOutput << " FW:" << TheDevice.GetFirmwareVersion();
+			if (TheDevice.GetSerialNumber() != 0)
+				ssOutput << " SN:" << std::dec << TheDevice.GetSerialNumber();
+			if (ConsoleVerbosity > 0)
+				std::cout << ssOutput.str() << std::endl;
+			else
+				std::cerr << ssOutput.str() << std::endl;
+			TimeDownloadStart -= static_cast<long>(60) * offset;
+		}
 	}
 	return(TimeDownloadStart);
 }
