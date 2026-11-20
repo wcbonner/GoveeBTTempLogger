@@ -6627,3 +6627,30 @@ I'm attempting to learn the logging extents of the RuuviTag via HCI download. Th
 [2026-11-20T09:49:10] [DD:4C:E8:7A:11:6E] Closing l2cap_socket
 [2026-11-20T09:49:10] [DD:4C:E8:7A:11:6E] hci_disconnect
 ```
+
+Microsoft's AI Overview gave me this information, though it's references never gave me valid sources. 
+It had links to [ruuvitag-tech-spec-2021-08](ruuvitag-tech-spec-2021-08.pdf) 
+and [ruuvitag-tech-spec-2023-04.pdf](ruuvitag-tech-spec-2023-04.pdf) which don't list the specifics.
+
+## RuuviTag Log Length and Retention
+A RuuviTag stores environmental sensor logs for up to 10 days, with data logged every 5 minutes 
+
+## How the logging works
+According to the official RuuviTag technical specifications, the device continuously broadcasts live sensor data at 0.8 Hz and simultaneously logs environmental sensor data at a 5‑minute interval. This means that for each 5‑minute window, a timestamped record of temperature, humidity, and pressure is saved in the device’s internal log buffer.
+
+## Log retention period
+The log buffer retains data for 10 days from the time of logging. After this period, older entries are overwritten, so the maximum historical data you can retrieve is 10 days of 5‑minute intervals (about 28,800 log entries).
+
+## Reading the logs
+You can read the stored history via the Nordic UART Service (NUS) over Bluetooth. The RuuviTag supports a “log read” command where you specify a start time and the device will return all log entries from that point to the end of the buffer . The log is always returned in chronological order, and when the buffer is empty, a special “no more logs” message is sent.
+
+## Practical implications
+* Maximum historical data: 10 days × 5‑minute intervals = ~28,800 entries.
+
+* Data types: Temperature, humidity, and pressure (acceleration data is not logged in the same way).
+
+* Access: Requires Bluetooth connection and proper NUS log read command; the Ruuvi app also shows up to 10 days of history 
+
+* Overwrite behavior: Older logs are overwritten once the 10‑day limit is reached.
+
+In short: The RuuviTag’s log length is 10 days of 5‑minute‑interval environmental data, with a maximum of ~28,800 entries, retrievable via NUS or the Ruuvi app 

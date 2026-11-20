@@ -4291,7 +4291,7 @@ template <typename T> time_t BlueZ_HCI_ConnectAndDownload(int BlueToothDevice_Ha
 								GATT_DataPacket MyRequest({ static_cast<uint8_t>(BT_ATT_OP_WRITE_CMD), bt_Handle_NordicRX,{ 0x3A, 0x3A, 0x11 } });
 								time_t timeNow;
 								time(&timeNow);
-								time_t timeFirst(timeNow - (3600*24*7));
+								time_t timeFirst(timeNow - (3600*24*10));
 								//timeNow = timeNow / 1000U;
 								MyRequest.buf[3] = (uint8_t)((timeNow >> 24U) & 0xFFU); // from re_log_write_timestamp https://github.com/ruuvi/ruuvi.endpoints.c/blob/5a0cf2428d816740b01cb4403b75575eff78b9a3/src/ruuvi_endpoints.c#L126
 								MyRequest.buf[4] = (uint8_t)((timeNow >> 16U) & 0xFFU);
