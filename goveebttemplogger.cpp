@@ -3071,6 +3071,9 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 		case 0x2A05:
 			ss << " (Service Changed)";
 			break;
+		case 0x2A27:
+			ss << " (Hardware Revision String)";
+			break;
 		case 0x2A29:
 			ss << " (Manufacturer Name String)";
 			break;
@@ -3088,6 +3091,9 @@ std::string bt_UUID_2_String(const bt_uuid_t* uuid)
 			break;
 		case 0x2A50:
 			ss << " (PnP ID)";
+			break;
+		case 0x2AA6:
+			ss << " (Central Address Resolution)";
 			break;
 		case 0x2AC9:
 			ss << " (Resolvable Private Address Only)";
